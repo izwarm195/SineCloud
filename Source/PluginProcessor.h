@@ -1,19 +1,9 @@
-/*
-  ==============================================================================
-
-    This file contains the basic framework code for a JUCE plugin processor.
-
-  ==============================================================================
-*/
-
 #pragma once
 
 #include <JuceHeader.h>
 #include "SineCloudVoice.h"
 
 //==============================================================================
-/**
-*/
 class SineCloudAudioProcessor : public juce::AudioProcessor
 {
 public:
@@ -55,33 +45,69 @@ public:
     void setStateInformation(const void* data, int sizeInBytes) override;
 
     //==============================================================================
-    // 公开 APVTS 让 Editor 能访问
     juce::AudioProcessorValueTreeState apvts;
 
-    // 参数 ID 常量
-    static constexpr const char* PARAM_PITCH = "pitch";
+    // 参数 ID 常量（对齐 Csound channel 名）
+    static constexpr const char* PARAM_PITCH = "lowNote";
     static constexpr const char* PARAM_DENSITY = "density";
     static constexpr const char* PARAM_ATTACK = "attack";
+    static constexpr const char* PARAM_DECAY = "decay";
     static constexpr const char* PARAM_SUSTAIN = "sustain";
     static constexpr const char* PARAM_RELEASE = "release";
-    static constexpr const char* PARAM_DECAY = "decay";
+    static constexpr const char* PARAM_GAIN = "gain";
+    static constexpr const char* PARAM_DREAM = "dream";
+    static constexpr const char* PARAM_FLOAT = "float";
+    static constexpr const char* PARAM_SHIMMER = "shimmer";
+    static constexpr const char* PARAM_DLY_TIME = "dlyTime";
+    static constexpr const char* PARAM_DLY_FB = "dlyFb";
+    static constexpr const char* PARAM_DLY_MIX = "dlyMix";
+    static constexpr const char* PARAM_REV_MIX = "revMix";
+    static constexpr const char* PARAM_REV_SIZE = "revSize";
+
+    // 给 Editor 读取当前根音用
+    int getCurrentRoot() const noexcept { return currentRoot; }
 
 private:
     //==============================================================================
-    // 12 个自治 Voice Slot
     static constexpr int numVoices = 12;
     std::array<SineCloudVoice, numVoices> voices;
 
-    // 当前根音 (0~11, C=0, C#=1, ...)
+    // 当前根音 (0~11, C=0)
     int currentRoot{ 0 };
 
-    // 内部方法
+    // Csound 版音池半音偏移 (giIntervals)
+    static constexpr int kIntervals[12] = {
+        0, 4, 7, 11, 14, 21, 12, 16, 19, 23, 26, 33
+    };
+
+    // 平滑器：对应 Csound 的 portk
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> lowNoteSmooth;
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> dlyTimeSmooth;
+
+    // 立体声延迟线（左右不同时间 + 交叉反馈）
+    juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> delayL{ 192000 };
+    juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> delayR{ 192000 };
+    float lastDelayOutL{ 0.0f };
+    float lastDelayOutR{ 0.0f };
+
+    // Delay 后端的低通（tone 4500Hz）
+    juce::dsp::FirstOrderTPTFilter<float> delayLpfL;
+    juce::dsp::FirstOrderTPTFilter<float> delayLpfR;
+
+    // 主混响
+    juce::dsp::Reverb reverb;
+
+    // 3 秒淡入
+    juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> fadeIn;
+
+    double currentSampleRate{ 44100.0 };
+
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     void handleMidiMessage(const juce::MidiMessage& msg);
 
     bool noteHeld{ false };
     int  heldNote{ -1 };
 
-    //==============================================================================
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SineCloudAudioProcessor)
 };
