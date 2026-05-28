@@ -10,6 +10,8 @@ class IsoSceneDemo : public juce::Component,
     private juce::Timer
 {
 public:
+    enum class ViewMode { Game, Top };
+
     explicit IsoSceneDemo(SineCloudAudioProcessor& p)
         : processor(p)
     {
@@ -122,17 +124,18 @@ public:
         g.setColour(juce::Colours::red);
         g.fillEllipse(playerScreen.x - 8, playerScreen.y - 8, 16, 16);
 
-        // 朝向线：朝向最近的移动方向（基于 playerVel）
+        // 朝向线：跟随玩家实际移动方向（停下时保留最后朝向）
         if (std::abs(playerVel.x) > 0.01f || std::abs(playerVel.y) > 0.01f)
         {
             const float vlen = std::sqrt(playerVel.x * playerVel.x + playerVel.y * playerVel.y);
-            const float nx = playerVel.x / vlen;
-            const float ny = playerVel.y / vlen;
-            const auto front = camera.worldToScreen({ playerWorldPos.x + nx * 30.0f,
-                                                      playerWorldPos.y + ny * 30.0f,
-                                                      playerWorldPos.z });
-            g.drawLine(playerScreen.x, playerScreen.y, front.x, front.y, 2.0f);
+            lastFacing.x = playerVel.x / vlen;
+            lastFacing.y = playerVel.y / vlen;
         }
+        const auto front = camera.worldToScreen({ playerWorldPos.x + lastFacing.x * 30.0f,
+                                                  playerWorldPos.y + lastFacing.y * 30.0f,
+                                                  playerWorldPos.z });
+        g.drawLine(playerScreen.x, playerScreen.y, front.x, front.y, 2.0f);
+
 
 
         // ---- 中心阈值圈（玩家不在此圈内不能旋转视角）----
@@ -162,6 +165,10 @@ public:
             "Yaw: " + juce::String(yawDeg, 0) + "  Pitch: " + juce::String(pitchDeg, 0)
             + (centered ? "   [Drag to rotate]" : "   [Wait centered]"),
             10, 10, 900, 20, juce::Justification::left);
+        g.drawText(viewMode == ViewMode::Top ? "VIEW: TOP-DOWN [Space to return]"
+            : "VIEW: GAME [Space for top-down]",
+            10, 30, 600, 20, juce::Justification::left);
+
     }
 
     void resized() override
@@ -174,6 +181,13 @@ public:
     //==============================================================================
     void mouseDown(const juce::MouseEvent& e) override
     {
+        // 俯视模式不允许拖动旋转视角
+        if (viewMode == ViewMode::Top || inTransition)
+        {
+            isDragging = false;
+            return;
+        }
+
         // 只有玩家回到屏幕中央阈值圈内才允许旋转
         const auto playerScreen = camera.worldToScreen(playerWorldPos);
         const float dx = playerScreen.x - getWidth() * 0.5f;
@@ -183,12 +197,12 @@ public:
             isDragging = false;
             return;
         }
-
         dragStart = e.position;
         yawAtStart = camera.getYaw();
         pitchAtStart = camera.getPitch();
         isDragging = true;
     }
+
 
     void mouseDrag(const juce::MouseEvent& e) override
     {
@@ -205,10 +219,101 @@ public:
 
     void mouseUp(const juce::MouseEvent&) override { isDragging = false; }
 
+    bool keyPressed(const juce::KeyPress& key) override
+    {
+        if (key == juce::KeyPress::spaceKey)
+        {
+            toggleViewMode();
+            return true;
+        }
+        return false;
+    }
+
+
+
+
 private:
     //==============================================================================
+    void toggleViewMode()
+    {
+        if (inTransition) return;  // 切换中不响应
+
+        fromYaw = camera.getYaw();
+        fromPitch = camera.getPitch();
+        fromOrbit = camera.getOrbitDistance();
+        fromPivot = camera.getPivot();
+
+        if (viewMode == ViewMode::Game)
+        {
+            // 进入俯视：保存当前游戏视角状态
+            savedYaw = fromYaw;
+            savedPitch = fromPitch;
+            savedOrbit = fromOrbit;
+
+            // 俯视目标：相机在 (0,0,0) 正上方，pitch 接近 90°
+            toYaw = 0.0f;
+            toPitch = juce::MathConstants<float>::pi * 0.499f;  // 89.8°（最大 pitch 是 0.48π=86.4°，需要先放宽 max）
+            toOrbit = 700.0f;
+            toPivot = { 0.0f, 0.0f, 0.0f };
+            viewMode = ViewMode::Top;
+        }
+        else
+        {
+            // 回到游戏视角：恢复保存的状态
+            toYaw = savedYaw;
+            toPitch = savedPitch;
+            toOrbit = savedOrbit;
+            toPivot = playerWorldPos;
+            viewMode = ViewMode::Game;
+        }
+
+        // 临时放宽 pitch 上限（俯视需要近 90°）
+        camera.setMaxPitch(juce::MathConstants<float>::pi * 0.499f);
+
+        inTransition = true;
+        transitionT = 0.0f;
+    }
+
+    
     void timerCallback() override
     {
+        // ---- 视角过渡插值 ----
+        if (inTransition)
+        {
+            transitionT += (1.0f / 60.0f) / transitionDuration;
+            if (transitionT >= 1.0f)
+            {
+                transitionT = 1.0f;
+                inTransition = false;
+            }
+            // 缓动函数（smoothstep）
+            const float t = transitionT;
+            const float k = t * t * (3.0f - 2.0f * t);
+
+            camera.setYaw(fromYaw + (toYaw - fromYaw) * k);
+            camera.setPitch(fromPitch + (toPitch - fromPitch) * k);
+            camera.setOrbitDistance(fromOrbit + (toOrbit - fromOrbit) * k);
+            Vec3 piv{
+                fromPivot.x + (toPivot.x - fromPivot.x) * k,
+                fromPivot.y + (toPivot.y - fromPivot.y) * k,
+                fromPivot.z + (toPivot.z - fromPivot.z) * k
+            };
+            camera.setPivot(piv);
+
+            for (auto& k2 : knobs) k2->updateScreenPosition(camera);
+            repaint();
+            return;  // 过渡期间不处理移动和跟随
+        }
+
+        // ---- 俯视模式：相机锁死，玩家不能动 ----
+        if (viewMode == ViewMode::Top)
+        {
+            repaint();
+            return;
+        }
+
+        // ---- 游戏模式：原有逻辑 ----
+
         // ---- 输入：箭头键沿世界轴（不跟视角）----
         Vec3 inputDir{ 0, 0, 0 };
         if (juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::upKey))    inputDir.y += 1.0f;
@@ -223,7 +328,6 @@ private:
         const float targetSpeed = 2.0f;
         const float accel = 0.18f;
         const float damping = 0.85f;
-
         const Vec3 targetVel{ inputDir.x * targetSpeed, inputDir.y * targetSpeed, 0 };
         const bool hasInput = (len > 1e-4f);
         if (hasInput)
@@ -239,26 +343,20 @@ private:
             if (std::abs(playerVel.y) < 0.02f) playerVel.y = 0;
         }
 
-        // ---- 移动玩家 ----
         playerWorldPos.x += playerVel.x;
         playerWorldPos.y += playerVel.y;
 
-        // ---- 相机软跟随：pivot 朝玩家位置插值 ----
-                // ---- 相机跟随：移动中 lerp 慢一拍，停下后强制吸附 ----
+        // ---- 相机跟随 ----
         Vec3 pivot = camera.getPivot();
         const float pdx = playerWorldPos.x - pivot.x;
         const float pdy = playerWorldPos.y - pivot.y;
-
         const bool playerStill = (playerVel.x == 0 && playerVel.y == 0);
 
         if (playerStill)
         {
-            // 停下后用更强的 lerp 快速收敛
             const float catchUp = 0.25f;
             pivot.x += pdx * catchUp;
             pivot.y += pdy * catchUp;
-
-            // 距离够近就直接吸附
             if (std::abs(pdx) < 0.3f && std::abs(pdy) < 0.3f)
             {
                 pivot.x = playerWorldPos.x;
@@ -267,12 +365,10 @@ private:
         }
         else
         {
-            // 移动中：慢一拍 lerp，制造"角色先走、相机后跟"
             const float lerpFactor = 0.10f;
             pivot.x += pdx * lerpFactor;
             pivot.y += pdy * lerpFactor;
         }
-
         camera.setPivot(pivot);
 
         for (auto& k : knobs)
@@ -280,6 +376,10 @@ private:
 
         repaint();
     }
+
+
+   
+
 
     using SA = juce::AudioProcessorValueTreeState::SliderAttachment;
 
@@ -290,11 +390,30 @@ private:
 
     Vec3 playerWorldPos{ 0, 0, 0 };
     Vec3 playerVel{ 0, 0, 0 };
+    Vec3 lastFacing{ 0.0f, 1.0f, 0.0f };   // 最后一次移动朝向（默认朝 +Y）
+
 
     bool  isDragging{ false };
     juce::Point<float> dragStart;
     float yawAtStart{ 0.0f };
     float pitchAtStart{ 0.0f };
+
+    // ---- 视角切换 ----
+    ViewMode viewMode{ ViewMode::Game };
+    bool inTransition{ false };
+    float transitionT{ 0.0f };           // 0 → 1
+    float transitionDuration{ 0.25f };   // 秒
+    // 过渡起点
+    float fromYaw{ 0 }, fromPitch{ 0 }, fromOrbit{ 0 };
+    Vec3 fromPivot{ 0, 0, 0 };
+    // 过渡终点
+    float toYaw{ 0 }, toPitch{ 0 }, toOrbit{ 0 };
+    Vec3 toPivot{ 0, 0, 0 };
+    // 游戏视角的"上次状态"，从俯视切回时恢复
+    float savedYaw{ 0.0f };
+    float savedPitch{ juce::MathConstants<float>::pi * 0.4f };
+    float savedOrbit{ 400.0f };
+
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(IsoSceneDemo)
 };
