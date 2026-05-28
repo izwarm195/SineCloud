@@ -29,9 +29,9 @@ SineCloudAudioProcessorEditor::SineCloudAudioProcessorEditor(SineCloudAudioProce
 
     // ---- DREAM 框 6 个旋钮 ----
     setupKnob(dreamSlider, dreamLabel, "Dream", "", true);
-    setupKnob(pitchSlider, pitchLabel, "Pitch", "", false);
+    setupKnob(pitchSlider, pitchLabel, "Pitch", "", true);
     setupKnob(floatSlider, floatLabel, "Float", " ms", true);
-    setupKnob(shimmerSlider, shimmerLabel, "Shimmer", " st", false);
+    setupKnob(shimmerSlider, shimmerLabel, "Shimmer", " st", true);
     setupKnob(densitySlider, densityLabel, "Density", "", true);
     setupKnob(gainSlider, gainLabel, "Gain", "", true);
 
@@ -39,6 +39,9 @@ SineCloudAudioProcessorEditor::SineCloudAudioProcessorEditor(SineCloudAudioProce
     auto setupAdsr = [this](juce::Slider& s, juce::Label& lbl, const juce::String& name)
         {
             s.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+            s.setMouseDragSensitivity(400);   // <-- 新增（默认 250，越大越不灵敏）
+            s.setVelocityBasedMode(false);    // <-- 新增（关掉速度感应，纯线性更稳）
+
             s.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 18);
             s.setTextValueSuffix(" ms");
             s.setColour(juce::Slider::textBoxTextColourId, juce::Colours::white);
