@@ -25,9 +25,16 @@ public:
     void resized() override;
 
 private:
-    // This reference is provided as a quick way for your editor to
-    // access the processor object that created it.
     SineCloudAudioProcessor& audioProcessor;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SineCloudAudioProcessorEditor)
+    juce::Slider pitchSlider, densitySlider;
+    juce::Slider attackSlider, sustainSlider, releaseSlider, decaySlider;
+    juce::Label  pitchLabel, densityLabel;
+    juce::Label  attackLabel, sustainLabel, releaseLabel, decayLabel;
+
+    using SA = juce::AudioProcessorValueTreeState::SliderAttachment;
+    std::unique_ptr<SA> pitchAttach, densityAttach;
+    std::unique_ptr<SA> attackAttach, sustainAttach, releaseAttach, decayAttach;
+
 };
+
