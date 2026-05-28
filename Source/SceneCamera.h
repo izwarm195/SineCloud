@@ -109,7 +109,7 @@ private:
     float yaw{ 0.0f };
     float pitch{ juce::MathConstants<float>::pi / 3.0f };  // 60¡ã
     float minPitch{ juce::MathConstants<float>::pi * 0.20f }; // 36¡ã ×îµÍ
-    float maxPitch{ juce::MathConstants<float>::pi * 0.48f }; // 86¡ã ×î¸ß£¨²»µ½ 90 ±ÜÃâÆæµã£©
+    float maxPitch{ juce::MathConstants<float>::pi * 0.4f }; // 86¡ã ×î¸ß£¨²»µ½ 90 ±ÜÃâÆæµã£©
 
     float orbitDistance{ 150.0f };
     float focal{ 800.0f };

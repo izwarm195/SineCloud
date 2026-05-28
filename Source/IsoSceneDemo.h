@@ -6,22 +6,27 @@
 #include "PluginProcessor.h"
 
 //==============================================================================
-// 柱体结构体：用于碰撞检测和渲染
+// [FIX] 柱体不再保存 height/radius/pos 的拷贝，而是指向对应的 GroundKnob
+//      这样旋钮值变化、位置变化都会同步反映到碰撞与绘制
 //==============================================================================
 struct Pillar
 {
-    Vec3 worldPos;      // 世界坐标（地面位置）
-    float radius;       // 柱体半径
-    float height;       // 柱体高度（z 轴正方向）
+    GroundKnob* knob{ nullptr };
 
-    // 圆柱碰撞检测：检查点 (px, py) 在地面上是否在柱体内
-    bool checkCollision(float px, float py) const
+    Vec3  getWorldPos() const { return knob->getWorldPos(); }
+    float getRadius()   const { return knob->getWorldRadius() + 5.0f; }   // 比旋钮略大
+    float getHeight()   const { return knob->getCurrentHeight(); }        // 实时高度
+
+    bool checkCollision(float px, float py, float playerRadius) const
     {
-        const float dx = px - worldPos.x;
-        const float dy = py - worldPos.y;
-        return (dx * dx + dy * dy) <= (radius * radius);
+        const auto p = getWorldPos();
+        const float dx = px - p.x;
+        const float dy = py - p.y;
+        const float r = getRadius() + playerRadius;
+        return (dx * dx + dy * dy) <= (r * r);
     }
 };
+
 
 //==============================================================================
 class IsoSceneDemo : public juce::Component,
@@ -129,10 +134,26 @@ public:
         g.setColour(juce::Colours::blue);  g.drawLine(origin.x, origin.y, zAxis.x, zAxis.y, 2.0f);
 
         // ---- 绘制柱体（在玩家和旋钮之前，实现正确的深度排序） ----
-        for (const auto& pillar : pillars)
-        {
-            drawPillar(g, pillar);
-        }
+        // [FIX] 先按相机深度排序：远的先画，近的后画 —— 解决遮挡顺序
+        std::vector<const Pillar*> sorted;
+        sorted.reserve(pillars.size());
+        for (const auto& p : pillars) sorted.push_back(&p);
+
+        const Vec3 camPos = camera.getCameraWorldPos();
+        std::sort(sorted.begin(), sorted.end(),
+            [&](const Pillar* a, const Pillar* b)
+            {
+                const auto pa = a->getWorldPos();
+                const auto pb = b->getWorldPos();
+                const float da = (pa.x - camPos.x) * (pa.x - camPos.x)
+                    + (pa.y - camPos.y) * (pa.y - camPos.y);
+                const float db = (pb.x - camPos.x) * (pb.x - camPos.x)
+                    + (pb.y - camPos.y) * (pb.y - camPos.y);
+                return da > db; // 远的在前
+            });
+
+        for (auto* pp : sorted) drawPillar(g, *pp);
+
 
         // ---- 玩家 ----
         const auto playerScreen = camera.worldToScreen(playerWorldPos);
@@ -249,58 +270,114 @@ private:
     //==============================================================================
     void buildPillars()
     {
-        // 为每个旋钮创建对应的柱体
-        for (const auto& knob : knobs)
+        pillars.clear();
+        pillars.reserve(knobs.size());
+        for (auto& knob : knobs)
         {
             Pillar p;
-            p.worldPos = knob->getWorldPos();
-            p.radius = knob->getWorldRadius() + 5.0f;  // 柱体半径略大于旋钮
-            p.height = knob->getWorldHeight();
+            p.knob = knob.get();
             pillars.push_back(p);
         }
     }
 
+
     //==============================================================================
+// [FIX] 把柱体画成"底椭圆 + 顶椭圆 + 两条侧切线封闭的柱身"
+//==============================================================================
     void drawPillar(juce::Graphics& g, const Pillar& p)
     {
-        // 柱体底部（地面）和顶部
-        const auto bottomCenter = camera.worldToScreen(p.worldPos);
-        const auto topCenter = camera.worldToScreen({ p.worldPos.x, p.worldPos.y, p.height });
+        const Vec3  base = p.getWorldPos();
+        const float h = p.getHeight();
+        const float r = p.knob->getWorldRadius() + 5.0f; // 与命中半径一致
 
-        // 计算柱体在屏幕上的宽度（基于等距投影）
-        const auto rightBottom = camera.worldToScreen({ p.worldPos.x + p.radius, p.worldPos.y, 0.0f });
-        const auto leftBottom = camera.worldToScreen({ p.worldPos.x - p.radius, p.worldPos.y, 0.0f });
-        const float pillW = std::abs(rightBottom.x - leftBottom.x);
+        // 在世界空间生成底/顶圆周采样点
+        constexpr int N = 36;
+        juce::Point<float> bottom[N];
+        juce::Point<float> top[N];
+        for (int i = 0; i < N; ++i)
+        {
+            const float a = juce::MathConstants<float>::twoPi * (float)i / (float)N;
+            const float wx = base.x + r * std::cos(a);
+            const float wy = base.y + r * std::sin(a);
+            bottom[i] = camera.worldToScreen({ wx, wy, 0.0f });
+            top[i] = camera.worldToScreen({ wx, wy, h });
+        }
 
-        // 绘制柱体：矩形投影
-        juce::Path pillarPath;
-        pillarPath.addRectangle(bottomCenter.x - pillW / 2.0f, bottomCenter.y,
-            pillW, topCenter.y - bottomCenter.y);
+        // ---- 找出柱身侧面的两条"轮廓切线" ----
+        // 在屏幕上，顶/底椭圆的最左、最右切线对应同一个 i（左/右极值点）
+        int leftIdx = 0, rightIdx = 0;
+        for (int i = 1; i < N; ++i)
+        {
+            if (top[i].x < top[leftIdx].x)  leftIdx = i;
+            if (top[i].x > top[rightIdx].x) rightIdx = i;
+        }
 
-        // 柱体填充：颜色随高度变化（高的柱体更亮）
-        const float heightFactor = juce::jlimit(0.3f, 1.0f, p.height / 100.0f);
-        const int baseR = 60, baseG = 80, baseB = 100;
-        const int cr = (int)(baseR * heightFactor);
-        const int cg = (int)(baseG * heightFactor);
-        const int cb = (int)(baseB * heightFactor);
+        // ---- 柱身：连接两条切线之间靠"前面"那一半的弧（屏幕 y 较大的一侧）----
+        // 我们走的弧应该是顶椭圆"靠近相机"那半圈，简单用屏幕 y 判断
+        juce::Path body;
+        auto walkArc = [&](int from, int to, juce::Point<float>* ring, bool started)
+            {
+                // 选择走 from -> to 经过"y 更大"的方向
+                // 比较两条候选路径在中点的 y
+                int midA = (from + (to - from + N) % N / 2) % N;
+                int midB = (from + (to - from - N) % N / 2 + N) % N;
+                bool useA = ring[midA].y > ring[midB].y;
+                int step = useA ? +1 : -1;
+                int i = from;
+                while (true)
+                {
+                    if (!started) { body.startNewSubPath(ring[i]); started = true; }
+                    else            body.lineTo(ring[i]);
+                    if (i == to) break;
+                    i = (i + step + N) % N;
+                }
+            };
 
-        g.setColour(juce::Colour::fromRGB(cr, cg, cb).withAlpha(0.7f));
-        g.fillPath(pillarPath);
+        walkArc(leftIdx, rightIdx, top, false);   // 顶弧（前半）
+        // 沿右切线下到底
+        body.lineTo(bottom[rightIdx]);
+        // 底弧反向走回左切线
+        {
+            // 重用 walkArc 但起点已经放好，这里手动连
+            int i = rightIdx;
+            // 决定方向：和 top 同样取 y 更大那条
+            int midA = (rightIdx + (leftIdx - rightIdx + N) % N / 2) % N;
+            int midB = (rightIdx + (leftIdx - rightIdx - N) % N / 2 + N) % N;
+            bool useA = bottom[midA].y > bottom[midB].y;
+            int step = useA ? +1 : -1;
+            while (i != leftIdx)
+            {
+                i = (i + step + N) % N;
+                body.lineTo(bottom[i]);
+            }
+        }
+        body.closeSubPath();
 
-        // 柱体边框
-        g.setColour(juce::Colour::fromRGB(150, 170, 190).withAlpha(0.8f));
-        g.strokePath(pillarPath, juce::PathStrokeType(1.5f));
+        // ---- 颜色：高度越高越亮，并加一点立体感 ----
+        const float t = juce::jlimit(0.0f, 1.0f, h / 120.0f);
+        const auto colSide = juce::Colour::fromRGB(
+            (juce::uint8)(40 + 30 * t),
+            (juce::uint8)(55 + 35 * t),
+            (juce::uint8)(70 + 40 * t)).withAlpha(0.92f);
 
-        // 绘制顶部轮廓（简化表现）
-        const auto pillarTop = juce::Rectangle<float>(
-            bottomCenter.x - pillW / 2.0f,
-            topCenter.y - 2.0f,
-            pillW,
-            4.0f
-        );
-        g.setColour(juce::Colour::fromRGB(200, 220, 240).withAlpha(0.6f));
-        g.fillRect(pillarTop);
+        g.setColour(colSide);
+        g.fillPath(body);
+
+        g.setColour(juce::Colour::fromRGB(150, 170, 190).withAlpha(0.9f));
+        g.strokePath(body, juce::PathStrokeType(1.2f));
+
+        // ---- 顶面椭圆（独立填充，让顶端略亮）----
+        juce::Path topCap;
+        topCap.startNewSubPath(top[0]);
+        for (int i = 1; i < N; ++i) topCap.lineTo(top[i]);
+        topCap.closeSubPath();
+
+        g.setColour(juce::Colour::fromRGB(70, 90, 110).withAlpha(0.95f));
+        g.fillPath(topCap);
+        g.setColour(juce::Colour::fromRGB(200, 220, 240).withAlpha(0.9f));
+        g.strokePath(topCap, juce::PathStrokeType(1.2f));
     }
+
 
     //==============================================================================
     void toggleViewMode()
@@ -422,33 +499,45 @@ private:
         playerWorldPos.x += playerVel.x;
         playerWorldPos.y += playerVel.y;
 
-        // ---- 碰撞检测：玩家遇到柱体退出 ----
-        const float playerRadius = 10.0f;  // 玩家碰撞半径
-        for (const auto& pillar : pillars)
+        // [FIX] 碰撞解算：sliding（沿切线滑动），不再 break、不再清零整条速度向量
+//       多 pass 解多柱体夹角，单帧最多 3 次以收敛
+        const float playerRadius = 10.0f;
+        for (int pass = 0; pass < 3; ++pass)
         {
-            if (pillar.checkCollision(playerWorldPos.x, playerWorldPos.y))
+            bool anyHit = false;
+            for (const auto& pillar : pillars)
             {
-                // 计算玩家到柱心的方向
-                const float dx = playerWorldPos.x - pillar.worldPos.x;
-                const float dy = playerWorldPos.y - pillar.worldPos.y;
-                const float distSq = dx * dx + dy * dy;
-                const float dist = std::sqrt(distSq);
+                const auto pp = pillar.getWorldPos();
+                const float r = pillar.getRadius() + playerRadius;
+                const float dx = playerWorldPos.x - pp.x;
+                const float dy = playerWorldPos.y - pp.y;
+                const float d2 = dx * dx + dy * dy;
 
-                if (dist > 1e-3f)
+                if (d2 < r * r && d2 > 1e-6f)
                 {
-                    // 将玩家推出到安全距离
-                    const float safeDistance = pillar.radius + playerRadius;
-                    const float ratio = safeDistance / dist;
-                    playerWorldPos.x = pillar.worldPos.x + dx * ratio;
-                    playerWorldPos.y = pillar.worldPos.y + dy * ratio;
+                    anyHit = true;
+                    const float dist = std::sqrt(d2);
+                    // 法向（指向玩家外侧）
+                    const float nx = dx / dist;
+                    const float ny = dy / dist;
 
-                    // 清除速度避免持续穿刺
-                    playerVel.x = 0;
-                    playerVel.y = 0;
-                    break;  // 一次只处理一个柱体碰撞
+                    // 1) 位置投影到圆周外侧（带极小偏移防止持续接触）
+                    const float push = (r - dist) + 0.01f;
+                    playerWorldPos.x += nx * push;
+                    playerWorldPos.y += ny * push;
+
+                    // 2) 速度只去掉法向分量，保留切向分量（sliding）
+                    const float vn = playerVel.x * nx + playerVel.y * ny;
+                    if (vn < 0.0f) // 只在朝柱心的速度上扣
+                    {
+                        playerVel.x -= vn * nx;
+                        playerVel.y -= vn * ny;
+                    }
                 }
             }
+            if (!anyHit) break;
         }
+
 
         // ---- 相机跟随 ----
         Vec3 pivot = camera.getPivot();
@@ -479,6 +568,23 @@ private:
             k->updateScreenPosition(camera);
 
         repaint();
+
+        // [FIX] Z-sort：让靠近相机的旋钮压在远处旋钮之上，避免远处旋钮被前排 box 截获鼠标
+        std::vector<GroundKnob*> sortedKnobs;
+        sortedKnobs.reserve(knobs.size());
+        for (auto& k : knobs) sortedKnobs.push_back(k.get());
+        const Vec3 cp = camera.getCameraWorldPos();
+        std::sort(sortedKnobs.begin(), sortedKnobs.end(),
+            [&](GroundKnob* a, GroundKnob* b)
+            {
+                const auto pa = a->getWorldPos();
+                const auto pb = b->getWorldPos();
+                const float da = (pa.x - cp.x) * (pa.x - cp.x) + (pa.y - cp.y) * (pa.y - cp.y);
+                const float db = (pb.x - cp.x) * (pb.x - cp.x) + (pb.y - cp.y) * (pb.y - cp.y);
+                return da > db;
+            });
+        for (auto* k : sortedKnobs) k->toFront(false); // 远的先 toFront，最后近的在最上层
+
     }
 
 
