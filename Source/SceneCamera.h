@@ -101,7 +101,6 @@ private:
         cosPitch = std::cos(pitch);
         sinPitch = std::sin(pitch);
 
-        // camera Î»ÖÃ = pivot + ÇòÃæ×ø±ê
         camPos.x = pivot.x + orbitDistance * cosPitch * (-sinYaw);
         camPos.y = pivot.y + orbitDistance * cosPitch * (-cosYaw);
         camPos.z = pivot.z + orbitDistance * sinPitch;
@@ -112,8 +111,8 @@ private:
     float minPitch{ juce::MathConstants<float>::pi * 0.20f }; // 36¡ã ×îµÍ
     float maxPitch{ juce::MathConstants<float>::pi * 0.48f }; // 86¡ã ×î¸ß£¨²»µ½ 90 ±ÜÃâÆæµã£©
 
-    float orbitDistance{ 350.0f };
-    float focal{ 1200.0f };
+    float orbitDistance{ 150.0f };
+    float focal{ 800.0f };
 
     float cosYaw{ 1.0f }, sinYaw{ 0.0f };
     float cosPitch{ 0.5f }, sinPitch{ 0.866f };

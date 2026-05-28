@@ -18,19 +18,21 @@ public:
         setWantsKeyboardFocus(true);
 
         // ---- 球面相机参数 ----
-        camera.setOrbitDistance(1000.0f);
+        camera.setOrbitDistance(800.0f);
         camera.setPitch(juce::MathConstants<float>::pi * 0.1f);     // 72°
         camera.setMinPitch(juce::MathConstants<float>::pi * 0.1f); // 45° 最低
         camera.setMaxPitch(juce::MathConstants<float>::pi * 0.5f); // 86° 最高
-        camera.setFocalLength(1200.0f);
+        camera.setFocalLength(1800.0f);
         camera.setPivot({ 0, 0, 0 });
+        // 保存初始 focal
+        savedFocal = camera.getFocalLength();
 
         // ---- 旋钮分布：左五边形(DREAM) + 中四边形(ADSR) + 右五边形(SPACE) + 中央 Dream ----
         using P = SineCloudAudioProcessor;
         struct KnobInit { const char* paramId; const char* label; Vec3 worldPos; };
         const KnobInit inits[] = {
             // ---- 左五边形：DREAM 区（5 个外环 + 1 个中心）----
-            { P::PARAM_DREAM,    "Dream",    { -336.0f,    0.0f, 0.0f } },  // 五边形中心
+            { P::PARAM_DREAM,    "Dream",    { -345.0f,    0.0f, 0.0f } },  // 五边形中心
             { P::PARAM_PITCH,    "Pitch",    { -305.92f,  135.70f, 0.0f } }, // 右上
             { P::PARAM_FLOAT,    "Float",    { -465.42f,   83.86f, 0.0f } }, // 左上
             { P::PARAM_DENSITY,  "Density",  { -465.42f,  -83.86f, 0.0f } }, // 左下
@@ -229,9 +231,6 @@ public:
         return false;
     }
 
-
-
-
 private:
     //==============================================================================
     void toggleViewMode()
@@ -242,6 +241,7 @@ private:
         fromPitch = camera.getPitch();
         fromOrbit = camera.getOrbitDistance();
         fromPivot = camera.getPivot();
+        fromFocal = camera.getFocalLength(); // 保存过渡起点 focal
 
         if (viewMode == ViewMode::Game)
         {
@@ -249,12 +249,14 @@ private:
             savedYaw = fromYaw;
             savedPitch = fromPitch;
             savedOrbit = fromOrbit;
+            savedFocal = fromFocal; // 保存游戏视角 focal
 
             // 俯视目标：相机在 (0,0,0) 正上方，pitch 接近 90°
             toYaw = 0.0f;
             toPitch = juce::MathConstants<float>::pi * 0.499f;  // 89.8°（最大 pitch 是 0.48π=86.4°，需要先放宽 max）
-            toOrbit = 700.0f;
+            toOrbit = 1200.0f;
             toPivot = { 0.0f, 0.0f, 0.0f };
+            toFocal = 1200.0f; // 俯视目标 focal
             viewMode = ViewMode::Top;
         }
         else
@@ -264,6 +266,7 @@ private:
             toPitch = savedPitch;
             toOrbit = savedOrbit;
             toPivot = playerWorldPos;
+            toFocal = savedFocal; // 恢复为游戏视角 focal
             viewMode = ViewMode::Game;
         }
 
@@ -293,6 +296,9 @@ private:
             camera.setYaw(fromYaw + (toYaw - fromYaw) * k);
             camera.setPitch(fromPitch + (toPitch - fromPitch) * k);
             camera.setOrbitDistance(fromOrbit + (toOrbit - fromOrbit) * k);
+            // 插值 focal
+            camera.setFocalLength(fromFocal + (toFocal - fromFocal) * k);
+
             Vec3 piv{
                 fromPivot.x + (toPivot.x - fromPivot.x) * k,
                 fromPivot.y + (toPivot.y - fromPivot.y) * k,
@@ -406,13 +412,16 @@ private:
     // 过渡起点
     float fromYaw{ 0 }, fromPitch{ 0 }, fromOrbit{ 0 };
     Vec3 fromPivot{ 0, 0, 0 };
+    float fromFocal{ 0.0f };
     // 过渡终点
     float toYaw{ 0 }, toPitch{ 0 }, toOrbit{ 0 };
     Vec3 toPivot{ 0, 0, 0 };
+    float toFocal{ 0.0f };
     // 游戏视角的"上次状态"，从俯视切回时恢复
     float savedYaw{ 0.0f };
     float savedPitch{ juce::MathConstants<float>::pi * 0.4f };
     float savedOrbit{ 400.0f };
+    float savedFocal{ 1800.0f };
 
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(IsoSceneDemo)
