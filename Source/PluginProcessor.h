@@ -9,6 +9,9 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include "SineCloudVoice.h"
+#include "SineCloudSound.h"
+
 
 //==============================================================================
 /**
@@ -56,4 +59,7 @@ public:
 private:
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SineCloudAudioProcessor)
+    
+    juce::Synthesiser synth;
+    static constexpr int numVoices = 12;
 };

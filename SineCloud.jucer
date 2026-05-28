@@ -5,6 +5,12 @@
               pluginCode="Sct1">
   <MAINGROUP id="MWtifI" name="SineCloud">
     <GROUP id="{9D89155D-745F-44F4-4A89-1045E4DDABEF}" name="Source">
+      <FILE id="Yl8r9d" name="SineCloudSound.h" compile="0" resource="0"
+            file="Source/SineCloudSound.h"/>
+      <FILE id="Wnde3M" name="SineCloudVoice.h" compile="0" resource="0"
+            file="Source/SineCloudVoice.h"/>
+      <FILE id="WgM0ag" name="SineCloudVoice.cpp" compile="1" resource="0"
+            file="Source/SineCloudVoice.cpp"/>
       <FILE id="n07nmo" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>
       <FILE id="fqEQLL" name="PluginProcessor.h" compile="0" resource="0"
