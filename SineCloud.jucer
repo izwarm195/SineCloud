@@ -5,8 +5,14 @@
               pluginCode="Sct1">
   <MAINGROUP id="MWtifI" name="SineCloud">
     <GROUP id="{9D89155D-745F-44F4-4A89-1045E4DDABEF}" name="Source">
-      <FILE id="Yl8r9d" name="SineCloudSound.h" compile="0" resource="0"
-            file="Source/SineCloudSound.h"/>
+      <FILE id="JJAkv6" name="GroundKnob.h" compile="0" resource="0" file="Source/GroundKnob.h"/>
+      <FILE id="S1DJ1s" name="IsoSceneDemo.h" compile="0" resource="0" file="Source/IsoSceneDemo.h"/>
+      <FILE id="SpimJj" name="Vec3.h" compile="0" resource="0" file="Source/Vec3.h"/>
+      <FILE id="qx3WEF" name="IsoKnob.h" compile="0" resource="0" file="Source/IsoKnob.h"/>
+      <FILE id="c0xj7x" name="SceneObject.h" compile="0" resource="0" file="Source/SceneObject.h"/>
+      <FILE id="x7WQBX" name="SceneCamera.h" compile="0" resource="0" file="Source/SceneCamera.h"/>
+      <FILE id="M2LgiE" name="InertialSlider.h" compile="0" resource="0"
+            file="Source/InertialSlider.h"/>
       <FILE id="Wnde3M" name="SineCloudVoice.h" compile="0" resource="0"
             file="Source/SineCloudVoice.h"/>
       <FILE id="WgM0ag" name="SineCloudVoice.cpp" compile="1" resource="0"

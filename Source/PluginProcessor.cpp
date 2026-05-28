@@ -84,6 +84,7 @@ void SineCloudAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlo
         voices[i].prepareToPlay(sampleRate);
         voices[i].setInitialWait(0.05 + rng.nextDouble() * 1.5);
     }
+
 }
 
 void SineCloudAudioProcessor::releaseResources() {}

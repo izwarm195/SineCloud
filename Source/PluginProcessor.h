@@ -2,6 +2,7 @@
 
 #include <JuceHeader.h>
 #include "SineCloudVoice.h"
+#include "InertialSlider.h"
 
 //==============================================================================
 class SineCloudAudioProcessor : public juce::AudioProcessor
@@ -47,7 +48,7 @@ public:
     //==============================================================================
     juce::AudioProcessorValueTreeState apvts;
 
-    // 参数 ID 常量（对齐 Csound channel 名）
+    // 虏脦脢媒 ID 鲁拢脕驴拢篓露脭脝毛 Csound channel 脙没拢漏
     static constexpr const char* PARAM_PITCH = "lowNote";
     static constexpr const char* PARAM_DENSITY = "density";
     static constexpr const char* PARAM_ATTACK = "attack";
@@ -64,7 +65,7 @@ public:
     static constexpr const char* PARAM_REV_MIX = "revMix";
     static constexpr const char* PARAM_REV_SIZE = "revSize";
 
-    // 给 Editor 读取当前根音用
+    // 赂酶 Editor 露脕脠隆碌卤脟掳赂霉脪么脫脙
     int getCurrentRoot() const noexcept { return currentRoot; }
 
 private:
@@ -72,32 +73,32 @@ private:
     static constexpr int numVoices = 12;
     std::array<SineCloudVoice, numVoices> voices;
 
-    // 当前根音 (0~11, C=0)
+    // 碌卤脟掳赂霉脪么 (0~11, C=0)
     int currentRoot{ 0 };
 
-    // Csound 版音池半音偏移 (giIntervals)
+    // Csound 掳忙脪么鲁脴掳毛脪么脝芦脪脝 (giIntervals)
     static constexpr int kIntervals[12] = {
         0, 4, 7, 11, 14, 21, 12, 16, 19, 23, 26, 33
     };
 
-    // 平滑器：对应 Csound 的 portk
+    // 脝陆禄卢脝梅拢潞露脭脫娄 Csound 碌脛 portk
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> lowNoteSmooth;
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> dlyTimeSmooth;
 
-    // 立体声延迟线（左右不同时间 + 交叉反馈）
+    // 脕垄脤氓脡霉脩脫鲁脵脧脽拢篓脳贸脫脪虏禄脥卢脢卤录盲 + 陆禄虏忙路麓脌隆拢漏
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> delayL{ 192000 };
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> delayR{ 192000 };
     float lastDelayOutL{ 0.0f };
     float lastDelayOutR{ 0.0f };
 
-    // Delay 后端的低通（tone 4500Hz）
+    // Delay 潞贸露脣碌脛碌脥脥篓拢篓tone 4500Hz拢漏
     juce::dsp::FirstOrderTPTFilter<float> delayLpfL;
     juce::dsp::FirstOrderTPTFilter<float> delayLpfR;
 
-    // 主混响
+    // 脰梅禄矛脧矛
     juce::dsp::Reverb reverb;
 
-    // 3 秒淡入
+    // 3 脙毛碌颅脠毛
     juce::SmoothedValue<float, juce::ValueSmoothingTypes::Linear> fadeIn;
 
     double currentSampleRate{ 44100.0 };

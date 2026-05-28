@@ -2,6 +2,8 @@
 
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
+#include "IsoSceneDemo.h"
+
 
 //==============================================================================
 class SineCloudAudioProcessorEditor : public juce::AudioProcessorEditor,
@@ -21,22 +23,22 @@ private:
 
     SineCloudAudioProcessor& audioProcessor;
 
-    // ---- DREAM øÚ ----
-    juce::Label  dreamGroupLabel;
-    juce::Slider dreamSlider, pitchSlider, floatSlider, shimmerSlider, densitySlider, gainSlider;
-    juce::Label  dreamLabel, pitchLabel, floatLabel, shimmerLabel, densityLabel, gainLabel;
+    // ---- DREAM ¬ø√≤ ----
+    juce::Label    dreamGroupLabel;
+    InertialSlider dreamSlider, pitchSlider, floatSlider, shimmerSlider, densitySlider, gainSlider;
+    juce::Label    dreamLabel, pitchLabel, floatLabel, shimmerLabel, densityLabel, gainLabel;
 
-    // ---- ADSR øÚ ----
-    juce::Label  adsrGroupLabel;
-    juce::Slider attackSlider, decaySlider, sustainSlider, releaseSlider;
-    juce::Label  attackLabel, decayLabel, sustainLabel, releaseLabel;
+    // ---- ADSR ¬ø√≤ ----
+    juce::Label    adsrGroupLabel;
+    InertialSlider attackSlider, decaySlider, sustainSlider, releaseSlider;
+    juce::Label    attackLabel, decayLabel, sustainLabel, releaseLabel;
 
-    // ---- SPACE øÚ ----
-    juce::Label  spaceGroupLabel;
-    juce::Slider dlyTimeSlider, dlyFbSlider, dlyMixSlider, revMixSlider, revSizeSlider;
-    juce::Label  dlyTimeLabel, dlyFbLabel, dlyMixLabel, revMixLabel, revSizeLabel;
+    // ---- SPACE ¬ø√≤ ----
+    juce::Label    spaceGroupLabel;
+    InertialSlider dlyTimeSlider, dlyFbSlider, dlyMixSlider, revMixSlider, revSizeSlider;
+    juce::Label    dlyTimeLabel, dlyFbLabel, dlyMixLabel, revMixLabel, revSizeLabel;
 
-    // ---- Root œ‘ æ ----
+    // ---- Root √è√î√ä¬æ ----
     juce::Label rootDisplay;
 
     // ---- Attachments ----
@@ -44,12 +46,16 @@ private:
     std::unique_ptr<SA> attackA, decayA, sustainA, releaseA;
     std::unique_ptr<SA> dlyTimeA, dlyFbA, dlyMixA, revMixA, revSizeA;
 
-    // »˝∏ˆ∑÷◊ÈøÚµƒº∏∫Œ«¯”Ú
     juce::Rectangle<int> dreamBox, adsrBox, spaceBox;
 
-    void setupKnob(juce::Slider& s, juce::Label& lbl, const juce::String& name,
+    void setupKnob(InertialSlider& s, juce::Label& lbl, const juce::String& name,
         const juce::String& suffix, bool valueBox);
     void styleGroupLabel(juce::Label& l, const juce::String& text);
+
+    // ---- demo ----
+    std::unique_ptr<IsoSceneDemo> sceneDemo;
+    static constexpr bool kUseSceneDemo = true;   // false = ËÄÅ UI, true = Âú∫ÊôØ demo
+
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SineCloudAudioProcessorEditor)
 };

@@ -1,15 +1,17 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "InertialSlider.h"
 
 namespace
 {
-    // 12 ¸öÒôÃû£¬Óë Csound gSNoteNames ¶ÔÆë
+    // 12 Â¸Ã¶Ã’Ã´ÃƒÃ»Â£Â¬Ã“Ã« Csound gSNoteNames Â¶Ã”Ã†Ã«
     static const juce::StringArray kNoteNames{
         "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
     };
 }
 
 //==============================================================================
+
 SineCloudAudioProcessorEditor::SineCloudAudioProcessorEditor(SineCloudAudioProcessor& p)
     : AudioProcessorEditor(&p), audioProcessor(p)
 {
@@ -19,7 +21,7 @@ SineCloudAudioProcessorEditor::SineCloudAudioProcessorEditor(SineCloudAudioProce
     adsrBox = { 490, 50, 200, 400 };
     spaceBox = { 710, 50, 440, 400 };
 
-    // ---- Èı¸ö group label ----
+    // ---- ÃˆÃ½Â¸Ã¶ group label ----
     styleGroupLabel(dreamGroupLabel, "DREAM");
     styleGroupLabel(adsrGroupLabel, "ADSR");
     styleGroupLabel(spaceGroupLabel, "SPACE");
@@ -27,7 +29,7 @@ SineCloudAudioProcessorEditor::SineCloudAudioProcessorEditor(SineCloudAudioProce
     addAndMakeVisible(adsrGroupLabel);
     addAndMakeVisible(spaceGroupLabel);
 
-    // ---- DREAM ¿ò 6 ¸öĞıÅ¥ ----
+    // ---- DREAM Â¿Ã² 6 Â¸Ã¶ÃÃ½Ã…Â¥ ----
     setupKnob(dreamSlider, dreamLabel, "Dream", "", true);
     setupKnob(pitchSlider, pitchLabel, "Pitch", "", true);
     setupKnob(floatSlider, floatLabel, "Float", " ms", true);
@@ -35,12 +37,12 @@ SineCloudAudioProcessorEditor::SineCloudAudioProcessorEditor(SineCloudAudioProce
     setupKnob(densitySlider, densityLabel, "Density", "", true);
     setupKnob(gainSlider, gainLabel, "Gain", "", true);
 
-    // ---- ADSR ¿ò 4 ¸öÏ¸ĞıÅ¥£¨²»ÏÔÊ¾ Slider ×Ô´ø label£¬ÓÃÓÒ²à label Ìæ´ú£© ----
-    auto setupAdsr = [this](juce::Slider& s, juce::Label& lbl, const juce::String& name)
+    // ---- ADSR Â¿Ã² 4 Â¸Ã¶ÃÂ¸ÃÃ½Ã…Â¥Â£Â¨Â²Â»ÃÃ”ÃŠÂ¾ Slider Ã—Ã”Â´Ã¸ labelÂ£Â¬Ã“ÃƒÃ“Ã’Â²Ã  label ÃŒÃ¦Â´ÃºÂ£Â© ----
+    auto setupAdsr = [this](InertialSlider& s, juce::Label& lbl, const juce::String& name)
         {
             s.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-            s.setMouseDragSensitivity(400);   // <-- ĞÂÔö£¨Ä¬ÈÏ 250£¬Ô½´óÔ½²»ÁéÃô£©
-            s.setVelocityBasedMode(false);    // <-- ĞÂÔö£¨¹ØµôËÙ¶È¸ĞÓ¦£¬´¿ÏßĞÔ¸üÎÈ£©
+            s.setMouseDragSensitivity(400);   // Ã„Â¬ÃˆÃ 250Â£Â¬Ã”Â½Â´Ã³Ã”Â½Â²Â»ÃÃ©ÃƒÃ´
+            s.setVelocityBasedMode(false);    // Â¹Ã˜ÂµÃ´Ã‹Ã™Â¶ÃˆÂ¸ÃÃ“Â¦Â£Â¬Â´Â¿ÃÃŸÃÃ”Â¸Ã¼ÃÃˆ
 
             s.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 18);
             s.setTextValueSuffix(" ms");
@@ -62,14 +64,15 @@ SineCloudAudioProcessorEditor::SineCloudAudioProcessorEditor(SineCloudAudioProce
     setupAdsr(sustainSlider, sustainLabel, "Sustain");
     setupAdsr(releaseSlider, releaseLabel, "Release");
 
-    // ---- SPACE ¿ò 5 ¸öĞıÅ¥ ----
+    // ---- SPACE Â¿Ã² 5 Â¸Ã¶ÃÃ½Ã…Â¥ ----
+   
     setupKnob(dlyTimeSlider, dlyTimeLabel, "Dly Time", " ms", true);
     setupKnob(dlyFbSlider, dlyFbLabel, "Dly Fb", "", true);
     setupKnob(dlyMixSlider, dlyMixLabel, "Dly Mix", "", true);
     setupKnob(revMixSlider, revMixLabel, "Rev Mix", "", true);
     setupKnob(revSizeSlider, revSizeLabel, "Rev Size", "", true);
 
-    // ---- Root ÏÔÊ¾ ----
+    // ---- Root ÃÃ”ÃŠÂ¾ ----
     rootDisplay.setText("ROOT: C", juce::dontSendNotification);
     rootDisplay.setJustificationType(juce::Justification::centred);
     rootDisplay.setColour(juce::Label::textColourId, juce::Colours::white);
@@ -96,13 +99,20 @@ SineCloudAudioProcessorEditor::SineCloudAudioProcessorEditor(SineCloudAudioProce
     revMixA = std::make_unique<SA>(s, SineCloudAudioProcessor::PARAM_REV_MIX, revMixSlider);
     revSizeA = std::make_unique<SA>(s, SineCloudAudioProcessor::PARAM_REV_SIZE, revSizeSlider);
 
-    startTimerHz(15);  // Ë¢ĞÂ Root ÏÔÊ¾
+    startTimerHz(15);  // Ã‹Â¢ÃÃ‚ Root ÃÃ”ÃŠÂ¾
+    if (kUseSceneDemo)
+    {
+        sceneDemo = std::make_unique<IsoSceneDemo>(audioProcessor);
+        addAndMakeVisible(*sceneDemo);
+        setSize(1180, 700);
+    }
+
 }
 
 SineCloudAudioProcessorEditor::~SineCloudAudioProcessorEditor() = default;
 
 //==============================================================================
-void SineCloudAudioProcessorEditor::setupKnob(juce::Slider& s, juce::Label& lbl,
+void SineCloudAudioProcessorEditor::setupKnob(InertialSlider& s, juce::Label& lbl,
     const juce::String& name,
     const juce::String& suffix,
     bool valueBox)
@@ -142,7 +152,7 @@ void SineCloudAudioProcessorEditor::paint(juce::Graphics& g)
 {
     g.fillAll(juce::Colours::black);
 
-    // Èı¸ö group box µÄ±ß¿ò
+    // ÃˆÃ½Â¸Ã¶ group box ÂµÃ„Â±ÃŸÂ¿Ã²
     g.setColour(juce::Colour::fromRGB(80, 80, 80));
     g.drawRect(dreamBox, 1);
     g.drawRect(adsrBox, 1);
@@ -151,23 +161,29 @@ void SineCloudAudioProcessorEditor::paint(juce::Graphics& g)
 
 void SineCloudAudioProcessorEditor::resized()
 {
-    // ---- Group ±êÌâÎ»ÖÃ£¨Ã¿¸ö box ¶¥²¿¾ÓÖĞ£© ----
+    if (sceneDemo != nullptr)
+    {
+        sceneDemo->setBounds(getLocalBounds());
+        return;
+    }
+
+    // ---- Group Â±ÃªÃŒÃ¢ÃÂ»Ã–ÃƒÂ£Â¨ÃƒÂ¿Â¸Ã¶ box Â¶Â¥Â²Â¿Â¾Ã“Ã–ÃÂ£Â© ----
     dreamGroupLabel.setBounds(dreamBox.getX(), dreamBox.getY() + 4, dreamBox.getWidth(), 18);
     adsrGroupLabel.setBounds(adsrBox.getX(), adsrBox.getY() + 4, adsrBox.getWidth(), 18);
     spaceGroupLabel.setBounds(spaceBox.getX(), spaceBox.getY() + 4, spaceBox.getWidth(), 18);
 
     // ============================================================
-    // DREAM ¿ò£ºÖĞĞÄ Dream(160) + Îå±ßĞÎ 5 ¸öĞıÅ¥(90)
+    // DREAM Â¿Ã²Â£ÂºÃ–ÃÃÃ„ Dream(160) + ÃÃ¥Â±ÃŸÃÃ 5 Â¸Ã¶ÃÃ½Ã…Â¥(90)
     // ============================================================
     dreamSlider.setBounds(170, 180, 160, 160);
-    pitchSlider.setBounds(205, 85, 90, 90);   // ¶¥
-    floatSlider.setBounds(81, 175, 90, 90);   // ×ó
-    shimmerSlider.setBounds(329, 175, 90, 90);   // ÓÒ
-    densitySlider.setBounds(129, 320, 90, 90);   // ×óÏÂ
-    gainSlider.setBounds(281, 320, 90, 90);   // ÓÒÏÂ
+    pitchSlider.setBounds(205, 85, 90, 90);   // Â¶Â¥
+    floatSlider.setBounds(81, 175, 90, 90);   // Ã—Ã³
+    shimmerSlider.setBounds(329, 175, 90, 90);   // Ã“Ã’
+    densitySlider.setBounds(129, 320, 90, 90);   // Ã—Ã³ÃÃ‚
+    gainSlider.setBounds(281, 320, 90, 90);   // Ã“Ã’ÃÃ‚
 
     // ============================================================
-    // ADSR ¿ò£º4 ¸öÏ¸ĞıÅ¥ÊúÅÅ + ÓÒ²à label
+    // ADSR Â¿Ã²Â£Âº4 Â¸Ã¶ÃÂ¸ÃÃ½Ã…Â¥ÃŠÃºÃ…Ã… + Ã“Ã’Â²Ã  label
     // ============================================================
     attackSlider.setBounds(530, 75, 50, 90);
     decaySlider.setBounds(530, 153, 50, 90);
@@ -180,7 +196,7 @@ void SineCloudAudioProcessorEditor::resized()
     releaseLabel.setBounds(590, 345, 75, 18);
 
     // ============================================================
-    // SPACE ¿ò
+    // SPACE Â¿Ã²
     // ============================================================
     dlyTimeSlider.setBounds(885, 85, 90, 90);
     dlyFbSlider.setBounds(764, 320, 90, 90);
@@ -189,7 +205,7 @@ void SineCloudAudioProcessorEditor::resized()
     revSizeSlider.setBounds(890, 275, 80, 70);
 
     // ============================================================
-    // µ×²¿ Root ÏÔÊ¾
+    // ÂµÃ—Â²Â¿ Root ÃÃ”ÃŠÂ¾
     // ============================================================
     rootDisplay.setBounds(20, 460, 1140, 30);
 }
