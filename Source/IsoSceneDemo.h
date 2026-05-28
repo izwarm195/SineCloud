@@ -169,21 +169,18 @@ private:
     //==============================================================================
     void timerCallback() override
     {
-        // ---- 输入：箭头键沿玩家朝向 ----
-        const auto fwd = camera.getForwardWorld();
-        const auto rgt = camera.getRightWorld();
-
+        // ---- 输入：箭头键沿世界轴（不跟视角）----
         Vec3 inputDir{ 0, 0, 0 };
-        if (juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::upKey)) { inputDir.x += fwd.x; inputDir.y += fwd.y; }
-        if (juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::downKey)) { inputDir.x -= fwd.x; inputDir.y -= fwd.y; }
-        if (juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::rightKey)) { inputDir.x += rgt.x; inputDir.y += rgt.y; }
-        if (juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::leftKey)) { inputDir.x -= rgt.x; inputDir.y -= rgt.y; }
+        if (juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::upKey))    inputDir.y += 1.0f;
+        if (juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::downKey))  inputDir.y -= 1.0f;
+        if (juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::rightKey)) inputDir.x += 1.0f;
+        if (juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::leftKey))  inputDir.x -= 1.0f;
 
         const float len = std::sqrt(inputDir.x * inputDir.x + inputDir.y * inputDir.y);
         if (len > 1e-4f) { inputDir.x /= len; inputDir.y /= len; }
 
         // ---- 玩家速度惯性 ----
-        const float targetSpeed = 5.0f;
+        const float targetSpeed = 2.0f;
         const float accel = 0.18f;
         const float damping = 0.85f;
 
@@ -237,8 +234,6 @@ private:
         }
 
         camera.setPivot(pivot);
-
-
 
         for (auto& k : knobs)
             k->updateScreenPosition(camera);
