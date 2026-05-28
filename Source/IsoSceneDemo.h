@@ -6,6 +6,24 @@
 #include "PluginProcessor.h"
 
 //==============================================================================
+// 柱体结构体：用于碰撞检测和渲染
+//==============================================================================
+struct Pillar
+{
+    Vec3 worldPos;      // 世界坐标（地面位置）
+    float radius;       // 柱体半径
+    float height;       // 柱体高度（z 轴正方向）
+
+    // 圆柱碰撞检测：检查点 (px, py) 在地面上是否在柱体内
+    bool checkCollision(float px, float py) const
+    {
+        const float dx = px - worldPos.x;
+        const float dy = py - worldPos.y;
+        return (dx * dx + dy * dy) <= (radius * radius);
+    }
+};
+
+//==============================================================================
 class IsoSceneDemo : public juce::Component,
     private juce::Timer
 {
@@ -29,28 +47,28 @@ public:
 
         // ---- 旋钮分布：左五边形(DREAM) + 中四边形(ADSR) + 右五边形(SPACE) + 中央 Dream ----
         using P = SineCloudAudioProcessor;
-        struct KnobInit { const char* paramId; const char* label; Vec3 worldPos; };
+        struct KnobInit { const char* paramId; const char* label; Vec3 worldPos; float height; };
         const KnobInit inits[] = {
             // ---- 左五边形：DREAM 区（5 个外环 + 1 个中心）----
-            { P::PARAM_DREAM,    "Dream",    { -345.0f,    0.0f, 0.0f } },  // 五边形中心
-            { P::PARAM_PITCH,    "Pitch",    { -305.92f,  135.70f, 0.0f } }, // 右上
-            { P::PARAM_FLOAT,    "Float",    { -465.42f,   83.86f, 0.0f } }, // 左上
-            { P::PARAM_DENSITY,  "Density",  { -465.42f,  -83.86f, 0.0f } }, // 左下
-            { P::PARAM_GAIN,     "Gain",     { -305.92f, -135.70f, 0.0f } }, // 右下
-            { P::PARAM_SHIMMER,  "Shimmer",  { -207.33f,    0.0f,  0.0f } }, // 右顶点
+            { P::PARAM_DREAM,    "Dream",    { -345.0f,    0.0f, 0.0f },   90.0f },  // 五边形中心：最高
+            { P::PARAM_PITCH,    "Pitch",    { -305.92f,  135.70f, 0.0f }, 80.0f }, // 右上
+            { P::PARAM_FLOAT,    "Float",    { -465.42f,   83.86f, 0.0f }, 80.0f }, // 左上
+            { P::PARAM_DENSITY,  "Density",  { -465.42f,  -83.86f, 0.0f }, 80.0f }, // 左下
+            { P::PARAM_GAIN,     "Gain",     { -305.92f, -135.70f, 0.0f }, 80.0f }, // 右下
+            { P::PARAM_SHIMMER,  "Shimmer",  { -207.33f,    0.0f,  0.0f }, 75.0f }, // 右顶点
 
             // ---- 中四边形：ADSR ----
-            { P::PARAM_SUSTAIN,  "S",        {    0.0f,  100.0f, 0.0f } },
-            { P::PARAM_ATTACK,   "A",        { -100.0f,    0.0f, 0.0f } },
-            { P::PARAM_DECAY,    "D",        {  100.0f,    0.0f, 0.0f } },
-            { P::PARAM_RELEASE,  "R",        {    0.0f, -100.0f, 0.0f } },
+            { P::PARAM_SUSTAIN,  "S",        {    0.0f,  100.0f, 0.0f },   50.0f },
+            { P::PARAM_ATTACK,   "A",        { -100.0f,    0.0f, 0.0f },   50.0f },
+            { P::PARAM_DECAY,    "D",        {  100.0f,    0.0f, 0.0f },   50.0f },
+            { P::PARAM_RELEASE,  "R",        {    0.0f, -100.0f, 0.0f },   50.0f },
 
             // ---- 右五边形：SPACE 区 ----
-            { P::PARAM_DLY_TIME, "Dly Time", { 305.92f,  135.70f, 0.0f } }, // 左上
-            { P::PARAM_DLY_FB,   "Dly Fb",   { 465.42f,   83.86f, 0.0f } }, // 右上
-            { P::PARAM_DLY_MIX,  "Dly Mix",  { 465.42f,  -83.86f, 0.0f } }, // 右下
-            { P::PARAM_REV_MIX,  "Rev Mix",  { 305.92f, -135.70f, 0.0f } }, // 左下
-            { P::PARAM_REV_SIZE, "Rev Size", { 207.33f,    0.0f,  0.0f } }, // 左顶点
+            { P::PARAM_DLY_TIME, "Dly Time", { 305.92f,  135.70f, 0.0f }, 85.0f }, // 左上
+            { P::PARAM_DLY_FB,   "Dly Fb",   { 465.42f,   83.86f, 0.0f }, 85.0f }, // 右上
+            { P::PARAM_DLY_MIX,  "Dly Mix",  { 465.42f,  -83.86f, 0.0f }, 85.0f }, // 右下
+            { P::PARAM_REV_MIX,  "Rev Mix",  { 305.92f, -135.70f, 0.0f }, 85.0f }, // 左下
+            { P::PARAM_REV_SIZE, "Rev Size", { 207.33f,    0.0f,  0.0f }, 100.0f }, // 左顶点：最高
         };
 
         for (const auto& k : inits)
@@ -60,6 +78,7 @@ public:
             // Dream 主旋钮单独放大
             const float radius = (juce::String(k.paramId) == P::PARAM_DREAM) ? 65.0f : 35.0f;
             knob->setWorldRadius(radius);
+            knob->setWorldHeight(k.height);
 
             knob->setWorldPos(k.worldPos);
             knob->setKnobLabel(k.label);
@@ -70,20 +89,8 @@ public:
             attachments.push_back(std::move(attach));
         }
 
-
-
-        /*for (const auto& k : inits)
-        {
-            auto knob = std::make_unique<GroundKnob>();
-            knob->setWorldRadius(35.0f);
-            knob->setWorldPos(k.worldPos);
-            knob->setKnobLabel(k.label);
-            addAndMakeVisible(*knob);
-
-            auto attach = std::make_unique<SA>(processor.apvts, k.paramId, *knob);
-            knobs.push_back(std::move(knob));
-            attachments.push_back(std::move(attach));
-        }*/
+        // 构建柱体碰撞数据
+        buildPillars();
 
         startTimerHz(60);
     }
@@ -121,6 +128,12 @@ public:
         g.setColour(juce::Colours::green); g.drawLine(origin.x, origin.y, yAxis.x, yAxis.y, 2.0f);
         g.setColour(juce::Colours::blue);  g.drawLine(origin.x, origin.y, zAxis.x, zAxis.y, 2.0f);
 
+        // ---- 绘制柱体（在玩家和旋钮之前，实现正确的深度排序） ----
+        for (const auto& pillar : pillars)
+        {
+            drawPillar(g, pillar);
+        }
+
         // ---- 玩家 ----
         const auto playerScreen = camera.worldToScreen(playerWorldPos);
         g.setColour(juce::Colours::red);
@@ -149,8 +162,9 @@ public:
         const bool centered = (dxC * dxC + dyC * dyC) < r * r;
         g.setColour(centered ? juce::Colours::yellow.withAlpha(0.4f)
             : juce::Colours::grey.withAlpha(0.3f));
-        g.drawEllipse(cx - r, cy - r, r * 2, r * 2, 1.0f);// ---- 调试：屏幕中心对应的地面点 ----
-        
+        g.drawEllipse(cx - r, cy - r, r * 2, r * 2, 1.0f);
+
+        // ---- 调试：屏幕中心对应的地面点 ----
         const auto centerGround = camera.worldToScreen(camera.getPivot());
         g.setColour(juce::Colours::cyan);
         g.drawLine(centerGround.x - 10, centerGround.y, centerGround.x + 10, centerGround.y, 2.0f);
@@ -233,6 +247,62 @@ public:
 
 private:
     //==============================================================================
+    void buildPillars()
+    {
+        // 为每个旋钮创建对应的柱体
+        for (const auto& knob : knobs)
+        {
+            Pillar p;
+            p.worldPos = knob->getWorldPos();
+            p.radius = knob->getWorldRadius() + 5.0f;  // 柱体半径略大于旋钮
+            p.height = knob->getWorldHeight();
+            pillars.push_back(p);
+        }
+    }
+
+    //==============================================================================
+    void drawPillar(juce::Graphics& g, const Pillar& p)
+    {
+        // 柱体底部（地面）和顶部
+        const auto bottomCenter = camera.worldToScreen(p.worldPos);
+        const auto topCenter = camera.worldToScreen({ p.worldPos.x, p.worldPos.y, p.height });
+
+        // 计算柱体在屏幕上的宽度（基于等距投影）
+        const auto rightBottom = camera.worldToScreen({ p.worldPos.x + p.radius, p.worldPos.y, 0.0f });
+        const auto leftBottom = camera.worldToScreen({ p.worldPos.x - p.radius, p.worldPos.y, 0.0f });
+        const float pillW = std::abs(rightBottom.x - leftBottom.x);
+
+        // 绘制柱体：矩形投影
+        juce::Path pillarPath;
+        pillarPath.addRectangle(bottomCenter.x - pillW / 2.0f, bottomCenter.y,
+            pillW, topCenter.y - bottomCenter.y);
+
+        // 柱体填充：颜色随高度变化（高的柱体更亮）
+        const float heightFactor = juce::jlimit(0.3f, 1.0f, p.height / 100.0f);
+        const int baseR = 60, baseG = 80, baseB = 100;
+        const int cr = (int)(baseR * heightFactor);
+        const int cg = (int)(baseG * heightFactor);
+        const int cb = (int)(baseB * heightFactor);
+
+        g.setColour(juce::Colour::fromRGB(cr, cg, cb).withAlpha(0.7f));
+        g.fillPath(pillarPath);
+
+        // 柱体边框
+        g.setColour(juce::Colour::fromRGB(150, 170, 190).withAlpha(0.8f));
+        g.strokePath(pillarPath, juce::PathStrokeType(1.5f));
+
+        // 绘制顶部轮廓（简化表现）
+        const auto pillarTop = juce::Rectangle<float>(
+            bottomCenter.x - pillW / 2.0f,
+            topCenter.y - 2.0f,
+            pillW,
+            4.0f
+        );
+        g.setColour(juce::Colour::fromRGB(200, 220, 240).withAlpha(0.6f));
+        g.fillRect(pillarTop);
+    }
+
+    //==============================================================================
     void toggleViewMode()
     {
         if (inTransition) return;  // 切换中不响应
@@ -253,7 +323,7 @@ private:
 
             // 俯视目标：相机在 (0,0,0) 正上方，pitch 接近 90°
             toYaw = 0.0f;
-            toPitch = juce::MathConstants<float>::pi * 0.499f;  // 89.8°（最大 pitch 是 0.48π=86.4°，需要先放宽 max）
+            toPitch = juce::MathConstants<float>::pi * 0.499f;  // 89.8°
             toOrbit = 1200.0f;
             toPivot = { 0.0f, 0.0f, 0.0f };
             toFocal = 1200.0f; // 俯视目标 focal
@@ -277,7 +347,7 @@ private:
         transitionT = 0.0f;
     }
 
-    
+
     void timerCallback() override
     {
         // ---- 视角过渡插值 ----
@@ -352,6 +422,34 @@ private:
         playerWorldPos.x += playerVel.x;
         playerWorldPos.y += playerVel.y;
 
+        // ---- 碰撞检测：玩家遇到柱体退出 ----
+        const float playerRadius = 10.0f;  // 玩家碰撞半径
+        for (const auto& pillar : pillars)
+        {
+            if (pillar.checkCollision(playerWorldPos.x, playerWorldPos.y))
+            {
+                // 计算玩家到柱心的方向
+                const float dx = playerWorldPos.x - pillar.worldPos.x;
+                const float dy = playerWorldPos.y - pillar.worldPos.y;
+                const float distSq = dx * dx + dy * dy;
+                const float dist = std::sqrt(distSq);
+
+                if (dist > 1e-3f)
+                {
+                    // 将玩家推出到安全距离
+                    const float safeDistance = pillar.radius + playerRadius;
+                    const float ratio = safeDistance / dist;
+                    playerWorldPos.x = pillar.worldPos.x + dx * ratio;
+                    playerWorldPos.y = pillar.worldPos.y + dy * ratio;
+
+                    // 清除速度避免持续穿刺
+                    playerVel.x = 0;
+                    playerVel.y = 0;
+                    break;  // 一次只处理一个柱体碰撞
+                }
+            }
+        }
+
         // ---- 相机跟随 ----
         Vec3 pivot = camera.getPivot();
         const float pdx = playerWorldPos.x - pivot.x;
@@ -384,7 +482,7 @@ private:
     }
 
 
-   
+
 
 
     using SA = juce::AudioProcessorValueTreeState::SliderAttachment;
@@ -393,6 +491,7 @@ private:
     SceneCamera camera;
     std::vector<std::unique_ptr<GroundKnob>> knobs;
     std::vector<std::unique_ptr<SA>>         attachments;
+    std::vector<Pillar> pillars;  // 柱体碰撞数据
 
     Vec3 playerWorldPos{ 0, 0, 0 };
     Vec3 playerVel{ 0, 0, 0 };

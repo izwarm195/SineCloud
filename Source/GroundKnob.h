@@ -22,7 +22,11 @@ public:
     }
 
     void setWorldRadius(float r) { worldRadius = r; }
+    void setWorldHeight(float h) { worldHeight = h; }          // 新增：设置高度
     void setKnobLabel(const juce::String& s) { label = s; repaint(); }
+
+    float getWorldRadius() const { return worldRadius; }      // 新增：获取半径
+    float getWorldHeight() const { return worldHeight; }      // 新增：获取高度
 
     //--- SceneObject ---
     void updateScreenPosition(const SceneCamera& cam) override
@@ -127,8 +131,9 @@ public:
 private:
     juce::Point<float> rightVec{ 30, 0 };
     juce::Point<float> upVec{ 0, 30 };
-    juce::Point<float> subPixelOffset{ 0, 0 };    // 新增
+    juce::Point<float> subPixelOffset{ 0, 0 };
     float worldRadius{ 35.0f };
+    float worldHeight{ 0.0f };  // 旋钮相对地面的高度
     juce::String label;
 
 
