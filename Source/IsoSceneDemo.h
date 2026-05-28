@@ -16,25 +16,59 @@ public:
         setWantsKeyboardFocus(true);
 
         // ---- 球面相机参数 ----
-        camera.setOrbitDistance(400.0f);
-        camera.setPitch(juce::MathConstants<float>::pi * 0.4f);     // 72°
-        camera.setMinPitch(juce::MathConstants<float>::pi * 0.25f); // 45° 最低
-        camera.setMaxPitch(juce::MathConstants<float>::pi * 0.48f); // 86° 最高
+        camera.setOrbitDistance(1000.0f);
+        camera.setPitch(juce::MathConstants<float>::pi * 0.1f);     // 72°
+        camera.setMinPitch(juce::MathConstants<float>::pi * 0.1f); // 45° 最低
+        camera.setMaxPitch(juce::MathConstants<float>::pi * 0.5f); // 86° 最高
         camera.setFocalLength(1200.0f);
         camera.setPivot({ 0, 0, 0 });
 
-        // ---- 旋钮分布 ----
+        // ---- 旋钮分布：左五边形(DREAM) + 中四边形(ADSR) + 右五边形(SPACE) + 中央 Dream ----
+        using P = SineCloudAudioProcessor;
         struct KnobInit { const char* paramId; const char* label; Vec3 worldPos; };
         const KnobInit inits[] = {
-            { SineCloudAudioProcessor::PARAM_PITCH,   "Pitch",   {  0.0f,    0.0f, 0.0f } },
-            { SineCloudAudioProcessor::PARAM_DENSITY, "Density", {  150.0f,  100.0f, 0.0f } },
-            { SineCloudAudioProcessor::PARAM_DREAM,   "Dream",   { -150.0f,  100.0f, 0.0f } },
-            { SineCloudAudioProcessor::PARAM_FLOAT,   "Float",   {  150.0f, -100.0f, 0.0f } },
-            { SineCloudAudioProcessor::PARAM_SHIMMER, "Shimmer", { -150.0f, -100.0f, 0.0f } },
-            { SineCloudAudioProcessor::PARAM_GAIN,    "Gain",    {    0.0f,-200.0f, 0.0f } },
+            // ---- 左五边形：DREAM 区（5 个外环 + 1 个中心）----
+            { P::PARAM_DREAM,    "Dream",    { -336.0f,    0.0f, 0.0f } },  // 五边形中心
+            { P::PARAM_PITCH,    "Pitch",    { -305.92f,  135.70f, 0.0f } }, // 右上
+            { P::PARAM_FLOAT,    "Float",    { -465.42f,   83.86f, 0.0f } }, // 左上
+            { P::PARAM_DENSITY,  "Density",  { -465.42f,  -83.86f, 0.0f } }, // 左下
+            { P::PARAM_GAIN,     "Gain",     { -305.92f, -135.70f, 0.0f } }, // 右下
+            { P::PARAM_SHIMMER,  "Shimmer",  { -207.33f,    0.0f,  0.0f } }, // 右顶点
+
+            // ---- 中四边形：ADSR ----
+            { P::PARAM_SUSTAIN,  "S",        {    0.0f,  100.0f, 0.0f } },
+            { P::PARAM_ATTACK,   "A",        { -100.0f,    0.0f, 0.0f } },
+            { P::PARAM_DECAY,    "D",        {  100.0f,    0.0f, 0.0f } },
+            { P::PARAM_RELEASE,  "R",        {    0.0f, -100.0f, 0.0f } },
+
+            // ---- 右五边形：SPACE 区 ----
+            { P::PARAM_DLY_TIME, "Dly Time", { 305.92f,  135.70f, 0.0f } }, // 左上
+            { P::PARAM_DLY_FB,   "Dly Fb",   { 465.42f,   83.86f, 0.0f } }, // 右上
+            { P::PARAM_DLY_MIX,  "Dly Mix",  { 465.42f,  -83.86f, 0.0f } }, // 右下
+            { P::PARAM_REV_MIX,  "Rev Mix",  { 305.92f, -135.70f, 0.0f } }, // 左下
+            { P::PARAM_REV_SIZE, "Rev Size", { 207.33f,    0.0f,  0.0f } }, // 左顶点
         };
 
         for (const auto& k : inits)
+        {
+            auto knob = std::make_unique<GroundKnob>();
+
+            // Dream 主旋钮单独放大
+            const float radius = (juce::String(k.paramId) == P::PARAM_DREAM) ? 65.0f : 35.0f;
+            knob->setWorldRadius(radius);
+
+            knob->setWorldPos(k.worldPos);
+            knob->setKnobLabel(k.label);
+            addAndMakeVisible(*knob);
+
+            auto attach = std::make_unique<SA>(processor.apvts, k.paramId, *knob);
+            knobs.push_back(std::move(knob));
+            attachments.push_back(std::move(attach));
+        }
+
+
+
+        /*for (const auto& k : inits)
         {
             auto knob = std::make_unique<GroundKnob>();
             knob->setWorldRadius(35.0f);
@@ -45,7 +79,7 @@ public:
             auto attach = std::make_unique<SA>(processor.apvts, k.paramId, *knob);
             knobs.push_back(std::move(knob));
             attachments.push_back(std::move(attach));
-        }
+        }*/
 
         startTimerHz(60);
     }
@@ -88,12 +122,18 @@ public:
         g.setColour(juce::Colours::red);
         g.fillEllipse(playerScreen.x - 8, playerScreen.y - 8, 16, 16);
 
-        // 朝向线
-        const auto fwd = camera.getForwardWorld();
-        const auto front = camera.worldToScreen({ playerWorldPos.x + fwd.x * 30,
-                                                  playerWorldPos.y + fwd.y * 30,
-                                                  playerWorldPos.z });
-        g.drawLine(playerScreen.x, playerScreen.y, front.x, front.y, 2.0f);
+        // 朝向线：朝向最近的移动方向（基于 playerVel）
+        if (std::abs(playerVel.x) > 0.01f || std::abs(playerVel.y) > 0.01f)
+        {
+            const float vlen = std::sqrt(playerVel.x * playerVel.x + playerVel.y * playerVel.y);
+            const float nx = playerVel.x / vlen;
+            const float ny = playerVel.y / vlen;
+            const auto front = camera.worldToScreen({ playerWorldPos.x + nx * 30.0f,
+                                                      playerWorldPos.y + ny * 30.0f,
+                                                      playerWorldPos.z });
+            g.drawLine(playerScreen.x, playerScreen.y, front.x, front.y, 2.0f);
+        }
+
 
         // ---- 中心阈值圈（玩家不在此圈内不能旋转视角）----
         const float cx = getWidth() * 0.5f;
@@ -157,7 +197,7 @@ public:
         const float dy = e.position.y - dragStart.y;
 
         camera.setYaw(yawAtStart + dx * 0.005f);
-        camera.setPitch(pitchAtStart - dy * 0.005f);   // 上拖 = 抬头
+        camera.setPitch(pitchAtStart + dy * 0.005f);   // 上拖 = 抬头
 
         for (auto& k : knobs) k->updateScreenPosition(camera);
         repaint();

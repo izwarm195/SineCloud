@@ -34,15 +34,21 @@ public:
         rightVec = { pRight.x - pCenter.x, pRight.y - pCenter.y };
         upVec = { pUp.x - pCenter.x, pUp.y - pCenter.y };
 
-        const float halfW = std::abs(rightVec.x) + std::abs(upVec.x);
-        const float halfH = std::abs(rightVec.y) + std::abs(upVec.y);
-        const int boxW = (int)(halfW * 2.0f + 32.0f);
-        const int boxH = (int)(halfH * 2.0f + 32.0f);
+        // 关键修复 1：用固定大 box，避免边界值随椭圆形态跳变
+        // box 边长基于最大可能尺寸（worldRadius 在最俯视时的投影上限）
+        const int fixedBoxSize = (int)(worldRadius * 4.0f + 80.0f);
 
-        setBounds((int)std::round(pCenter.x) - boxW / 2,
-            (int)std::round(pCenter.y) - boxH / 2,
-            boxW, boxH);
+        // 关键修复 2：center 用 floor 而不是 round，保证亚像素位移单调
+        // 同时把"亚像素余量"保存下来，paint 时补偿
+        const int boxX = (int)std::floor(pCenter.x) - fixedBoxSize / 2;
+        const int boxY = (int)std::floor(pCenter.y) - fixedBoxSize / 2;
+
+        subPixelOffset.x = pCenter.x - std::floor(pCenter.x);
+        subPixelOffset.y = pCenter.y - std::floor(pCenter.y);
+
+        setBounds(boxX, boxY, fixedBoxSize, fixedBoxSize);
     }
+
 
     //--- 椭圆形命中测试：鼠标只在地面椭圆内才触发 ---
     bool hitTest(int x, int y) override
@@ -65,8 +71,9 @@ public:
     //--- 自绘 ---
     void paint(juce::Graphics& g) override
     {
-        const float cx = getWidth() * 0.5f;
-        const float cy = getHeight() * 0.5f;
+        const float cx = getWidth() * 0.5f + subPixelOffset.x - 0.5f;
+        const float cy = getHeight() * 0.5f + subPixelOffset.y - 0.5f;
+
 
         // 椭圆背景
         juce::Path ellipse;
@@ -120,8 +127,11 @@ public:
 private:
     juce::Point<float> rightVec{ 30, 0 };
     juce::Point<float> upVec{ 0, 30 };
+    juce::Point<float> subPixelOffset{ 0, 0 };    // 新增
     float worldRadius{ 35.0f };
     juce::String label;
+
+
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(GroundKnob)
 };
