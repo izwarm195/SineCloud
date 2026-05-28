@@ -1,79 +1,200 @@
-/*
-  ==============================================================================
-
-    This file contains the basic framework code for a JUCE plugin editor.
-
-  ==============================================================================
-*/
-
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+namespace
+{
+    // 12 个音名，与 Csound gSNoteNames 对齐
+    static const juce::StringArray kNoteNames{
+        "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
+    };
+}
+
+//==============================================================================
 SineCloudAudioProcessorEditor::SineCloudAudioProcessorEditor(SineCloudAudioProcessor& p)
     : AudioProcessorEditor(&p), audioProcessor(p)
 {
-    setSize(600, 350);
+    setSize(1180, 500);
 
-    auto setupKnob = [this](juce::Slider& slider, juce::Label& label,
-        const juce::String& name, const juce::String& suffix)
+    dreamBox = { 30,  50, 440, 400 };
+    adsrBox = { 490, 50, 200, 400 };
+    spaceBox = { 710, 50, 440, 400 };
+
+    // ---- 三个 group label ----
+    styleGroupLabel(dreamGroupLabel, "DREAM");
+    styleGroupLabel(adsrGroupLabel, "ADSR");
+    styleGroupLabel(spaceGroupLabel, "SPACE");
+    addAndMakeVisible(dreamGroupLabel);
+    addAndMakeVisible(adsrGroupLabel);
+    addAndMakeVisible(spaceGroupLabel);
+
+    // ---- DREAM 框 6 个旋钮 ----
+    setupKnob(dreamSlider, dreamLabel, "Dream", "", true);
+    setupKnob(pitchSlider, pitchLabel, "Pitch", "", false);
+    setupKnob(floatSlider, floatLabel, "Float", " ms", true);
+    setupKnob(shimmerSlider, shimmerLabel, "Shimmer", " st", false);
+    setupKnob(densitySlider, densityLabel, "Density", "", true);
+    setupKnob(gainSlider, gainLabel, "Gain", "", true);
+
+    // ---- ADSR 框 4 个细旋钮（不显示 Slider 自带 label，用右侧 label 替代） ----
+    auto setupAdsr = [this](juce::Slider& s, juce::Label& lbl, const juce::String& name)
         {
-            slider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
-            slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 18);
-            slider.setTextValueSuffix(suffix);
-            addAndMakeVisible(slider);
+            s.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+            s.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 18);
+            s.setTextValueSuffix(" ms");
+            s.setColour(juce::Slider::textBoxTextColourId, juce::Colours::white);
+            s.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+            s.setColour(juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
+            s.setColour(juce::Slider::rotarySliderFillColourId, juce::Colours::white);
+            s.setColour(juce::Slider::rotarySliderOutlineColourId, juce::Colour::fromRGB(60, 60, 60));
+            s.setColour(juce::Slider::thumbColourId, juce::Colours::white);
+            addAndMakeVisible(s);
 
-            label.setText(name, juce::dontSendNotification);
-            label.setJustificationType(juce::Justification::centred);
-            label.attachToComponent(&slider, false);
-            addAndMakeVisible(label);
+            lbl.setText(name, juce::dontSendNotification);
+            lbl.setJustificationType(juce::Justification::centredLeft);
+            lbl.setColour(juce::Label::textColourId, juce::Colours::white);
+            addAndMakeVisible(lbl);
         };
+    setupAdsr(attackSlider, attackLabel, "Attack");
+    setupAdsr(decaySlider, decayLabel, "Decay");
+    setupAdsr(sustainSlider, sustainLabel, "Sustain");
+    setupAdsr(releaseSlider, releaseLabel, "Release");
 
-    setupKnob(pitchSlider, pitchLabel, "Pitch", "");
-    setupKnob(densitySlider, densityLabel, "Density", " Hz");
-    setupKnob(attackSlider, attackLabel, "Attack", " ms");
-    setupKnob(sustainSlider, sustainLabel, "Sustain", " ms");
-    setupKnob(releaseSlider, releaseLabel, "Release", " ms");
-    setupKnob(decaySlider, decayLabel, "Decay", " ms");
+    // ---- SPACE 框 5 个旋钮 ----
+    setupKnob(dlyTimeSlider, dlyTimeLabel, "Dly Time", " ms", true);
+    setupKnob(dlyFbSlider, dlyFbLabel, "Dly Fb", "", true);
+    setupKnob(dlyMixSlider, dlyMixLabel, "Dly Mix", "", true);
+    setupKnob(revMixSlider, revMixLabel, "Rev Mix", "", true);
+    setupKnob(revSizeSlider, revSizeLabel, "Rev Size", "", true);
 
-    pitchAttach = std::make_unique<SA>(audioProcessor.apvts, SineCloudAudioProcessor::PARAM_PITCH, pitchSlider);
-    densityAttach = std::make_unique<SA>(audioProcessor.apvts, SineCloudAudioProcessor::PARAM_DENSITY, densitySlider);
-    attackAttach = std::make_unique<SA>(audioProcessor.apvts, SineCloudAudioProcessor::PARAM_ATTACK, attackSlider);
-    sustainAttach = std::make_unique<SA>(audioProcessor.apvts, SineCloudAudioProcessor::PARAM_SUSTAIN, sustainSlider);
-    releaseAttach = std::make_unique<SA>(audioProcessor.apvts, SineCloudAudioProcessor::PARAM_RELEASE, releaseSlider);
-    decayAttach = std::make_unique<SA>(audioProcessor.apvts, SineCloudAudioProcessor::PARAM_DECAY, decaySlider);
+    // ---- Root 显示 ----
+    rootDisplay.setText("ROOT: C", juce::dontSendNotification);
+    rootDisplay.setJustificationType(juce::Justification::centred);
+    rootDisplay.setColour(juce::Label::textColourId, juce::Colours::white);
+    rootDisplay.setFont(juce::Font(16.0f));
+    addAndMakeVisible(rootDisplay);
+
+    // ---- Attachments ----
+    auto& s = audioProcessor.apvts;
+    dreamA = std::make_unique<SA>(s, SineCloudAudioProcessor::PARAM_DREAM, dreamSlider);
+    pitchA = std::make_unique<SA>(s, SineCloudAudioProcessor::PARAM_PITCH, pitchSlider);
+    floatA = std::make_unique<SA>(s, SineCloudAudioProcessor::PARAM_FLOAT, floatSlider);
+    shimmerA = std::make_unique<SA>(s, SineCloudAudioProcessor::PARAM_SHIMMER, shimmerSlider);
+    densityA = std::make_unique<SA>(s, SineCloudAudioProcessor::PARAM_DENSITY, densitySlider);
+    gainA = std::make_unique<SA>(s, SineCloudAudioProcessor::PARAM_GAIN, gainSlider);
+
+    attackA = std::make_unique<SA>(s, SineCloudAudioProcessor::PARAM_ATTACK, attackSlider);
+    decayA = std::make_unique<SA>(s, SineCloudAudioProcessor::PARAM_DECAY, decaySlider);
+    sustainA = std::make_unique<SA>(s, SineCloudAudioProcessor::PARAM_SUSTAIN, sustainSlider);
+    releaseA = std::make_unique<SA>(s, SineCloudAudioProcessor::PARAM_RELEASE, releaseSlider);
+
+    dlyTimeA = std::make_unique<SA>(s, SineCloudAudioProcessor::PARAM_DLY_TIME, dlyTimeSlider);
+    dlyFbA = std::make_unique<SA>(s, SineCloudAudioProcessor::PARAM_DLY_FB, dlyFbSlider);
+    dlyMixA = std::make_unique<SA>(s, SineCloudAudioProcessor::PARAM_DLY_MIX, dlyMixSlider);
+    revMixA = std::make_unique<SA>(s, SineCloudAudioProcessor::PARAM_REV_MIX, revMixSlider);
+    revSizeA = std::make_unique<SA>(s, SineCloudAudioProcessor::PARAM_REV_SIZE, revSizeSlider);
+
+    startTimerHz(15);  // 刷新 Root 显示
 }
 
-SineCloudAudioProcessorEditor::~SineCloudAudioProcessorEditor()
+SineCloudAudioProcessorEditor::~SineCloudAudioProcessorEditor() = default;
+
+//==============================================================================
+void SineCloudAudioProcessorEditor::setupKnob(juce::Slider& s, juce::Label& lbl,
+    const juce::String& name,
+    const juce::String& suffix,
+    bool valueBox)
 {
+    s.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    if (valueBox)
+        s.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 18);
+    else
+        s.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    s.setTextValueSuffix(suffix);
+
+    s.setColour(juce::Slider::textBoxTextColourId, juce::Colours::white);
+    s.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+    s.setColour(juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
+    s.setColour(juce::Slider::rotarySliderFillColourId, juce::Colours::white);
+    s.setColour(juce::Slider::rotarySliderOutlineColourId, juce::Colour::fromRGB(60, 60, 60));
+    s.setColour(juce::Slider::thumbColourId, juce::Colours::white);
+    addAndMakeVisible(s);
+
+    lbl.setText(name, juce::dontSendNotification);
+    lbl.setJustificationType(juce::Justification::centred);
+    lbl.setColour(juce::Label::textColourId, juce::Colours::white);
+    lbl.attachToComponent(&s, false);
+    addAndMakeVisible(lbl);
 }
 
+void SineCloudAudioProcessorEditor::styleGroupLabel(juce::Label& l, const juce::String& text)
+{
+    l.setText(text, juce::dontSendNotification);
+    l.setJustificationType(juce::Justification::centredTop);
+    l.setColour(juce::Label::textColourId, juce::Colours::white);
+    l.setFont(juce::Font(14.0f, juce::Font::bold));
+}
+
+//==============================================================================
 void SineCloudAudioProcessorEditor::paint(juce::Graphics& g)
 {
     g.fillAll(juce::Colours::black);
-    g.setColour(juce::Colours::white);
-    g.setFont(20.0f);
-    g.drawFittedText("Sine Cloud", getLocalBounds().removeFromTop(40),
-        juce::Justification::centred, 1);
+
+    // 三个 group box 的边框
+    g.setColour(juce::Colour::fromRGB(80, 80, 80));
+    g.drawRect(dreamBox, 1);
+    g.drawRect(adsrBox, 1);
+    g.drawRect(spaceBox, 1);
 }
 
 void SineCloudAudioProcessorEditor::resized()
 {
-    const int knobSize = 100;
-    const int spacing = 20;
-    const int row1Y = 70;
-    const int row2Y = 210;
+    // ---- Group 标题位置（每个 box 顶部居中） ----
+    dreamGroupLabel.setBounds(dreamBox.getX(), dreamBox.getY() + 4, dreamBox.getWidth(), 18);
+    adsrGroupLabel.setBounds(adsrBox.getX(), adsrBox.getY() + 4, adsrBox.getWidth(), 18);
+    spaceGroupLabel.setBounds(spaceBox.getX(), spaceBox.getY() + 4, spaceBox.getWidth(), 18);
 
-    // 第一行：Pitch / Density (居中两个)
-    const int row1TotalW = knobSize * 2 + spacing;
-    const int row1StartX = (getWidth() - row1TotalW) / 2;
-    pitchSlider.setBounds(row1StartX, row1Y, knobSize, knobSize);
-    densitySlider.setBounds(row1StartX + knobSize + spacing, row1Y, knobSize, knobSize);
+    // ============================================================
+    // DREAM 框：中心 Dream(160) + 五边形 5 个旋钮(90)
+    // ============================================================
+    dreamSlider.setBounds(170, 180, 160, 160);
+    pitchSlider.setBounds(205, 85, 90, 90);   // 顶
+    floatSlider.setBounds(81, 175, 90, 90);   // 左
+    shimmerSlider.setBounds(329, 175, 90, 90);   // 右
+    densitySlider.setBounds(129, 320, 90, 90);   // 左下
+    gainSlider.setBounds(281, 320, 90, 90);   // 右下
 
-    // 第二行：4 个 ADSR
-    const int adsrTotalW = knobSize * 4 + spacing * 3;
-    const int adsrStartX = (getWidth() - adsrTotalW) / 2;
-    attackSlider.setBounds(adsrStartX, row2Y, knobSize, knobSize);
-    sustainSlider.setBounds(adsrStartX + (knobSize + spacing), row2Y, knobSize, knobSize);
-    releaseSlider.setBounds(adsrStartX + (knobSize + spacing) * 2, row2Y, knobSize, knobSize);
-    decaySlider.setBounds(adsrStartX + (knobSize + spacing) * 3, row2Y, knobSize, knobSize);
+    // ============================================================
+    // ADSR 框：4 个细旋钮竖排 + 右侧 label
+    // ============================================================
+    attackSlider.setBounds(530, 75, 50, 90);
+    decaySlider.setBounds(530, 153, 50, 90);
+    sustainSlider.setBounds(530, 232, 50, 90);
+    releaseSlider.setBounds(530, 310, 50, 90);
+
+    attackLabel.setBounds(590, 110, 75, 18);
+    decayLabel.setBounds(590, 188, 75, 18);
+    sustainLabel.setBounds(590, 267, 75, 18);
+    releaseLabel.setBounds(590, 345, 75, 18);
+
+    // ============================================================
+    // SPACE 框
+    // ============================================================
+    dlyTimeSlider.setBounds(885, 85, 90, 90);
+    dlyFbSlider.setBounds(764, 320, 90, 90);
+    dlyMixSlider.setBounds(1006, 320, 90, 90);
+    revMixSlider.setBounds(890, 190, 80, 70);
+    revSizeSlider.setBounds(890, 275, 80, 70);
+
+    // ============================================================
+    // 底部 Root 显示
+    // ============================================================
+    rootDisplay.setBounds(20, 460, 1140, 30);
+}
+
+//==============================================================================
+void SineCloudAudioProcessorEditor::timerCallback()
+{
+    const int r = audioProcessor.getCurrentRoot();
+    if (r >= 0 && r < 12)
+        rootDisplay.setText("ROOT: " + kNoteNames[r], juce::dontSendNotification);
 }
