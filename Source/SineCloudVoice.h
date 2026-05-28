@@ -1,58 +1,33 @@
-/*
-  ==============================================================================
-
-    SineCloudVoice.h
-    Created: 28 May 2026 9:38:50am
-    Author:  wzm
-
-  ==============================================================================
-*/
-
 #pragma once
-
 
 #include <JuceHeader.h>
 
-class SineCloudVoice : public juce::SynthesiserVoice
+class SineCloudVoice
 {
 public:
-    SineCloudVoice();
+    SineCloudVoice() = default;
 
-    // 判断这个 voice 能否响这个 sound
-    bool canPlaySound(juce::SynthesiserSound* sound) override;
+    void prepareToPlay(double sampleRate);
 
-    // 按键时调用
-    void startNote(int midiNoteNumber,
-                   float velocity,
-                   juce::SynthesiserSound* sound,
-                   int currentPitchWheelPosition) override;
+    // 设置这个 voice 要发什么音（MIDI 音高，可带小数实现微调）
+    void setMidiNote(double midiNoteWithFraction);
 
-    // 松键时调用
-    void stopNote(float velocity, bool allowTailOff) override;
+    // 设置音量（0~1）
+    void setLevel(double newLevel) { level = newLevel; }
 
-    // 弯音轮（先空实现）
-    void pitchWheelMoved(int newPitchWheelValue) override {}
+    // 渲染一个 block（不带 ADSR，纯正弦）
+    void renderToBuffer(juce::AudioBuffer<float>& outputBuffer,
+        int startSample,
+        int numSamples);
 
-    // 控制器（先空实现）
-    void controllerMoved(int controllerNumber, int newControllerValue) override {}
+    // 复位相位（重新触发时用）
+    void resetPhase() { currentAngle = 0.0; }
 
-    // 真正生成声音的地方
-    void renderNextBlock(juce::AudioBuffer<float>& outputBuffer,
-                         int startSample,
-                         int numSamples) override;
-
-    // 准备工作（拿到采样率）
-    void prepareToPlay(double sampleRate, int samplesPerBlock, int outputChannels);
+    bool isActive() const { return level > 0.0; }
 
 private:
-    double currentSampleRate { 48000.0 };
-
-    // 振荡器状态
-    double currentAngle      { 0.0 };
-    double angleDelta        { 0.0 };
-    double level             { 0.0 };
-
-    // ADSR
-    juce::ADSR adsr;
-    juce::ADSR::Parameters adsrParams;
+    double currentSampleRate{ 48000.0 };
+    double currentAngle{ 0.0 };
+    double angleDelta{ 0.0 };
+    double level{ 0.0 };
 };

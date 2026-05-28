@@ -15,21 +15,17 @@
 SineCloudAudioProcessor::SineCloudAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
     : AudioProcessor(BusesProperties()
-#if ! JucePlugin_IsMidiEffect
-#if ! JucePlugin_IsSynth
-        .withInput("Input", juce::AudioChannelSet::stereo(), true)
-#endif
-        .withOutput("Output", juce::AudioChannelSet::stereo(), true)
-#endif
-    )
+        .withOutput("Output", juce::AudioChannelSet::stereo(), true))
 #endif
 {
-    // === Ìí¼ÓÕâÁ½¶Î ===
-    for (int i = 0; i < numVoices; ++i)
-        synth.addVoice(new SineCloudVoice());
-
-    synth.addSound(new SineCloudSound());
+    // 全局 ADSR 默认参数（Sine Cloud ambient 风格）
+    adsrParams.attack = 0.5f;    // 500ms 慢起
+    adsrParams.decay = 0.2f;
+    adsrParams.sustain = 0.8f;
+    adsrParams.release = 2.0f;    // 2 秒慢消
+    adsr.setParameters(adsrParams);
 }
+
 
 
 
@@ -102,16 +98,14 @@ void SineCloudAudioProcessor::changeProgramName (int index, const juce::String& 
 }
 
 //==============================================================================
-void SineCloudAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+void SineCloudAudioProcessor::prepareToPlay(double sampleRate, int /*samplesPerBlock*/)
 {
-    synth.setCurrentPlaybackSampleRate(sampleRate);
+    for (auto& voice : voices)
+        voice.prepareToPlay(sampleRate);
 
-    for (int i = 0; i < synth.getNumVoices(); ++i)
-    {
-        if (auto* voice = dynamic_cast<SineCloudVoice*>(synth.getVoice(i)))
-            voice->prepareToPlay(sampleRate, samplesPerBlock, getTotalNumOutputChannels());
-    }
+    adsr.setSampleRate(sampleRate);
 }
+
 
 
 void SineCloudAudioProcessor::releaseResources()
@@ -148,12 +142,37 @@ bool SineCloudAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts
 
 
 
-void SineCloudAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
+void SineCloudAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
+    juce::MidiBuffer& midiMessages)
 {
-    juce::ScopedNoDenormals noDenormals; 
+    juce::ScopedNoDenormals noDenormals;
+
     buffer.clear();
-    synth.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
+
+    // === 处理 MIDI 消息 ===
+    for (const auto metadata : midiMessages)
+    {
+        const auto msg = metadata.getMessage();
+        handleMidiMessage(msg);
+    }
+
+    // === 渲染所有 voice ===
+    for (auto& voice : voices)
+        voice.renderToBuffer(buffer, 0, buffer.getNumSamples());
+
+    // === 整体施加 ADSR ===
+    const int numSamples = buffer.getNumSamples();
+    for (int sample = 0; sample < numSamples; ++sample)
+    {
+        const float envValue = adsr.getNextSample();
+        for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+        {
+            float* data = buffer.getWritePointer(channel);
+            data[sample] *= envValue;
+        }
+    }
 }
+
 
 //==============================================================================
 bool SineCloudAudioProcessor::hasEditor() const
@@ -186,3 +205,45 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new SineCloudAudioProcessor();
 }
+
+void SineCloudAudioProcessor::handleMidiMessage(const juce::MidiMessage& msg)
+{
+    if (msg.isNoteOn())
+    {
+        triggerNoteOn(msg.getNoteNumber());
+    }
+    else if (msg.isNoteOff())
+    {
+        // 只有当松开的是当前根音才 release
+        // （多键按下时只追踪最新一次按键）
+        if (msg.getNoteNumber() == currentRootMidi)
+            triggerNoteOff();
+    }
+}
+
+void SineCloudAudioProcessor::triggerNoteOn(int rootMidi)
+{
+    currentRootMidi = rootMidi;
+    isNoteHeld = true;
+
+    // 给每个 voice 设定音高
+    for (int i = 0; i < numVoices; ++i)
+    {
+        const int targetMidi = rootMidi + kIntervals[i];
+        voices[i].setMidiNote((double)targetMidi);
+        voices[i].setLevel(0.1);   // 12 voice 叠加，每个 0.1 防爆音
+        voices[i].resetPhase();
+    }
+
+    // 触发全局 ADSR
+    adsr.reset();
+    adsr.noteOn();
+}
+
+void SineCloudAudioProcessor::triggerNoteOff()
+{
+    isNoteHeld = false;
+    adsr.noteOff();
+    // voice 不立即停，让 release 阶段还能听到
+}
+

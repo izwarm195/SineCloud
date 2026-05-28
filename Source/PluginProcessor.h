@@ -57,9 +57,27 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
 private:
-    //==============================================================================
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SineCloudAudioProcessor)
-    
-    juce::Synthesiser synth;
     static constexpr int numVoices = 12;
+
+    // maj9(#13) 音池：12 个相对根音的半音偏移
+    static constexpr int kIntervals[numVoices] = {
+        0, 4, 7, 11, 14, 18, 21, 24, 28, 31, 35, 38
+    };
+
+    std::array<SineCloudVoice, numVoices> voices;
+
+    // 全局 ADSR
+    juce::ADSR adsr;
+    juce::ADSR::Parameters adsrParams;
+
+    // 当前根音状态
+    int currentRootMidi{ -1 };   // -1 表示没有按键
+    bool isNoteHeld{ false };
+
+    // 处理 MIDI 消息
+    void handleMidiMessage(const juce::MidiMessage& msg);
+    void triggerNoteOn(int rootMidi);
+    void triggerNoteOff();
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SineCloudAudioProcessor)
 };
