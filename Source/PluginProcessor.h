@@ -59,25 +59,35 @@ public:
 private:
     static constexpr int numVoices = 12;
 
-    // maj9(#13) 音池：12 个相对根音的半音偏移
+    // maj9(#13) 音池半音偏移
     static constexpr int kIntervals[numVoices] = {
         0, 4, 7, 11, 14, 18, 21, 24, 28, 31, 35, 38
     };
 
     std::array<SineCloudVoice, numVoices> voices;
 
-    // 全局 ADSR
+    // 全局 ADSR：控制整片云的进出
     juce::ADSR adsr;
     juce::ADSR::Parameters adsrParams;
+    double currentSampleRate{ 48000.0 };
 
-    // 当前根音状态
-    int currentRootMidi{ -1 };   // -1 表示没有按键
-    bool isNoteHeld{ false };
+    // 当前根音
+    int currentRootMidi{ -1 };
 
-    // 处理 MIDI 消息
+    // 粒子触发器
+    double samplesUntilNextTrigger{ 0.0 };
+    double samplesPerTrigger{ 48000.0 };  // = sampleRate / density
+
+    // 参数（先用普通成员变量，后面接 APVTS）
+    float pitchOffset{ 0.0f };   // -24 ~ +24 半音
+    float density{ 4.0f };   // 0.2 ~ 32 Hz（每秒触发次数）
+
+    // 随机数生成器
+    juce::Random random;
+
+    // MIDI 处理
     void handleMidiMessage(const juce::MidiMessage& msg);
-    void triggerNoteOn(int rootMidi);
-    void triggerNoteOff();
+    void triggerParticles(int blockOffset);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SineCloudAudioProcessor)
 };

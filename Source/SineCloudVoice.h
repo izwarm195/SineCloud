@@ -9,25 +9,23 @@ public:
 
     void prepareToPlay(double sampleRate);
 
-    // 设置这个 voice 要发什么音（MIDI 音高，可带小数实现微调）
-    void setMidiNote(double midiNoteWithFraction);
+    // 触发一次粒子：设定音高 + 启动内部包络
+    void triggerParticle(double midiNoteWithFraction, double initialLevel);
 
-    // 设置音量（0~1）
-    void setLevel(double newLevel) { level = newLevel; }
-
-    // 渲染一个 block（不带 ADSR，纯正弦）
+    // 渲染
     void renderToBuffer(juce::AudioBuffer<float>& outputBuffer,
         int startSample,
         int numSamples);
 
-    // 复位相位（重新触发时用）
-    void resetPhase() { currentAngle = 0.0; }
-
-    bool isActive() const { return level > 0.0; }
+    bool isActive() const { return particleEnv > 0.0001; }
 
 private:
     double currentSampleRate{ 48000.0 };
     double currentAngle{ 0.0 };
     double angleDelta{ 0.0 };
     double level{ 0.0 };
+
+    // 粒子内部包络（指数衰减）
+    double particleEnv{ 0.0 };
+    double particleDecay{ 0.999 };  // 每个采样点的衰减系数
 };

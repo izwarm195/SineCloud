@@ -100,10 +100,16 @@ void SineCloudAudioProcessor::changeProgramName (int index, const juce::String& 
 //==============================================================================
 void SineCloudAudioProcessor::prepareToPlay(double sampleRate, int /*samplesPerBlock*/)
 {
+    currentSampleRate = sampleRate;
+
     for (auto& voice : voices)
         voice.prepareToPlay(sampleRate);
 
     adsr.setSampleRate(sampleRate);
+
+    // 初始化触发间隔
+    samplesPerTrigger = sampleRate / density;
+    samplesUntilNextTrigger = 0.0;
 }
 
 
@@ -149,19 +155,35 @@ void SineCloudAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
 
     buffer.clear();
 
-    // === 处理 MIDI 消息 ===
+    // 处理 MIDI
     for (const auto metadata : midiMessages)
+        handleMidiMessage(metadata.getMessage());
+
+    const int numSamples = buffer.getNumSamples();
+
+    // 更新触发间隔（density 可能在运行中变化）
+    samplesPerTrigger = currentSampleRate / juce::jmax(0.2f, density);
+
+    // === 在 block 内推进触发计时器 ===
+    // 只在 ADSR 还活跃时触发新粒子
+    if (adsr.isActive())
     {
-        const auto msg = metadata.getMessage();
-        handleMidiMessage(msg);
+        for (int sample = 0; sample < numSamples; ++sample)
+        {
+            samplesUntilNextTrigger -= 1.0;
+            if (samplesUntilNextTrigger <= 0.0)
+            {
+                triggerParticles(sample);
+                samplesUntilNextTrigger += samplesPerTrigger;
+            }
+        }
     }
 
     // === 渲染所有 voice ===
     for (auto& voice : voices)
-        voice.renderToBuffer(buffer, 0, buffer.getNumSamples());
+        voice.renderToBuffer(buffer, 0, numSamples);
 
-    // === 整体施加 ADSR ===
-    const int numSamples = buffer.getNumSamples();
+    // === 整体 ADSR ===
     for (int sample = 0; sample < numSamples; ++sample)
     {
         const float envValue = adsr.getNextSample();
@@ -172,6 +194,7 @@ void SineCloudAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer,
         }
     }
 }
+
 
 
 //==============================================================================
@@ -210,17 +233,37 @@ void SineCloudAudioProcessor::handleMidiMessage(const juce::MidiMessage& msg)
 {
     if (msg.isNoteOn())
     {
-        triggerNoteOn(msg.getNoteNumber());
+        currentRootMidi = msg.getNoteNumber();
+        adsr.reset();
+        adsr.noteOn();
+        // 立即触发第一颗粒子（不等下一次 metro tick）
+        samplesUntilNextTrigger = 0.0;
     }
-    else if (msg.isNoteOff())
+    else if (msg.isNoteOff() && msg.getNoteNumber() == currentRootMidi)
     {
-        // 只有当松开的是当前根音才 release
-        // （多键按下时只追踪最新一次按键）
-        if (msg.getNoteNumber() == currentRootMidi)
-            triggerNoteOff();
+        adsr.noteOff();
     }
 }
 
+void SineCloudAudioProcessor::triggerParticles(int /*blockOffset*/)
+{
+    if (currentRootMidi < 0)
+        return;
+
+    // 计算实际根音（含 Pitch 旋钮偏移）
+    const int actualRoot = currentRootMidi + (int)std::round(pitchOffset);
+
+    // 随机选一个 voice
+    const int voiceIndex = random.nextInt(numVoices);
+
+    // 随机从音池抽一个音
+    const int intervalIndex = random.nextInt(numVoices);
+    const double targetMidi = (double)(actualRoot + kIntervals[intervalIndex]);
+
+    // 触发
+    voices[voiceIndex].triggerParticle(targetMidi, 0.3);
+}
+/*
 void SineCloudAudioProcessor::triggerNoteOn(int rootMidi)
 {
     currentRootMidi = rootMidi;
@@ -246,4 +289,4 @@ void SineCloudAudioProcessor::triggerNoteOff()
     adsr.noteOff();
     // voice 不立即停，让 release 阶段还能听到
 }
-
+*/
