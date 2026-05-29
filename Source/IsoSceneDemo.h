@@ -260,11 +260,17 @@ public:
     {
         if (key == juce::KeyPress::spaceKey)
         {
+            // [NEW] 拖拽期间按 space：先结束拖拽，避免下一次 mouseDrag 把相机覆盖回去
+            if (isDragging)
+            {
+                isDragging = false;
+            }
             toggleViewMode();
             return true;
         }
         return false;
     }
+
 
 private:
     //==============================================================================
@@ -476,6 +482,8 @@ private:
 
         const float len = std::sqrt(inputDir.x * inputDir.x + inputDir.y * inputDir.y);
         if (len > 1e-4f) { inputDir.x /= len; inputDir.y /= len; }
+
+
 
         // ---- 玩家速度惯性 ----
         const float targetSpeed = 2.0f;

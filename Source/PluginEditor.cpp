@@ -107,6 +107,15 @@ SineCloudAudioProcessorEditor::SineCloudAudioProcessorEditor(SineCloudAudioProce
         setSize(1180, 700);
     }
 
+    if (kUseMeshTest)
+    {
+        meshTest = std::make_unique<MeshTestComponent>();
+        addAndMakeVisible(*meshTest);
+        setSize(800, 600);
+        return;   // 暂时跳过其他 UI
+    }
+
+
 }
 
 SineCloudAudioProcessorEditor::~SineCloudAudioProcessorEditor() = default;
@@ -208,6 +217,10 @@ void SineCloudAudioProcessorEditor::resized()
     // µ×²¿ Root ÏÔÊ¾
     // ============================================================
     rootDisplay.setBounds(20, 460, 1140, 30);
+
+    //-------
+    if (meshTest) { meshTest->setBounds(getLocalBounds()); return; }
+    //--------
 }
 
 //==============================================================================

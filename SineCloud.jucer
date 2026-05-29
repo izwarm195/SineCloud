@@ -5,6 +5,15 @@
               pluginCode="Sct1">
   <MAINGROUP id="MWtifI" name="SineCloud">
     <GROUP id="{9D89155D-745F-44F4-4A89-1045E4DDABEF}" name="Source">
+      <FILE id="Bz01yD" name="MeshTestComponent.h" compile="0" resource="0"
+            file="Source/MeshTestComponent.h"/>
+      <FILE id="s22S74" name="Mesh.cpp" compile="1" resource="0" file="Source/Mesh.cpp"/>
+      <FILE id="qZbb2S" name="Mesh.h" compile="0" resource="0" file="Source/Mesh.h"/>
+      <GROUP id="{616F2A8B-5D83-5AC1-B0D1-05386C7D0D72}" name="Resources">
+        <FILE id="htOPKi" name="Cube.obj" compile="0" resource="1" file="Source/Cube.obj"/>
+      </GROUP>
+      <FILE id="tVpbiW" name="tiny_obj_loader.h" compile="0" resource="0"
+            file="Source/tiny_obj_loader.h"/>
       <FILE id="JJAkv6" name="GroundKnob.h" compile="0" resource="0" file="Source/GroundKnob.h"/>
       <FILE id="S1DJ1s" name="IsoSceneDemo.h" compile="0" resource="0" file="Source/IsoSceneDemo.h"/>
       <FILE id="SpimJj" name="Vec3.h" compile="0" resource="0" file="Source/Vec3.h"/>
@@ -43,6 +52,7 @@
     <MODULE id="juce_graphics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_gui_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
     <MODULE id="juce_gui_extra" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
+    <MODULE id="juce_opengl" showAllCode="1" useLocalCopy="0" useGlobalPath="1"/>
   </MODULES>
   <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1" JUCE_VST3_CAN_REPLACE_VST2="0"/>
   <EXPORTFORMATS>
@@ -66,6 +76,7 @@
         <MODULEPATH id="juce_graphics" path="../Programming/Project260126/JUCE/modules"/>
         <MODULEPATH id="juce_gui_basics" path="../Programming/Project260126/JUCE/modules"/>
         <MODULEPATH id="juce_gui_extra" path="../Programming/Project260126/JUCE/modules"/>
+        <MODULEPATH id="juce_opengl" path="../Programming/Project260126/JUCE/modules"/>
       </MODULEPATHS>
     </VS2022>
   </EXPORTFORMATS>

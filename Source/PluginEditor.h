@@ -3,7 +3,9 @@
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
 #include "IsoSceneDemo.h"
-
+// ---------
+#include "MeshTestComponent.h"
+// ---------
 
 //==============================================================================
 class SineCloudAudioProcessorEditor : public juce::AudioProcessorEditor,
@@ -17,6 +19,14 @@ public:
     void resized() override;
 
 private:
+
+    //--------
+    static constexpr bool kUseMeshTest = true;   // 临时开关
+    std::unique_ptr<MeshTestComponent> meshTest;
+
+    //--------
+
+
     void timerCallback() override;
 
     using SA = juce::AudioProcessorValueTreeState::SliderAttachment;
