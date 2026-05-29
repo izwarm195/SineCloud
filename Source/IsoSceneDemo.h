@@ -4,6 +4,7 @@
 #include "SceneCamera.h"
 #include "GroundKnob.h"
 #include "PluginProcessor.h"
+#include "Mesh.h"
 
 //==============================================================================
 // [FIX] 柱体不再保存 height/radius/pos 的拷贝，而是指向对应的 GroundKnob
@@ -30,7 +31,9 @@ struct Pillar
 
 //==============================================================================
 class IsoSceneDemo : public juce::Component,
+    public juce::OpenGLRenderer,   // [NEW]
     private juce::Timer
+
 {
 public:
     enum class ViewMode { Game, Top };
@@ -96,11 +99,19 @@ public:
 
         // 构建柱体碰撞数据
         buildPillars();
+        // [NEW] OpenGL 渲染上下文
+        glContext.setRenderer(this);
+        glContext.setComponentPaintingEnabled(true); // 让 paint() 和 child component 叠在 GL 之上
+        glContext.setContinuousRepainting(true);
+        glContext.attachTo(*this);
 
         startTimerHz(60);
     }
 
-    ~IsoSceneDemo() override = default;
+    ~IsoSceneDemo() override
+    {
+        glContext.detach();
+    }
 
     //==============================================================================
     void paint(juce::Graphics& g) override
@@ -256,6 +267,123 @@ public:
 
     void mouseUp(const juce::MouseEvent&) override { isDragging = false; }
 
+    //==============================================================================
+// OpenGLRenderer
+//==============================================================================
+    void newOpenGLContextCreated() override
+    {
+        // 1) 加载 cube
+        int dataSize = 0;
+        const char* data = BinaryData::getNamedResource("Cube_obj", dataSize);
+        if (data == nullptr || dataSize == 0)
+        {
+            DBG("Cube_obj not found in BinaryData");
+            return;
+        }
+        if (!cubeMesh.loadFromObjMemory(data, (size_t)dataSize))
+        {
+            DBG("Failed to parse cube.obj");
+            return;
+        }
+        cubeMesh.uploadToGPU(glContext);
+
+        // 2) 编译 shader
+        shader.reset(new juce::OpenGLShaderProgram(glContext));
+
+        const char* vs = R"(#version 330 core
+        layout(location=0) in vec3 aPos;
+        layout(location=1) in vec3 aNormal;
+        layout(location=2) in vec2 aUV;
+
+        uniform mat4 uModel;
+        uniform mat4 uView;
+        uniform mat4 uProj;
+
+        out vec3 vNormalWS;
+
+        void main() {
+            vec4 wp = uModel * vec4(aPos, 1.0);
+            vNormalWS = mat3(uModel) * aNormal;
+            gl_Position = uProj * uView * wp;
+        }
+    )";
+
+        const char* fs = R"(#version 330 core
+        in vec3 vNormalWS;
+
+        uniform vec3 uLightDir;
+        uniform vec3 uBaseColor;
+
+        out vec4 fragColor;
+
+        void main() {
+            vec3 N = normalize(vNormalWS);
+            float lambert = max(dot(N, -normalize(uLightDir)), 0.0);
+            float ambient = 0.25;
+            vec3 col = uBaseColor * (ambient + (1.0 - ambient) * lambert);
+            fragColor = vec4(col, 1.0);
+        }
+    )";
+
+        if (!shader->addVertexShader(vs))   DBG("VS err: " << shader->getLastError());
+        if (!shader->addFragmentShader(fs)) DBG("FS err: " << shader->getLastError());
+        if (!shader->link())                DBG("Link err: " << shader->getLastError());
+    }
+
+    void renderOpenGL() override
+    {
+        using namespace juce::gl;
+
+        const float scale = (float)glContext.getRenderingScale();
+        const int   pw = (int)(getWidth() * scale);
+        const int   ph = (int)(getHeight() * scale);
+        glViewport(0, 0, pw, ph);
+
+        glEnable(GL_DEPTH_TEST);
+        glClearColor(0.08f, 0.10f, 0.12f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        if (shader == nullptr || !cubeMesh.isUploaded()) return;
+
+        shader->use();
+
+        // ---- 矩阵 ----
+        const float aspect = (float)pw / juce::jmax(1, ph);
+        const auto view = camera.getViewMatrix();
+        const auto proj = camera.getProjMatrix(aspect);
+
+        // cube 放原点，单位边长 = 50（场景里"大约 35 半径"那种尺度）
+        juce::Matrix3D<float> model;   // identity
+        // 缩放 50 倍，让 cube 在场景里看得见（你的 obj 是 ±1 → 边长 2，乘 50 → 边长 100）
+        {
+            float s[16] = {
+                50.0f, 0,    0,    0,
+                0,    50.0f, 0,    0,
+                0,    0,    50.0f, 0,
+                0,    0,    0,    1.0f
+            };
+            model = juce::Matrix3D<float>(s);
+        }
+
+        setMat4(*shader, "uModel", model);
+        setMat4(*shader, "uView", view);
+        setMat4(*shader, "uProj", proj);
+
+        const GLint locLight = glGetUniformLocation(shader->getProgramID(), "uLightDir");
+        const GLint locColor = glGetUniformLocation(shader->getProgramID(), "uBaseColor");
+        glUniform3f(locLight, -0.4f, 0.6f, -0.7f);
+        glUniform3f(locColor, 0.65f, 0.62f, 0.58f);
+
+        cubeMesh.draw(glContext);
+    }
+
+    void openGLContextClosing() override
+    {
+        cubeMesh.releaseGPU(glContext);
+        shader = nullptr;
+    }
+
+
     bool keyPressed(const juce::KeyPress& key) override
     {
         if (key == juce::KeyPress::spaceKey)
@@ -288,8 +416,8 @@ private:
 
 
     //==============================================================================
-// [FIX] 把柱体画成"底椭圆 + 顶椭圆 + 两条侧切线封闭的柱身"
-//==============================================================================
+    // [FIX] 把柱体画成"底椭圆 + 顶椭圆 + 两条侧切线封闭的柱身"
+    //==============================================================================
     void drawPillar(juce::Graphics& g, const Pillar& p)
     {
         const Vec3  base = p.getWorldPos();
@@ -595,9 +723,19 @@ private:
 
     }
 
+    //---- GL ----
+    juce::OpenGLContext glContext;
+    Mesh cubeMesh;
+    std::unique_ptr<juce::OpenGLShaderProgram> shader;
 
-
-
+    static void setMat4(juce::OpenGLShaderProgram& sh, const char* name,
+        const juce::Matrix3D<float>& m)
+    {
+        const GLint loc = juce::gl::glGetUniformLocation(sh.getProgramID(), name);
+        if (loc >= 0)
+            juce::gl::glUniformMatrix4fv(loc, 1, juce::gl::GL_FALSE, m.mat);
+    }
+    //-------------
 
     using SA = juce::AudioProcessorValueTreeState::SliderAttachment;
 

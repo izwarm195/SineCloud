@@ -100,6 +100,15 @@ SineCloudAudioProcessorEditor::SineCloudAudioProcessorEditor(SineCloudAudioProce
     revSizeA = std::make_unique<SA>(s, SineCloudAudioProcessor::PARAM_REV_SIZE, revSizeSlider);
 
     startTimerHz(15);  // Ë¢ÐÂ Root ÏÔÊ¾
+    
+    //if (kUseMeshTest)
+    //{
+    //    meshTest = std::make_unique<MeshTestComponent>();
+    //    addAndMakeVisible(*meshTest);
+    //    setSize(800, 600);
+    //    return;   // 暂时跳过其他 UI
+    //}
+    
     if (kUseSceneDemo)
     {
         sceneDemo = std::make_unique<IsoSceneDemo>(audioProcessor);
@@ -107,13 +116,7 @@ SineCloudAudioProcessorEditor::SineCloudAudioProcessorEditor(SineCloudAudioProce
         setSize(1180, 700);
     }
 
-    if (kUseMeshTest)
-    {
-        meshTest = std::make_unique<MeshTestComponent>();
-        addAndMakeVisible(*meshTest);
-        setSize(800, 600);
-        return;   // 暂时跳过其他 UI
-    }
+   
 
 
 }
