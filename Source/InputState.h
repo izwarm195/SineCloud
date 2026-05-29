@@ -2,9 +2,9 @@
   ==============================================================================
     InputState.h
     Layer 3: Game / Interaction
-    一帧输入快照。由 SceneView 在每次 World::update 前填好，World 内的 Entity
-    只读。鼠标按下/抬起以"事件"形式存在（justPressed / justReleased），位置始
-    终可用，便于做拾取与拖拽。
+    脪禄脰隆脢盲脠毛驴矛脮脮隆拢脫脡 SceneView 脭脷脙驴麓脦 World::update 脟掳脤卯潞脙拢卢World 脛脷碌脛 Entity
+    脰禄露脕隆拢脢贸卤锚掳麓脧脗/脤搂脝冒脪脭"脢脗录镁"脨脦脢陆麓忙脭脷拢篓justPressed / justReleased拢漏拢卢脦禄脰脙脢录
+    脰脮驴脡脫脙拢卢卤茫脫脷脳枚脢掳脠隆脫毛脥脧脳搂隆拢
   ==============================================================================*/
 #pragma once
 
@@ -14,21 +14,21 @@ namespace sc
 {
     struct InputState
     {
-        // ---- 键盘（持续按下） ----
+        // ---- 录眉脜脤拢篓鲁脰脨酶掳麓脧脗拢漏 ----
         bool keyUp{ false };
         bool keyDown{ false };
         bool keyLeft{ false };
         bool keyRight{ false };
-        bool keyAttack{ false };   // 暂时占位，日后给 BossEntity 用
+        bool keyAttack{ false };   // 脭脻脢卤脮录脦禄拢卢脠脮潞贸赂酶 BossEntity 脫脙
 
-        // ---- 鼠标 ----
+        // ---- 脢贸卤锚 ----
         juce::Point<float> mousePos{ 0.0f, 0.0f };
-        bool mouseDown{ false }; // 左键当前是否按下
-        bool mouseJustPressed{ false }; // 本帧刚按下
-        bool mouseJustReleased{ false }; // 本帧刚抬起
-        juce::Point<float> mouseDelta{ 0.0f, 0.0f }; // 自上一帧的位移
+        bool mouseDown{ false }; // 脳贸录眉碌卤脟掳脢脟路帽掳麓脧脗
+        bool mouseJustPressed{ false }; // 卤戮脰隆赂脮掳麓脧脗
+        bool mouseJustReleased{ false }; // 卤戮脰隆赂脮脤搂脝冒
+        juce::Point<float> mouseDelta{ 0.0f, 0.0f }; // 脳脭脡脧脪禄脰隆碌脛脦禄脪脝
 
-        // ---- 视口（像素） ----
+        // ---- 脢脫驴脷拢篓脧帽脣脴拢漏 ----
         int viewportW{ 1 };
         int viewportH{ 1 };
     };

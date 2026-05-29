@@ -2,11 +2,11 @@
   ==============================================================================
     ParamBridge.h
     Bridge: APVTS <-> Knob/InertialValue
-    封装一个 APVTS 参数：
-      - read()  返回真实值（单位与 layout 一致，例如 ms、半音、0~1）
-      - write() 写入真实值并通知宿主
-      - 监听宿主端变化（自动化、preset 恢复），通过 onHostChanged 抛回去
-    UI 线程构造，UI 线程析构；所有调用都在 UI 线程。
+    路芒脳掳脪禄赂枚 APVTS 虏脦脢媒拢潞
+      - read()  路碌禄脴脮忙脢碌脰碌拢篓碌楼脦禄脫毛 layout 脪禄脰脗拢卢脌媒脠莽 ms隆垄掳毛脪么隆垄0~1拢漏
+      - write() 脨麓脠毛脮忙脢碌脰碌虏垄脥篓脰陋脣脼脰梅
+      - 录脿脤媒脣脼脰梅露脣卤盲禄炉拢篓脳脭露炉禄炉隆垄preset 禄脰赂麓拢漏拢卢脥篓鹿媒 onHostChanged 脜脳禄脴脠楼
+    UI 脧脽鲁脤鹿鹿脭矛拢卢UI 脧脽鲁脤脦枚鹿鹿拢禄脣霉脫脨碌梅脫脙露录脭脷 UI 脧脽鲁脤隆拢
   ==============================================================================*/
 #pragma once
 
@@ -31,7 +31,7 @@ namespace sc
         }
 
         //----------------------------------------------------------------------
-        // 真实值读写
+        // 脮忙脢碌脰碌露脕脨麓
         //----------------------------------------------------------------------
         float read() const noexcept
         {
@@ -40,7 +40,7 @@ namespace sc
             return 0.0f;
         }
 
-        /** 写真实值（jitter 已 clamp 到 layout 的 range），通知宿主。 */
+        /** 脨麓脮忙脢碌脰碌拢篓jitter 脪脩 clamp 碌陆 layout 碌脛 range拢漏拢卢脥篓脰陋脣脼脰梅隆拢 */
         void write(float realValue) noexcept
         {
             if (auto* p = apvts.getParameter(id))
@@ -53,7 +53,7 @@ namespace sc
         }
 
         //----------------------------------------------------------------------
-        // 范围
+        // 路露脦搂
         //----------------------------------------------------------------------
         juce::NormalisableRange<float> getRange() const
         {
@@ -66,17 +66,17 @@ namespace sc
         float getMax() const { return getRange().end; }
 
         //----------------------------------------------------------------------
-        // host 端变化通知（自动化 / preset 恢复）
+        // host 露脣卤盲禄炉脥篓脰陋拢篓脳脭露炉禄炉 / preset 禄脰赂麓拢漏
         //----------------------------------------------------------------------
         std::function<void(float /*newRealValue*/)> onHostChanged;
 
     private:
         void parameterChanged(const juce::String& /*paramID*/, float newValue) override
         {
-            // newValue 是真实值（不是归一化），与 read() 一致
+            // newValue 脢脟脮忙脢碌脰碌拢篓虏禄脢脟鹿茅脪禄禄炉拢漏拢卢脫毛 read() 脪禄脰脗
             if (onHostChanged)
             {
-                // 这个回调来自宿主线程，转回 message thread 再触发 UI
+                // 脮芒赂枚禄脴碌梅脌麓脳脭脣脼脰梅脧脽鲁脤拢卢脳陋禄脴 message thread 脭脵麓楼路垄 UI
                 juce::MessageManager::callAsync(
                     [cb = onHostChanged, v = newValue]() { cb(v); });
             }

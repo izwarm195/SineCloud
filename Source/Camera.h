@@ -96,9 +96,10 @@ namespace sc
             return { -std::sin(yaw), +std::cos(yaw), 0.0f };
         }
 
+        /** 水平面右向，yaw=0 时指向 +X（屏幕右方）。★修正方向 */
         Vec3 getRightOnGround() const noexcept
         {
-            return { std::cos(yaw), -std::sin(yaw), 0.0f };
+            return { +std::cos(yaw), +std::sin(yaw), 0.0f };
         }
 
         //----------------------------------------------------------------------

@@ -14,7 +14,7 @@ namespace sc
     }
 
     //==========================================================================
-    // ÐýÅ¥²¼¾Ö£ºÑØÓÃ¾É IsoSceneDemo µÄ 6 ¸öºËÐÄ²ÎÊý£¬°´"Ô²ÐÎ·Ö²¼"ÖØÅÅ
+    // ÃÃ½Ã…Â¥Â²Â¼Â¾Ã–Â£ÂºÃ‘Ã˜Ã“ÃƒÂ¾Ã‰ IsoSceneDemo ÂµÃ„ 6 Â¸Ã¶ÂºÃ‹ÃÃ„Â²ÃŽÃŠÃ½Â£Â¬Â°Â´"Ã”Â²ÃÃŽÂ·Ã–Â²Â¼"Ã–Ã˜Ã…Ã…
     //==========================================================================
     void World::buildKnobs()
     {
@@ -43,7 +43,7 @@ namespace sc
     }
 
     //==========================================================================
-    // GL ×ÊÔ´
+    // GL Ã—ÃŠÃ”Â´
     //==========================================================================
     void World::uploadMeshes(juce::OpenGLContext& ctx)
     {
@@ -57,7 +57,7 @@ namespace sc
         cylMesh->uploadToGPU(ctx);
         ptrMesh->uploadToGPU(ctx);
 
-        // °Ñ¹²Ïí mesh ×¢Èë entity
+        // Â°Ã‘Â¹Â²ÃÃ­ mesh Ã—Â¢ÃˆÃ« entity
         player->setMesh(boxMesh.get());
         for (auto& k : knobs)
             k->setMeshes(cylMesh.get(), ptrMesh.get());
@@ -76,20 +76,20 @@ namespace sc
     }
 
     //==========================================================================
-    // Ö÷Ñ­»·
+    // Ã–Ã·Ã‘Â­Â»Â·
     //==========================================================================
     void World::update(float dt, const InputState& in, Camera& cam)
     {
-        // 1. ×¢ÈëÏà»ú»ùÏòÁ¿
+        // 1. Ã—Â¢ÃˆÃ«ÃÃ Â»ÃºÂ»Ã¹ÃÃ²ÃÂ¿
         player->setBasis(cam.getForwardOnGround(), cam.getRightOnGround());
 
-        // 2. update ËùÓÐ entity
+        // 2. update Ã‹Ã¹Ã“Ã entity
         player->update(dt, in);
         for (auto& k : knobs)
             k->update(dt, in);
 
-        // 3. ¼ÆËã Focused£ºÍæ¼ÒÊÇ·ñÔÚÄ³¸öÐýÅ¥µÄ reach Ö®ÄÚ
-        //    Ñ¡×î½üÇÒÔÚ reach ÄÚµÄÄÇ¸ö£¬ÆäËüÈ«²¿ false¡£
+        // 3. Â¼Ã†Ã‹Ã£ FocusedÂ£ÂºÃÃ¦Â¼Ã’ÃŠÃ‡Â·Ã±Ã”ÃšÃ„Â³Â¸Ã¶ÃÃ½Ã…Â¥ÂµÃ„ reach Ã–Â®Ã„Ãš
+        //    Ã‘Â¡Ã—Ã®Â½Ã¼Ã‡Ã’Ã”Ãš reach Ã„ÃšÂµÃ„Ã„Ã‡Â¸Ã¶Â£Â¬Ã†Ã¤Ã‹Ã¼ÃˆÂ«Â²Â¿ falseÂ¡Â£
         KnobEntity* nearest = nullptr;
         float bestDist2 = interactReach * interactReach;
         for (auto& k : knobs)
@@ -106,7 +106,7 @@ namespace sc
         for (auto& k : knobs)
             k->setFocused(k.get() == nearest);
 
-        // 4. Ïà»ú pivot Èí¸úËæÍæ¼Ò£¨XY Æ½Ãæ£¬²»¶¯ Z£©
+        // 4. ÃÃ Â»Ãº pivot ÃˆÃ­Â¸ÃºÃ‹Ã¦ÃÃ¦Â¼Ã’Â£Â¨XY Ã†Â½ÃƒÃ¦Â£Â¬Â²Â»Â¶Â¯ ZÂ£Â©
         Vec3 pivot = cam.getPivot();
         pivot.x = easing::damp(pivot.x, player->worldPos.x, pivotFollowRate, dt);
         pivot.y = easing::damp(pivot.y, player->worldPos.y, pivotFollowRate, dt);
@@ -115,17 +115,17 @@ namespace sc
 
     void World::draw(Renderer& r, const Camera& cam)
     {
-        // µØÃæÍø¸ñ
+        // ÂµÃ˜ÃƒÃ¦ÃÃ¸Â¸Ã±
         if (groundMesh)
             r.drawLines(*groundMesh, identity(), { 0.22f, 0.27f, 0.32f });
 
-        // ÊµÌå
+        // ÃŠÂµÃŒÃ¥
         for (auto& k : knobs) k->draw(r, cam);
         player->draw(r, cam);
     }
 
     //==========================================================================
-    // Êó±ê
+    // ÃŠÃ³Â±Ãª
     //==========================================================================
 
     bool World::onMousePress(const Ray& worldRay)

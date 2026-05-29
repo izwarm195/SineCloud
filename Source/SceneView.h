@@ -18,8 +18,8 @@
 namespace sc
 {
     class SceneView : public juce::Component,
-        public juce::OpenGLRenderer,
-        private juce::Timer
+                      public juce::OpenGLRenderer,
+                      private juce::Timer
     {
     public:
         SceneView()
@@ -41,7 +41,7 @@ namespace sc
             context.detach();
         }
 
-        Camera& getCamera()   noexcept { return camera; }
+        Camera&   getCamera()   noexcept { return camera; }
         Lighting& getLighting() noexcept { return lighting; }
 
         void setWorld(World* w) noexcept { world = w; }
@@ -80,8 +80,8 @@ namespace sc
 
             camera.setPivot({ 0.0f, 0.0f, 0.0f });
             camera.setOrbit(juce::degreesToRadians(35.0f),
-                juce::degreesToRadians(55.0f),
-                14.0f);
+                            juce::degreesToRadians(55.0f),
+                            14.0f);
             camera.setPerspective(50.0f, 0.1f, 200.0f);
 
             // ★ 修复黑屏：GL context 创建时立即同步 viewport
@@ -95,13 +95,13 @@ namespace sc
 
             const double now = juce::Time::getMillisecondCounterHiRes() * 0.001;
             const float dt = (lastRenderSec > 0.0)
-                ? (float)juce::jlimit(0.001, 0.1, now - lastRenderSec)
-                : 1.0f / 60.0f;
+                               ? (float)juce::jlimit(0.001, 0.1, now - lastRenderSec)
+                               : 1.0f / 60.0f;
             lastRenderSec = now;
 
             InputState in = pollInput();
-            in.viewportW = camera.getViewportWidth();
-            in.viewportH = camera.getViewportHeight();
+            in.viewportW  = camera.getViewportWidth();
+            in.viewportH  = camera.getViewportHeight();
 
             if (world != nullptr)
                 world->update(dt, in, camera);
@@ -115,15 +115,15 @@ namespace sc
             else if (debugGrid && debugCube)
             {
                 renderer->drawLines(*debugGrid, identity(),
-                    { 0.25f, 0.30f, 0.35f });
-                renderer->drawMesh(*debugCube,
-                    translation({ 0.0f, 0.0f, 1.0f }),
-                    { 0.55f, 0.50f, 0.45f });
+                                    { 0.25f, 0.30f, 0.35f });
+                renderer->drawMesh (*debugCube,
+                                    translation({ 0.0f, 0.0f, 1.0f }),
+                                    { 0.55f, 0.50f, 0.45f });
             }
 
             renderer->endFrame();
 
-            mouseJustPressedFlag = false;
+            mouseJustPressedFlag  = false;
             mouseJustReleasedFlag = false;
             lastMousePos = currentMousePos;
         }
@@ -145,9 +145,9 @@ namespace sc
         //======================================================================
         void mouseDown(const juce::MouseEvent& e) override
         {
-            currentMousePos = e.position;
-            lastMousePos = e.position;
-            mouseDownFlag = true;
+            currentMousePos      = e.position;
+            lastMousePos         = e.position;
+            mouseDownFlag        = true;
             mouseJustPressedFlag = true;
 
             if (world != nullptr)
@@ -158,9 +158,9 @@ namespace sc
             }
 
             camDragActive = true;
-            camDragStart = e.position;
-            yawAtStart = camera.getYaw();
-            pitchAtStart = camera.getPitch();
+            camDragStart  = e.position;
+            yawAtStart    = camera.getYaw();
+            pitchAtStart  = camera.getPitch();
         }
 
         void mouseDrag(const juce::MouseEvent& e) override
@@ -175,16 +175,16 @@ namespace sc
             {
                 const float dx = e.position.x - camDragStart.x;
                 const float dy = e.position.y - camDragStart.y;
-                camera.setYaw(yawAtStart + dx * 0.008f);
+                camera.setYaw  (yawAtStart   + dx * 0.008f);
                 camera.setPitch(pitchAtStart + dy * 0.008f); // 向上拖 dy<0 → pitch 减小 → 抬头
             }
         }
 
         void mouseUp(const juce::MouseEvent&) override
         {
-            mouseDownFlag = false;
+            mouseDownFlag         = false;
             mouseJustReleasedFlag = true;
-            camDragActive = false;
+            camDragActive         = false;
             if (world != nullptr)
                 world->onMouseRelease();
         }
@@ -195,7 +195,7 @@ namespace sc
         }
 
         void mouseWheelMove(const juce::MouseEvent&,
-            const juce::MouseWheelDetails& w) override
+                            const juce::MouseWheelDetails& w) override
         {
             const float factor = std::pow(0.9f, w.deltaY * 4.0f);
             camera.setDistance(camera.getDistance() * factor);
@@ -208,25 +208,25 @@ namespace sc
         {
             InputState s;
             // W/上键 → 往屏幕上方（+Y），映射到 keyUp
-            s.keyUp = juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::upKey)
-                || juce::KeyPress::isKeyCurrentlyDown('W')
-                || juce::KeyPress::isKeyCurrentlyDown('w');
-            s.keyDown = juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::downKey)
-                || juce::KeyPress::isKeyCurrentlyDown('S')
-                || juce::KeyPress::isKeyCurrentlyDown('s');
-            s.keyLeft = juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::leftKey)
-                || juce::KeyPress::isKeyCurrentlyDown('A')
-                || juce::KeyPress::isKeyCurrentlyDown('a');
+            s.keyUp    = juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::upKey)
+                      || juce::KeyPress::isKeyCurrentlyDown('W')
+                      || juce::KeyPress::isKeyCurrentlyDown('w');
+            s.keyDown  = juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::downKey)
+                      || juce::KeyPress::isKeyCurrentlyDown('S')
+                      || juce::KeyPress::isKeyCurrentlyDown('s');
+            s.keyLeft  = juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::leftKey)
+                      || juce::KeyPress::isKeyCurrentlyDown('A')
+                      || juce::KeyPress::isKeyCurrentlyDown('a');
             s.keyRight = juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::rightKey)
-                || juce::KeyPress::isKeyCurrentlyDown('D')
-                || juce::KeyPress::isKeyCurrentlyDown('d');
+                      || juce::KeyPress::isKeyCurrentlyDown('D')
+                      || juce::KeyPress::isKeyCurrentlyDown('d');
             s.keyAttack = juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::spaceKey);
 
-            s.mousePos = currentMousePos;
-            s.mouseDown = mouseDownFlag;
-            s.mouseJustPressed = mouseJustPressedFlag;
+            s.mousePos          = currentMousePos;
+            s.mouseDown         = mouseDownFlag;
+            s.mouseJustPressed  = mouseJustPressedFlag;
             s.mouseJustReleased = mouseJustReleasedFlag;
-            s.mouseDelta = currentMousePos - lastMousePos;
+            s.mouseDelta        = currentMousePos - lastMousePos;
             return s;
         }
 
@@ -236,20 +236,20 @@ namespace sc
         std::unique_ptr<Renderer> renderer;
         std::unique_ptr<Mesh> debugGrid;
         std::unique_ptr<Mesh> debugCube;
-        World* world{ nullptr };
+        World* world { nullptr };
 
-        double lastRenderSec{ 0.0 };
+        double lastRenderSec { 0.0 };
 
-        juce::Point<float> currentMousePos{ 0.0f, 0.0f };
-        juce::Point<float> lastMousePos{ 0.0f, 0.0f };
-        bool mouseDownFlag{ false };
-        bool mouseJustPressedFlag{ false };
-        bool mouseJustReleasedFlag{ false };
+        juce::Point<float> currentMousePos { 0.0f, 0.0f };
+        juce::Point<float> lastMousePos    { 0.0f, 0.0f };
+        bool mouseDownFlag         { false };
+        bool mouseJustPressedFlag  { false };
+        bool mouseJustReleasedFlag { false };
 
-        bool camDragActive{ false };
-        juce::Point<float> camDragStart{ 0.0f, 0.0f };
-        float yawAtStart{ 0.0f };
-        float pitchAtStart{ 0.0f };
+        bool camDragActive { false };
+        juce::Point<float> camDragStart { 0.0f, 0.0f };
+        float yawAtStart   { 0.0f };
+        float pitchAtStart { 0.0f };
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SceneView)
     };

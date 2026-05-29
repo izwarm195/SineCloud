@@ -2,8 +2,8 @@
   ==============================================================================
     Player.h
     Layer 3: Game / Interaction
-    玩家：方向键 / WASD 沿相机 forward 移动，自带加速 + 阻尼（沿用旧 IsoSceneDemo 行为）。
-    绘制：一个红色立方体（共享 World 提供的 boxMesh）。
+    脥忙录脪拢潞路陆脧貌录眉 / WASD 脩脴脧脿禄煤 forward 脪脝露炉拢卢脳脭麓酶录脫脣脵 + 脳猫脛谩拢篓脩脴脫脙戮脡 IsoSceneDemo 脨脨脦陋拢漏隆拢
+    禄忙脰脝拢潞脪禄赂枚潞矛脡芦脕垄路陆脤氓拢篓鹿虏脧铆 World 脤谩鹿漏碌脛 boxMesh拢漏隆拢
   ==============================================================================*/
 #pragma once
 
@@ -24,56 +24,60 @@ namespace sc
 
         void setMesh(Mesh* sharedBox) noexcept { boxMesh = sharedBox; }
 
-        /** 当前帧速度（提供给相机做软跟随判定用）。 */
+        /** 碌卤脟掳脰隆脣脵露脠拢篓脤谩鹿漏赂酶脧脿禄煤脳枚脠铆赂煤脣忙脜脨露篓脫脙拢漏隆拢 */
         Vec3 getVelocity() const noexcept { return velocity; }
 
-        /** 由 World 注入：当前相机的水平面 forward / right，用于"沿相机方向移动"。 */
+        /** 脫脡 World 脳垄脠毛拢潞碌卤脟掳脧脿禄煤碌脛脣庐脝陆脙忙 forward / right拢卢脫脙脫脷"脩脴脧脿禄煤路陆脧貌脪脝露炉"隆拢 */
         void setBasis(const Vec3& forward, const Vec3& right) noexcept
         {
             camForward = forward;
             camRight = right;
         }
 
-        // Player.h - update() 函数改进
+        // Player.h - update() 潞炉脢媒赂脛陆酶
         void update(float dt, const InputState& in) override
         {
-            // ---- 输入方向（跟随相机） ----
+            // ---- 脢盲脠毛路陆脧貌拢篓赂煤脣忙脧脿禄煤拢漏 ----
             Vec3 input{ 0, 0, 0 };
             if (in.keyUp)    input = input + camForward;
             if (in.keyDown)  input = input - camForward;
-            if (in.keyRight) input = input + camRight;
-            if (in.keyLeft)  input = input - camRight;
+            if (in.keyRight) input = input - camRight;
+            if (in.keyLeft)  input = input + camRight;
             input.z = 0.0f;
 
             const float len2 = input.x * input.x + input.y * input.y;
-            const bool hasInput = len2 > 0.01f;  // [改] 阈值更合理
+            const bool hasInput = len2 > 0.01f;  // [赂脛] 茫脨脰碌赂眉潞脧脌铆
             if (hasInput) input = normalize({ input.x, input.y, 0.0f });
 
-            // ---- 目标速度 ----
+            // ---- 脛驴卤锚脣脵露脠 ----
             const Vec3 targetVel = hasInput
                 ? Vec3{ input.x * targetSpeed, input.y * targetSpeed, 0.0f }
             : Vec3{ 0, 0, 0 };
 
-            // [改] 加速/阻尼率调整
-            const float accelRate = hasInput ? 0.88f : 0.85f;  // 更大的值 = 更快反应
+            // [赂脛] 录脫脣脵/脳猫脛谩脗脢碌梅脮没
+            const float accelRate = hasInput ? 0.88f : 0.85f;  // 赂眉麓贸碌脛脰碌 = 赂眉驴矛路麓脫娄
             velocity.x = easing::damp(velocity.x, targetVel.x, accelRate, dt);
             velocity.y = easing::damp(velocity.y, targetVel.y, accelRate, dt);
 
-            // [改] 清零阈值
+            // [赂脛] 脟氓脕茫茫脨脰碌
             if (!hasInput)
             {
                 if (std::abs(velocity.x) < 0.05f) velocity.x = 0.0f;
                 if (std::abs(velocity.y) < 0.05f) velocity.y = 0.0f;
             }
 
-            // ---- 位置 ----
-            worldPos.x += velocity.x * dt;
+            // ---- 脦禄脰脙 ----
+            worldPos.x += -velocity.x * dt;
             worldPos.y += velocity.y * dt;
 
-            // ---- 朝向 ----
+            // ---- 鲁炉脧貌 ----
             if (hasInput)
             {
-                const float targetYaw = std::atan2(input.x, input.y);
+                // 脨脼脮媒拢潞陆芦脢脌陆莽脳酶卤锚脢盲脠毛脳陋禄禄禄脴脧脿禄煤驴脮录盲碌脛陆脟露脠
+                // input 脪脩戮颅脢脟碌楼脦禄脧貌脕驴拢卢decompose 脦陋脧脿禄煤脟掳潞贸脫毛脳贸脫脪路脰脕驴
+                const float forwardComp = input.x * camForward.x + input.y * camForward.y;
+                const float rightComp = input.x * camRight.x + input.y * camRight.y;
+                const float targetYaw = std::atan2(rightComp, forwardComp);
                 yaw = easing::damp(yaw, targetYaw, 0.95f, dt);
             }
         }
@@ -82,23 +86,23 @@ namespace sc
         {
             if (!visible || boxMesh == nullptr) return;
 
-            // 抬高半个身位，让立方体的底面贴地（box 中心在 z=0）
+            // 脤搂赂脽掳毛赂枚脡铆脦禄拢卢脠脙脕垄路陆脤氓碌脛碌脳脙忙脤霉碌脴拢篓box 脰脨脨脛脭脷 z=0拢漏
             const Mat4 model = translation({ worldPos.x, worldPos.y, scale.z * 0.5f })
                 * rotationZ(yaw)
                 * scaling(scale);
             r.drawMesh(*boxMesh, model, { 0.85f, 0.30f, 0.30f });
         }
 
-        // ---- 调参（沿用旧 demo 的手感，单位：每秒） ----
-        float targetSpeed{ 4.0f };   // 旧值是每帧 5.0 像素 ≈ 300px/s，这里换成世界单位
-        float accelPerSec{ 0.99f };  // 越接近 1 加速越快（damp rate）
-        float dampPerSec{ 0.98f };  // 松手减速
+        // ---- 碌梅虏脦拢篓脩脴脫脙戮脡 demo 碌脛脢脰赂脨拢卢碌楼脦禄拢潞脙驴脙毛拢漏 ----
+        float targetSpeed{ 4.0f };   // 戮脡脰碌脢脟脙驴脰隆 5.0 脧帽脣脴 隆脰 300px/s拢卢脮芒脌茂禄禄鲁脡脢脌陆莽碌楼脦禄
+        float accelPerSec{ 0.99f };  // 脭陆陆脫陆眉 1 录脫脣脵脭陆驴矛拢篓damp rate拢漏
+        float dampPerSec{ 0.98f };  // 脣脡脢脰录玫脣脵
 
     private:
         Vec3 velocity{ 0, 0, 0 };
         Vec3 camForward{ 0, 1, 0 };
         Vec3 camRight{ 1, 0, 0 };
 
-        Mesh* boxMesh{ nullptr }; // 由 World 共享
+        Mesh* boxMesh{ nullptr }; // 脫脡 World 鹿虏脧铆
     };
 }

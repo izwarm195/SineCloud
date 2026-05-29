@@ -2,10 +2,10 @@
   ==============================================================================
     KnobEntity.h
     Layer 3: Game / Interaction
-    地面旋钮：底座圆柱 + 顶盖 + 指针条。
-    数值变化只改 pointerYaw（model 矩阵旋转），shader 自然透视。
-    交互：玩家靠近 -> Focused；鼠标按下命中顶盖 -> Dragging（喂 InertialValue）。
-    数值同步：InertialValue.onValueChanged -> ParamBridge.write
+    碌脴脙忙脨媒脜楼拢潞碌脳脳霉脭虏脰霉 + 露楼赂脟 + 脰赂脮毛脤玫隆拢
+    脢媒脰碌卤盲禄炉脰禄赂脛 pointerYaw拢篓model 戮脴脮贸脨媒脳陋拢漏拢卢shader 脳脭脠禄脥赂脢脫隆拢
+    陆禄禄楼拢潞脥忙录脪驴驴陆眉 -> Focused拢禄脢贸卤锚掳麓脧脗脙眉脰脨露楼赂脟 -> Dragging拢篓脦鹿 InertialValue拢漏隆拢
+    脢媒脰碌脥卢虏陆拢潞InertialValue.onValueChanged -> ParamBridge.write
               ParamBridge.onHostChanged   -> InertialValue.setValueFromHost
   ==============================================================================*/
 #pragma once
@@ -25,25 +25,25 @@ namespace sc
             const juce::String& displayName)
             : bridge(apvts, paramId), label(displayName)
         {
-            // 用 ParamBridge 推断范围
+            // 脫脙 ParamBridge 脥脝露脧路露脦搂
             const auto rng = bridge.getRange();
             inertia.setRange(rng.start, rng.end);
             inertia.setDragRangePixels(400.0f);
             inertia.setFrictionPerSecond(0.05f);
             inertia.setInertiaGain(0.6f);
 
-            // 当前真实值 -> InertialValue
+            // 碌卤脟掳脮忙脢碌脰碌 -> InertialValue
             inertia.setValueFromHost(bridge.read());
 
             // InertialValue -> APVTS
             inertia.onValueChanged = [this](float v) { bridge.write(v); };
 
-            // APVTS（host 自动化 / preset）-> InertialValue
+            // APVTS拢篓host 脳脭露炉禄炉 / preset拢漏-> InertialValue
             bridge.onHostChanged = [this](float v) { inertia.setValueFromHost(v); };
         }
 
         //----------------------------------------------------------------------
-        // 共享 mesh（World 提供）
+        // 鹿虏脧铆 mesh拢篓World 脤谩鹿漏拢漏
         //----------------------------------------------------------------------
         void setMeshes(Mesh* baseCylinder, Mesh* pointerBox) noexcept
         {
@@ -52,7 +52,7 @@ namespace sc
         }
 
         //----------------------------------------------------------------------
-        // 几何
+        // 录赂潞脦
         //----------------------------------------------------------------------
         void setRadius(float r) noexcept { radius = juce::jmax(0.05f, r); }
         void setHeight(float h) noexcept { height = juce::jmax(0.05f, h); }
@@ -61,7 +61,7 @@ namespace sc
         float getHeight() const noexcept { return height; }
 
         //----------------------------------------------------------------------
-        // 状态
+        // 脳麓脤卢
         //----------------------------------------------------------------------
         bool isFocused()  const noexcept { return focused; }
         bool isDragging() const noexcept { return dragging; }
@@ -70,7 +70,7 @@ namespace sc
         float getValueNormalised() const noexcept { return inertia.getNormalised(); }
 
         //----------------------------------------------------------------------
-        // 拾取：玩家位置 / 鼠标射线
+        // 脢掳脠隆拢潞脥忙录脪脦禄脰脙 / 脢贸卤锚脡盲脧脽
         //----------------------------------------------------------------------
         bool isWithinReach(const Vec3& playerPos, float reach) const noexcept
         {
@@ -79,11 +79,11 @@ namespace sc
             return dx * dx + dy * dy <= reach * reach;
         }
 
-        /** 简单包围球 / 圆柱拾取（顶盖区域）。 */
+        /** 录貌碌楼掳眉脦搂脟貌 / 脭虏脰霉脢掳脠隆拢篓露楼赂脟脟酶脫貌拢漏隆拢 */
         bool intersectsRay(const Ray& ray) const noexcept
         {
-            // 把旋钮看作 z ∈ [0, height + capHeight] 的竖直圆柱（半径 radius）
-            // 求 ray 与无限圆柱（轴沿 z）的交点，再 clamp z
+            // 掳脩脨媒脜楼驴麓脳梅 z 隆脢 [0, height + capHeight] 碌脛脢煤脰卤脭虏脰霉拢篓掳毛戮露 radius拢漏
+            // 脟贸 ray 脫毛脦脼脧脼脭虏脰霉拢篓脰谩脩脴 z拢漏碌脛陆禄碌茫拢卢脭脵 clamp z
             const float ox = ray.origin.x - worldPos.x;
             const float oy = ray.origin.y - worldPos.y;
             const float dx = ray.direction.x;
@@ -108,19 +108,19 @@ namespace sc
         }
 
         //----------------------------------------------------------------------
-        // 由 World 推动
+        // 脫脡 World 脥脝露炉
         //----------------------------------------------------------------------
-        /** 玩家是否在交互距离内（决定 Focused 状态）。 */
+        /** 脥忙录脪脢脟路帽脭脷陆禄禄楼戮脿脌毛脛脷拢篓戮枚露篓 Focused 脳麓脤卢拢漏隆拢 */
         void setFocused(bool f) noexcept { focused = f; }
 
-        /** 鼠标按下命中本旋钮 -> 进入拖拽。 */
+        /** 脢贸卤锚掳麓脧脗脙眉脰脨卤戮脨媒脜楼 -> 陆酶脠毛脥脧脳搂隆拢 */
         void beginMouseDrag() noexcept
         {
             dragging = true;
             inertia.beginDrag();
         }
 
-        /** 拖拽过程中的 mouse delta（像素）。 */
+        /** 脥脧脳搂鹿媒鲁脤脰脨碌脛 mouse delta拢篓脧帽脣脴拢漏隆拢 */
         void onMouseDragDelta(juce::Point<float> delta) noexcept
         {
             if (!dragging) return;
@@ -146,9 +146,9 @@ namespace sc
         {
             if (!visible || cylMesh == nullptr || ptrMesh == nullptr) return;
 
-            // ---- 底座圆柱：z ∈ [0, height]，半径 radius ----
-            // 共享 mesh 是 createCylinder(0.5f, 1.0f, segs)，所以对位用 scale(radius*2, ...)
-            // 但 createCylinder 直接是 (radius, height) 真实尺寸，World 那边创建时按 1.0/1.0 -> 这里非均匀缩放
+            // ---- 碌脳脳霉脭虏脰霉拢潞z 隆脢 [0, height]拢卢掳毛戮露 radius ----
+            // 鹿虏脧铆 mesh 脢脟 createCylinder(0.5f, 1.0f, segs)拢卢脣霉脪脭露脭脦禄脫脙 scale(radius*2, ...)
+            // 碌芦 createCylinder 脰卤陆脫脢脟 (radius, height) 脮忙脢碌鲁脽麓莽拢卢World 脛脟卤脽麓麓陆篓脢卤掳麓 1.0/1.0 -> 脮芒脌茂路脟戮霉脭脠脣玫路脜
             const Mat4 baseModel = translation(worldPos)
                 * rotationZ(yaw)
                 * scaling({ radius, radius, height });
@@ -158,7 +158,7 @@ namespace sc
             : Vec3{ 0, 0, 0 };
             r.drawMesh(*cylMesh, baseModel, baseColor, emissive);
 
-            // ---- 顶盖：在 height 之上叠一个矮圆柱 ----
+            // ---- 露楼赂脟拢潞脭脷 height 脰庐脡脧碌镁脪禄赂枚掳芦脭虏脰霉 ----
             const Mat4 capModel = translation({ worldPos.x, worldPos.y, worldPos.z + height })
                 * rotationZ(yaw)
                 * scaling({ radius * 0.95f, radius * 0.95f, capHeight });
@@ -166,13 +166,13 @@ namespace sc
                 focused ? Vec3{ 0.80f, 0.80f, 0.85f }
             : Vec3{ 0.65f, 0.65f, 0.70f });
 
-            // ---- 指针：从中心指向"前"，旋转角根据归一化值 ----
-            // 数值 0~1 映射到 [-135°, +135°]
+            // ---- 脰赂脮毛拢潞麓脫脰脨脨脛脰赂脧貌"脟掳"拢卢脨媒脳陋陆脟赂霉戮脻鹿茅脪禄禄炉脰碌 ----
+            // 脢媒脰碌 0~1 脫鲁脡盲碌陆 [-135隆茫, +135隆茫]
             const float t = inertia.getNormalised();
             const float ptrAngle = juce::degreesToRadians(-135.0f)
                 + juce::degreesToRadians(270.0f) * t;
 
-            // 指针条：长 = 0.85*radius，宽/厚 = 很薄；中心在顶盖上方一点
+            // 脰赂脮毛脤玫拢潞鲁陇 = 0.85*radius拢卢驴铆/潞帽 = 潞脺卤隆拢禄脰脨脨脛脭脷露楼赂脟脡脧路陆脪禄碌茫
             const float pLen = radius * 0.85f;
             const float pThk = radius * 0.10f;
 
@@ -180,7 +180,7 @@ namespace sc
                                                 worldPos.y,
                                                 worldPos.z + height + capHeight + pThk * 0.5f })
                 * rotationZ(yaw + ptrAngle)
-                // 指针条在 +X 方向延伸：先平移到自身中点
+                // 脰赂脮毛脤玫脭脷 +X 路陆脧貌脩脫脡矛拢潞脧脠脝陆脪脝碌陆脳脭脡铆脰脨碌茫
                 * translation({ pLen * 0.5f, 0.0f, 0.0f })
                 * scaling({ pLen, pThk, pThk });
             r.drawMesh(*ptrMesh, ptrModel, { 0.95f, 0.95f, 0.98f },
@@ -188,21 +188,21 @@ namespace sc
         }
 
     private:
-        // 桥接
+        // 脟脜陆脫
         ParamBridge   bridge;
         InertialValue inertia;
         juce::String  label;
 
-        // 几何参数
+        // 录赂潞脦虏脦脢媒
         float radius{ 0.6f };
         float height{ 0.4f };
         float capHeight{ 0.15f };
 
-        // 共享 mesh
+        // 鹿虏脧铆 mesh
         Mesh* cylMesh{ nullptr };
         Mesh* ptrMesh{ nullptr };
 
-        // 状态
+        // 脳麓脤卢
         bool focused{ false };
         bool dragging{ false };
 

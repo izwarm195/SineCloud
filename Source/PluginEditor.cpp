@@ -18,6 +18,10 @@ SineCloudAudioProcessorEditor::SineCloudAudioProcessorEditor(SineCloudAudioProce
     sceneView = std::make_unique<sc::SceneView>();
     sceneView->setWorld(world.get());
     addAndMakeVisible(*sceneView);
+
+    repaint();
+    setSize(getWidth() + 1, getHeight());
+    setSize(getWidth() - 1, getHeight());//偷偷改一下窗口大小
 }
 
 SineCloudAudioProcessorEditor::~SineCloudAudioProcessorEditor()

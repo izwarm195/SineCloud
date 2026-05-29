@@ -2,9 +2,9 @@
   ==============================================================================
     BossEntity.h
     Layer 3: Game / Interaction
-    占位骨架。按方案，BossEntity 持有一个目标 KnobEntity*（或 paramId）+ HP +
-    攻击模式；玩家攻击命中时通过 onHit() 触发对参数的扰动。
-    本阶段不实例化进 World，仅保留接口。
+    脮录脦禄鹿脟录脺隆拢掳麓路陆掳赂拢卢BossEntity 鲁脰脫脨脪禄赂枚脛驴卤锚 KnobEntity*拢篓禄貌 paramId拢漏+ HP +
+    鹿楼禄梅脛拢脢陆拢禄脥忙录脪鹿楼禄梅脙眉脰脨脢卤脥篓鹿媒 onHit() 麓楼路垄露脭虏脦脢媒碌脛脠脜露炉隆拢
+    卤戮陆脳露脦虏禄脢碌脌媒禄炉陆酶 World拢卢陆枚卤拢脕么陆脫驴脷隆拢
   ==============================================================================*/
 #pragma once
 
@@ -20,7 +20,7 @@ namespace sc
 
         void setTargetKnob(KnobEntity* k) noexcept { targetKnob = k; }
 
-        /** 玩家攻击命中：把伤害转化为对目标参数的"踢一下"。 */
+        /** 脥忙录脪鹿楼禄梅脙眉脰脨拢潞掳脩脡脣潞娄脳陋禄炉脦陋露脭脛驴卤锚虏脦脢媒碌脛"脤脽脪禄脧脗"隆拢 */
         virtual void onHit(float /*damage*/) {}
 
         // TODO: HP / phase / attack patterns

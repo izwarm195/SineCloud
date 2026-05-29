@@ -2,17 +2,17 @@
   ==============================================================================
     World.h
     Layer 3: Game / Interaction
-    场景容器：拥有共享 mesh、Player、若干 KnobEntity。
-    每帧：
-      1. 把相机水平面 basis 注入 Player；
-      2. update 所有 entity；
-      3. 计算 Player 与各 Knob 的距离 -> Focused 状态；
-      4. 把 pivot 软跟随到 Player；
-      5. draw 所有 entity。
-    鼠标交互：
-      - mousePress(ray) -> 对 KnobEntity 做拾取，若命中且 Focused，开始拖拽
-      - mouseDrag(deltaPx) -> 推 InertialValue
-      - mouseRelease() -> 结束拖拽
+    鲁隆戮掳脠脻脝梅拢潞脫碌脫脨鹿虏脧铆 mesh隆垄Player隆垄脠么赂脡 KnobEntity隆拢
+    脙驴脰隆拢潞
+      1. 掳脩脧脿禄煤脣庐脝陆脙忙 basis 脳垄脠毛 Player拢禄
+      2. update 脣霉脫脨 entity拢禄
+      3. 录脝脣茫 Player 脫毛赂梅 Knob 碌脛戮脿脌毛 -> Focused 脳麓脤卢拢禄
+      4. 掳脩 pivot 脠铆赂煤脣忙碌陆 Player拢禄
+      5. draw 脣霉脫脨 entity隆拢
+    脢贸卤锚陆禄禄楼拢潞
+      - mousePress(ray) -> 露脭 KnobEntity 脳枚脢掳脠隆拢卢脠么脙眉脰脨脟脪 Focused拢卢驴陋脢录脥脧脳搂
+      - mouseDrag(deltaPx) -> 脥脝 InertialValue
+      - mouseRelease() -> 陆谩脢酶脥脧脳搂
   ==============================================================================*/
 #pragma once
 
@@ -34,20 +34,20 @@ namespace sc
     public:
         explicit World(SineCloudAudioProcessor& p);
 
-        // GL 资源生命周期（与 SceneView 的 newOpenGLContextCreated/Closing 对齐）
+        // GL 脳脢脭麓脡煤脙眉脰脺脝脷拢篓脫毛 SceneView 碌脛 newOpenGLContextCreated/Closing 露脭脝毛拢漏
         void uploadMeshes(juce::OpenGLContext& ctx);
         void releaseMeshes(juce::OpenGLContext& ctx);
 
-        // 主循环
+        // 脰梅脩颅禄路
         void update(float dt, const InputState& in, Camera& cam);
         void draw(Renderer& r, const Camera& cam);
 
-        // 鼠标
+        // 脢贸卤锚
         bool onMousePress(const Ray& worldRay);
         void onMouseDragDelta(juce::Point<float> deltaPx);
         void onMouseRelease();
 
-        // 调试 / 信息
+        // 碌梅脢脭 / 脨脜脧垄
         Player& getPlayer() noexcept { return *player; }
         const std::vector<std::unique_ptr<KnobEntity>>& getKnobs() const noexcept { return knobs; }
 
@@ -56,21 +56,21 @@ namespace sc
 
         SineCloudAudioProcessor& processor;
 
-        // 共享 mesh
+        // 鹿虏脧铆 mesh
         std::unique_ptr<Mesh> groundMesh;   // GL_LINES
         std::unique_ptr<Mesh> boxMesh;      // 1x1x1
-        std::unique_ptr<Mesh> cylMesh;      // 半径 1, 高 1
-        std::unique_ptr<Mesh> ptrMesh;      // 1x1x1（用作指针条，靠 scale 拉成长条）
+        std::unique_ptr<Mesh> cylMesh;      // 掳毛戮露 1, 赂脽 1
+        std::unique_ptr<Mesh> ptrMesh;      // 1x1x1拢篓脫脙脳梅脰赂脮毛脤玫拢卢驴驴 scale 脌颅鲁脡鲁陇脤玫拢漏
 
-        // 实体
+        // 脢碌脤氓
         std::unique_ptr<Player> player;
         std::vector<std::unique_ptr<KnobEntity>> knobs;
 
-        // 拖拽中的旋钮
+        // 脥脧脳搂脰脨碌脛脨媒脜楼
         KnobEntity* draggingKnob{ nullptr };
 
-        // 调参
-        float interactReach{ 1.6f }; // 玩家到旋钮中心的"focus"距离
+        // 碌梅虏脦
+        float interactReach{ 1.6f }; // 脥忙录脪碌陆脨媒脜楼脰脨脨脛碌脛"focus"戮脿脌毛
         float pivotFollowRate{ 0.92f };
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(World)
