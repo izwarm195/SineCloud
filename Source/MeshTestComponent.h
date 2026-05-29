@@ -11,6 +11,7 @@
 #pragma once
 #include <JuceHeader.h>
 #include "Mesh.h"
+#include "BinaryData.h"
 
 //==============================================================================
 // ×îÐ¡¿ÉÐÐµÄ GL äÖÈ¾²âÊÔ£º°Ñ BinaryData::cube_obj äÖÈ¾µ½Ô­µã

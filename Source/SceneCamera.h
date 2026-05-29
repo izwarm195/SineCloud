@@ -64,30 +64,7 @@ public:
     //--- ÆÁÄ»ÖÐÐÄµØÃæµã£¨Ðý×ªÖ§µãÓÃ£©---
     Vec3 getGroundCenterWorld() const { return pivot; }  // ¼ò»¯£ºÊ¼ÖÕÊÇ pivot
 
-    //--- GL 矩阵：与 worldToScreen 用同样的 yaw/pitch/orbit/pivot/focal ---
-    juce::Matrix3D<float> getViewMatrix() const
-    {
-        // eye = camPos, target = pivot, up = +Z
-        const juce::Vector3D<float> eye{ camPos.x, camPos.y, camPos.z };
-        const juce::Vector3D<float> target{ pivot.x,  pivot.y,  pivot.z };
-        const juce::Vector3D<float> upV{ 0.0f, 0.0f, 1.0f };
-
-        auto fwd = target - eye; fwd = fwd / fwd.length();
-        auto rgt = fwd ^ upV;    rgt = rgt / rgt.length();
-        auto upT = rgt ^ fwd;
-
-        auto dot = [](juce::Vector3D<float> a, juce::Vector3D<float> b)
-            { return a.x * b.x + a.y * b.y + a.z * b.z; };
-
-        float m[16] = {
-             rgt.x,  upT.x, -fwd.x, 0.0f,
-             rgt.y,  upT.y, -fwd.y, 0.0f,
-             rgt.z,  upT.z, -fwd.z, 0.0f,
-            -dot(rgt, eye), -dot(upT, eye), dot(fwd, eye), 1.0f
-        };
-        return juce::Matrix3D<float>(m);
-    }
-
+   
     juce::Matrix3D<float> getProjMatrix(float aspect, float zNear = 1.0f, float zFar = 5000.0f) const
     {
         // 用现有 focal 反推 fov：focal 越大 fov 越小（你现在 focal=1800 大致是 30 度多）

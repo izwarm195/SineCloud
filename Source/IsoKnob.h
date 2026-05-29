@@ -79,25 +79,25 @@ public:
     }
 
 
-void applyIsoTransform(const SceneCamera& cam)
-    {
-        // ÐýÅ¥Ñ¹±âÏµÊý = sin(pitch) * yScale
-        // pitch=90¡ã ÍêÈ«¸©ÊÓ ¡ú squash = yScale£¬y ·½Ïò×îÃ÷ÏÔ
-        // pitch=30¡ã Ä¬ÈÏ       ¡ú squash ¡Ö 0.5 * 0.7 = 0.35£¬±â
-        const float squash = std::max(0.3f, std::sin(cam.getPitch()) * cam.getYAxisScale() + 0.3f);
-        const float shearX = cam.getYAxisScale() * std::cos(cam.getPitch()) * 0.5f;
-
-        const float cx = getWidth() * 0.5f;
-        const float cy = getHeight() * 0.5f;
-
-        auto t = juce::AffineTransform()
-            .translated(-cx, -cy)
-            .sheared(shearX, 0.0f)
-            .scaled(1.0f, squash)
-            .translated(cx, cy);
-
-        setTransform(t);
-    }
+//void applyIsoTransform(const SceneCamera& cam)
+//    {
+//        // ÐýÅ¥Ñ¹±âÏµÊý = sin(pitch) * yScale
+//        // pitch=90¡ã ÍêÈ«¸©ÊÓ ¡ú squash = yScale£¬y ·½Ïò×îÃ÷ÏÔ
+//        // pitch=30¡ã Ä¬ÈÏ       ¡ú squash ¡Ö 0.5 * 0.7 = 0.35£¬±â
+//        const float squash = std::max(0.3f, std::sin(cam.getPitch()) * cam.getYAxisScale() + 0.3f);
+//        const float shearX = cam.getYAxisScale() * std::cos(cam.getPitch()) * 0.5f;
+//
+//        const float cx = getWidth() * 0.5f;
+//        const float cy = getHeight() * 0.5f;
+//
+//        auto t = juce::AffineTransform()
+//            .translated(-cx, -cy)
+//            .sheared(shearX, 0.0f)
+//            .scaled(1.0f, squash)
+//            .translated(cx, cy);
+//
+//        setTransform(t);
+//    }
 
 
 

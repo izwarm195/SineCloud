@@ -15,7 +15,7 @@
 
 // °Ñ tinyobjloader µÄ IMPLEMENTATION ·ÅÔÚ .cpp Àï£¬ÕâÀïÖ»ÉùÃ÷
 // µ«ÒòÎª tinyobjloader ÊÇ single-header£¬ÎÒÃÇÒ»»á¶ùÔÚ Mesh.cpp Àï #define Ëü
-struct tinyobj_dummy_forward {};
+// struct tinyobj_dummy_forward {};
 
 //==============================================================================
 struct MeshVertex
