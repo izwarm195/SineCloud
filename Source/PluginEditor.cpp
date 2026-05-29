@@ -101,13 +101,14 @@ SineCloudAudioProcessorEditor::SineCloudAudioProcessorEditor(SineCloudAudioProce
 
     startTimerHz(15);  // Ë¢ÐÂ Root ÏÔÊ¾
     
-    //if (kUseMeshTest)
-    //{
-    //    meshTest = std::make_unique<MeshTestComponent>();
-    //    addAndMakeVisible(*meshTest);
-    //    setSize(800, 600);
-    //    return;   // 暂时跳过其他 UI
-    //}
+    // PluginEditor.cpp 构造函数末尾，在 sceneDemo 的 if 块之外或替换：
+    
+    /*if (kUseMeshTest)
+    {
+        meshTest = std::make_unique<MeshTestComponent>();
+        addAndMakeVisible(*meshTest);
+        setSize(800, 600);
+    }*/
     
     if (kUseSceneDemo)
     {
@@ -115,10 +116,8 @@ SineCloudAudioProcessorEditor::SineCloudAudioProcessorEditor(SineCloudAudioProce
         addAndMakeVisible(*sceneDemo);
         setSize(1180, 700);
     }
-
-   
-
-
+    
+    
 }
 
 SineCloudAudioProcessorEditor::~SineCloudAudioProcessorEditor() = default;
@@ -173,6 +172,11 @@ void SineCloudAudioProcessorEditor::paint(juce::Graphics& g)
 
 void SineCloudAudioProcessorEditor::resized()
 {
+    if (meshTest != nullptr)
+    {
+        meshTest->setBounds(getLocalBounds());
+        return;
+    }
     if (sceneDemo != nullptr)
     {
         sceneDemo->setBounds(getLocalBounds());

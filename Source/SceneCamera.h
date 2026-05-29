@@ -65,26 +65,6 @@ public:
     Vec3 getGroundCenterWorld() const { return pivot; }  // ¼ò»¯£ºÊ¼ÖÕÊÇ pivot
 
    
-    juce::Matrix3D<float> getProjMatrix(float aspect, float zNear = 1.0f, float zFar = 5000.0f) const
-    {
-        // 用现有 focal 反推 fov：focal 越大 fov 越小（你现在 focal=1800 大致是 30 度多）
-        // 这里用屏幕高度作为参考：fov_y = 2 * atan(screenH / (2 * focal))
-        // 但 screenH 这里没存，简化用一个近似：focal=1200 → 约 53°，focal=1800 → 约 37°
-        const float refH = 600.0f; // 参考屏高
-        const float fovY = 2.0f * std::atan(refH / (2.0f * focal));
-
-        const float f = 1.0f / std::tan(fovY * 0.5f);
-        float m[16] = {
-            f / aspect, 0.0f, 0.0f,                              0.0f,
-            0.0f,       f,    0.0f,                              0.0f,
-            0.0f,       0.0f, (zFar + zNear) / (zNear - zFar),  -1.0f,
-            0.0f,       0.0f, (2.0f * zFar * zNear) / (zNear - zFar), 0.0f
-        };
-        return juce::Matrix3D<float>(m);
-    }
-
-
-
     //--- Í¶Ó° ---
     juce::Point<float> worldToScreen(Vec3 w) const
     {
