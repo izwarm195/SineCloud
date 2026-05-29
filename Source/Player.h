@@ -77,7 +77,7 @@ namespace sc
                 // input ÒÑ¾­ÊÇµ¥Î»ÏòÁ¿£¬decompose ÎªÏà»úÇ°ºóÓë×óÓÒ·ÖÁ¿
                 const float forwardComp = input.x * camForward.x + input.y * camForward.y;
                 const float rightComp = input.x * camRight.x + input.y * camRight.y;
-                const float targetYaw = std::atan2(rightComp, forwardComp);
+                const float targetYaw = std::atan2(input.x, input.y);
                 yaw = easing::damp(yaw, targetYaw, 0.95f, dt);
             }
         }
