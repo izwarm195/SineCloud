@@ -2,7 +2,7 @@
 
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
-#include "MeshTestComponent.h"
+#include "SceneView.h"
 
 //==============================================================================
 // 极简 editor：整个客户区交给一个 GL 场景视口（当前是 MeshTestComponent，
@@ -23,7 +23,7 @@ private:
 
     // 当前阶段：直接挂 MeshTestComponent。
     // 下一步会改成 std::unique_ptr<SceneView> sceneView; 同样的位置。
-    std::unique_ptr<MeshTestComponent> sceneView;
+    std::unique_ptr<sc::SceneView> sceneView;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SineCloudAudioProcessorEditor)
 };

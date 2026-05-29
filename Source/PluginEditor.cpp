@@ -10,8 +10,9 @@ SineCloudAudioProcessorEditor::SineCloudAudioProcessorEditor(SineCloudAudioProce
     setResizeLimits(640, 360, 1920, 1080);
     setSize(960, 600);
 
-    sceneView = std::make_unique<MeshTestComponent>();
+    sceneView = std::make_unique<sc::SceneView>();
     addAndMakeVisible(*sceneView);
+
 
     setWantsKeyboardFocus(true);
 }

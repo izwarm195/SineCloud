@@ -1,170 +1,309 @@
 /*
   ==============================================================================
-
     Mesh.cpp
-    Created: 29 May 2026 12:48:03pm
-    Author:  wzm
-
+    Layer 2: Scene & Renderer
   ==============================================================================
 */
-
 #include "Mesh.h"
+#include "GLUtils.h"
 
-// tinyobjloader£ºÔÚÕâÒ»¸ö .cpp Àï define IMPLEMENTATION
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h"
 
-#include <sstream>
 #include <unordered_map>
+#include <sstream>
+#include <cmath>
 
-//==============================================================================
-// ÓÃ pos/normal/uv ÈýÔª×éµÄ×Ö·û´®×÷ key£¬È¥ÖØÉú³Éµ¥Ò» index buffer
-// ÕâÊÇ .obj ×ª OpenGL ¶¥µã¸ñÊ½µÄ±ê×¼×ö·¨
-static inline std::string makeKey(int p, int n, int t)
+namespace sc
 {
-    return std::to_string(p) + "/" + std::to_string(n) + "/" + std::to_string(t);
-}
-
-bool Mesh::loadFromObjMemory(const char* objText, size_t length)
-{
-    vertices.clear();
-    indices.clear();
-
-    tinyobj::attrib_t attrib;
-    std::vector<tinyobj::shape_t>    shapes;
-    std::vector<tinyobj::material_t> materials;
-    std::string warn, err;
-
-    // tinyobj Ã»ÓÐ"´ÓÄÚ´æ¼ÓÔØ"µÄ¹Ù·½±ãÀû API£¬ÓÃ stringstream °üÒ»²ã
-    std::string text(objText, length);
-    std::istringstream iss(text);
-
-    // MaterialReader ¸ø nullptr£¬ÒòÎªÎÒÃÇ²»¶Á .mtl
-    bool ok = tinyobj::LoadObj(&attrib, &shapes, &materials,
-        &warn, &err, &iss, nullptr,
-        /*triangulate=*/ true);
-
-    if (!warn.empty()) DBG("tinyobj warn: " << warn);
-    if (!err.empty()) DBG("tinyobj err : " << err);
-    if (!ok)           return false;
-
-    std::unordered_map<std::string, unsigned int> uniqueMap;
-
-    for (const auto& shape : shapes)
+    //==========================================================================
+    // OBJ 加载（行为与旧版本一致，仅迁入命名空间）
+    //==========================================================================
+    static inline std::string makeKey(int p, int n, int t)
     {
-        for (const auto& idx : shape.mesh.indices)
-        {
-            const auto key = makeKey(idx.vertex_index, idx.normal_index, idx.texcoord_index);
-
-            auto it = uniqueMap.find(key);
-            if (it != uniqueMap.end())
-            {
-                indices.push_back(it->second);
-                continue;
-            }
-
-            MeshVertex v{};
-
-            const int pi = idx.vertex_index;
-            v.px = attrib.vertices[3 * pi + 0];
-            v.py = attrib.vertices[3 * pi + 1];
-            v.pz = attrib.vertices[3 * pi + 2];
-
-            if (idx.normal_index >= 0)
-            {
-                const int ni = idx.normal_index;
-                v.nx = attrib.normals[3 * ni + 0];
-                v.ny = attrib.normals[3 * ni + 1];
-                v.nz = attrib.normals[3 * ni + 2];
-            }
-            else
-            {
-                v.nx = 0.0f; v.ny = 0.0f; v.nz = 1.0f;
-            }
-
-            if (idx.texcoord_index >= 0)
-            {
-                const int ti = idx.texcoord_index;
-                v.u = attrib.texcoords[2 * ti + 0];
-                v.v = attrib.texcoords[2 * ti + 1];
-            }
-            else
-            {
-                v.u = 0.0f; v.v = 0.0f;
-            }
-
-            const auto newIndex = (unsigned int)vertices.size();
-            vertices.push_back(v);
-            uniqueMap[key] = newIndex;
-            indices.push_back(newIndex);
-        }
+        return std::to_string(p) + "/" + std::to_string(n) + "/" + std::to_string(t);
     }
 
-    DBG("Mesh loaded: " << (int)vertices.size() << " vertices, "
-        << (int)indices.size() << " indices");
-    return true;
-}
+    bool Mesh::loadFromObjMemory(const char* objText, size_t length)
+    {
+        vertices.clear();
+        indices.clear();
 
-//==============================================================================
-void Mesh::uploadToGPU(juce::OpenGLContext& ctx)
-{
-    auto& gl = ctx.extensions;
+        tinyobj::attrib_t attrib;
+        std::vector<tinyobj::shape_t> shapes;
+        std::vector<tinyobj::material_t> materials;
+        std::string warn, err;
 
-    gl.glGenVertexArrays(1, &vao);
-    gl.glBindVertexArray(vao);
+        std::string text(objText, length);
+        std::istringstream iss(text);
 
-    gl.glGenBuffers(1, &vbo);
-    gl.glBindBuffer(juce::gl::GL_ARRAY_BUFFER, vbo);
-    gl.glBufferData(juce::gl::GL_ARRAY_BUFFER,
-        (GLsizeiptr)(vertices.size() * sizeof(MeshVertex)),
-        vertices.data(),
-        juce::gl::GL_STATIC_DRAW);
+        bool ok = tinyobj::LoadObj(&attrib, &shapes, &materials,
+            &warn, &err, &iss, nullptr,
+            /*triangulate=*/ true);
+        if (!warn.empty()) DBG("tinyobj warn: " << warn);
+        if (!err.empty())  DBG("tinyobj err : " << err);
+        if (!ok) return false;
 
-    gl.glGenBuffers(1, &ebo);
-    gl.glBindBuffer(juce::gl::GL_ELEMENT_ARRAY_BUFFER, ebo);
-    gl.glBufferData(juce::gl::GL_ELEMENT_ARRAY_BUFFER,
-        (GLsizeiptr)(indices.size() * sizeof(unsigned int)),
-        indices.data(),
-        juce::gl::GL_STATIC_DRAW);
+        std::unordered_map<std::string, unsigned int> uniqueMap;
 
-    // layout(location=0) vec3 aPos
-    gl.glEnableVertexAttribArray(0);
-    gl.glVertexAttribPointer(0, 3, juce::gl::GL_FLOAT, juce::gl::GL_FALSE,
-        sizeof(MeshVertex),
-        (void*)offsetof(MeshVertex, px));
+        for (const auto& shape : shapes)
+        {
+            for (const auto& idx : shape.mesh.indices)
+            {
+                const auto key = makeKey(idx.vertex_index, idx.normal_index, idx.texcoord_index);
+                auto it = uniqueMap.find(key);
+                if (it != uniqueMap.end()) { indices.push_back(it->second); continue; }
 
-    // layout(location=1) vec3 aNormal
-    gl.glEnableVertexAttribArray(1);
-    gl.glVertexAttribPointer(1, 3, juce::gl::GL_FLOAT, juce::gl::GL_FALSE,
-        sizeof(MeshVertex),
-        (void*)offsetof(MeshVertex, nx));
+                MeshVertex v{};
+                const int pi = idx.vertex_index;
+                v.px = attrib.vertices[3 * pi + 0];
+                v.py = attrib.vertices[3 * pi + 1];
+                v.pz = attrib.vertices[3 * pi + 2];
 
-    // layout(location=2) vec2 aUV
-    gl.glEnableVertexAttribArray(2);
-    gl.glVertexAttribPointer(2, 2, juce::gl::GL_FLOAT, juce::gl::GL_FALSE,
-        sizeof(MeshVertex),
-        (void*)offsetof(MeshVertex, u));
+                if (idx.normal_index >= 0)
+                {
+                    const int ni = idx.normal_index;
+                    v.nx = attrib.normals[3 * ni + 0];
+                    v.ny = attrib.normals[3 * ni + 1];
+                    v.nz = attrib.normals[3 * ni + 2];
+                }
+                else { v.nx = 0.0f; v.ny = 0.0f; v.nz = 1.0f; }
 
-    gl.glBindVertexArray(0);
-}
+                if (idx.texcoord_index >= 0)
+                {
+                    const int ti = idx.texcoord_index;
+                    v.u = attrib.texcoords[2 * ti + 0];
+                    v.v = attrib.texcoords[2 * ti + 1];
+                }
+                else { v.u = 0.0f; v.v = 0.0f; }
 
-void Mesh::releaseGPU(juce::OpenGLContext& ctx)
-{
-    auto& gl = ctx.extensions;
-    if (ebo) { gl.glDeleteBuffers(1, &ebo); ebo = 0; }
-    if (vbo) { gl.glDeleteBuffers(1, &vbo); vbo = 0; }
-    if (vao) { gl.glDeleteVertexArrays(1, &vao); vao = 0; }
-}
+                const auto newIndex = (unsigned int)vertices.size();
+                vertices.push_back(v);
+                uniqueMap[key] = newIndex;
+                indices.push_back(newIndex);
+            }
+        }
+        return true;
+    }
 
-void Mesh::draw(juce::OpenGLContext& ctx)
-{
-    if (!isUploaded()) return;
-    auto& gl = ctx.extensions;
+    //==========================================================================
+    // 程序化几何
+    //==========================================================================
+    std::unique_ptr<Mesh> Mesh::createPlane(float sizeX, float sizeY)
+    {
+        auto m = std::make_unique<Mesh>();
+        const float hx = sizeX * 0.5f;
+        const float hy = sizeY * 0.5f;
 
-    gl.glBindVertexArray(vao);
-    juce::gl::glDrawElements(juce::gl::GL_TRIANGLES,
-        (GLsizei)indices.size(),
-        juce::gl::GL_UNSIGNED_INT,
-        nullptr);
-    gl.glBindVertexArray(0);
+        m->vertices = {
+            { -hx, -hy, 0, 0, 0, 1, 0, 0 },
+            {  hx, -hy, 0, 0, 0, 1, 1, 0 },
+            {  hx,  hy, 0, 0, 0, 1, 1, 1 },
+            { -hx,  hy, 0, 0, 0, 1, 0, 1 }
+        };
+        m->indices = { 0, 1, 2, 0, 2, 3 };
+        return m;
+    }
+
+    std::unique_ptr<Mesh> Mesh::createBox(float sx, float sy, float sz)
+    {
+        auto m = std::make_unique<Mesh>();
+        const float hx = sx * 0.5f;
+        const float hy = sy * 0.5f;
+        const float hz = sz * 0.5f;
+
+        // 6 个面，每面 4 顶点（不共享，保留硬法线）
+        // 顺序：+X, -X, +Y, -Y, +Z, -Z
+        struct Face { Vec3 n; Vec3 p[4]; };
+        const Face faces[6] = {
+            { {  1, 0, 0 }, { {  hx, -hy, -hz }, {  hx,  hy, -hz }, {  hx,  hy,  hz }, {  hx, -hy,  hz } } },
+            { { -1, 0, 0 }, { { -hx,  hy, -hz }, { -hx, -hy, -hz }, { -hx, -hy,  hz }, { -hx,  hy,  hz } } },
+            { {  0, 1, 0 }, { {  hx,  hy, -hz }, { -hx,  hy, -hz }, { -hx,  hy,  hz }, {  hx,  hy,  hz } } },
+            { {  0,-1, 0 }, { { -hx, -hy, -hz }, {  hx, -hy, -hz }, {  hx, -hy,  hz }, { -hx, -hy,  hz } } },
+            { {  0, 0, 1 }, { { -hx, -hy,  hz }, {  hx, -hy,  hz }, {  hx,  hy,  hz }, { -hx,  hy,  hz } } },
+            { {  0, 0,-1 }, { { -hx,  hy, -hz }, {  hx,  hy, -hz }, {  hx, -hy, -hz }, { -hx, -hy, -hz } } }
+        };
+
+        const float uvs[4][2] = { {0,0}, {1,0}, {1,1}, {0,1} };
+
+        for (int f = 0; f < 6; ++f)
+        {
+            const auto base = (unsigned int)m->vertices.size();
+            for (int k = 0; k < 4; ++k)
+            {
+                MeshVertex v{};
+                v.px = faces[f].p[k].x; v.py = faces[f].p[k].y; v.pz = faces[f].p[k].z;
+                v.nx = faces[f].n.x;    v.ny = faces[f].n.y;    v.nz = faces[f].n.z;
+                v.u = uvs[k][0];       v.v = uvs[k][1];
+                m->vertices.push_back(v);
+            }
+            m->indices.insert(m->indices.end(), { base, base + 1, base + 2, base, base + 2, base + 3 });
+        }
+        return m;
+    }
+
+    std::unique_ptr<Mesh> Mesh::createGrid(float halfRange, float step)
+    {
+        auto m = std::make_unique<Mesh>();
+        m->setPrimitive(juce::gl::GL_LINES);
+
+        auto pushLineVertex = [&](float x, float y)
+            {
+                MeshVertex v{};
+                v.px = x; v.py = y; v.pz = 0.0f;
+                v.nx = 0.0f; v.ny = 0.0f; v.nz = 1.0f;
+                v.u = 0.0f; v.v = 0.0f;
+                m->vertices.push_back(v);
+            };
+
+        // 平行于 Y 轴的线
+        for (float x = -halfRange; x <= halfRange + 0.5f * step; x += step)
+        {
+            const auto base = (unsigned int)m->vertices.size();
+            pushLineVertex(x, -halfRange);
+            pushLineVertex(x, halfRange);
+            m->indices.push_back(base);
+            m->indices.push_back(base + 1);
+        }
+        // 平行于 X 轴的线
+        for (float y = -halfRange; y <= halfRange + 0.5f * step; y += step)
+        {
+            const auto base = (unsigned int)m->vertices.size();
+            pushLineVertex(-halfRange, y);
+            pushLineVertex(halfRange, y);
+            m->indices.push_back(base);
+            m->indices.push_back(base + 1);
+        }
+        return m;
+    }
+
+    std::unique_ptr<Mesh> Mesh::createCylinder(float radius, float height, int segments)
+    {
+        segments = juce::jmax(3, segments);
+
+        auto m = std::make_unique<Mesh>();
+        const float twoPi = juce::MathConstants<float>::twoPi;
+
+        // 侧面：每个 segment 两个顶点（底/顶），法线指向径向
+        for (int i = 0; i <= segments; ++i)
+        {
+            const float t = (float)i / (float)segments;
+            const float a = t * twoPi;
+            const float ca = std::cos(a);
+            const float sa = std::sin(a);
+
+            MeshVertex vb{}; vb.px = radius * ca; vb.py = radius * sa; vb.pz = 0.0f;
+            vb.nx = ca; vb.ny = sa; vb.nz = 0.0f; vb.u = t; vb.v = 0.0f;
+            m->vertices.push_back(vb);
+
+            MeshVertex vt{}; vt.px = radius * ca; vt.py = radius * sa; vt.pz = height;
+            vt.nx = ca; vt.ny = sa; vt.nz = 0.0f; vt.u = t; vt.v = 1.0f;
+            m->vertices.push_back(vt);
+        }
+
+        for (int i = 0; i < segments; ++i)
+        {
+            const unsigned int b0 = (unsigned int)(i * 2);
+            const unsigned int t0 = b0 + 1;
+            const unsigned int b1 = b0 + 2;
+            const unsigned int t1 = b0 + 3;
+            m->indices.insert(m->indices.end(), { b0, b1, t1, b0, t1, t0 });
+        }
+
+        // 顶/底盖：扇形三角形
+        const auto sideCount = (unsigned int)m->vertices.size();
+        // 底面中心
+        MeshVertex cb{}; cb.px = 0; cb.py = 0; cb.pz = 0; cb.nx = 0; cb.ny = 0; cb.nz = -1;
+        m->vertices.push_back(cb);
+        // 顶面中心
+        MeshVertex ct{}; ct.px = 0; ct.py = 0; ct.pz = height; ct.nx = 0; ct.ny = 0; ct.nz = 1;
+        m->vertices.push_back(ct);
+
+        const unsigned int bottomCenter = sideCount;
+        const unsigned int topCenter = sideCount + 1;
+
+        for (int i = 0; i < segments; ++i)
+        {
+            const float a0 = (float)i / (float)segments * twoPi;
+            const float a1 = (float)(i + 1) / (float)segments * twoPi;
+
+            // 底盘新顶点（独立，因为法线朝下）
+            MeshVertex b0{}; b0.px = radius * std::cos(a0); b0.py = radius * std::sin(a0); b0.pz = 0;
+            b0.nx = 0; b0.ny = 0; b0.nz = -1;
+            MeshVertex b1{}; b1.px = radius * std::cos(a1); b1.py = radius * std::sin(a1); b1.pz = 0;
+            b1.nx = 0; b1.ny = 0; b1.nz = -1;
+            const auto bi0 = (unsigned int)m->vertices.size(); m->vertices.push_back(b0);
+            const auto bi1 = (unsigned int)m->vertices.size(); m->vertices.push_back(b1);
+            m->indices.insert(m->indices.end(), { bottomCenter, bi1, bi0 });
+
+            // 顶盘新顶点（法线朝上）
+            MeshVertex t0v{}; t0v.px = radius * std::cos(a0); t0v.py = radius * std::sin(a0); t0v.pz = height;
+            t0v.nx = 0; t0v.ny = 0; t0v.nz = 1;
+            MeshVertex t1v{}; t1v.px = radius * std::cos(a1); t1v.py = radius * std::sin(a1); t1v.pz = height;
+            t1v.nx = 0; t1v.ny = 0; t1v.nz = 1;
+            const auto ti0 = (unsigned int)m->vertices.size(); m->vertices.push_back(t0v);
+            const auto ti1 = (unsigned int)m->vertices.size(); m->vertices.push_back(t1v);
+            m->indices.insert(m->indices.end(), { topCenter, ti0, ti1 });
+        }
+
+        return m;
+    }
+
+    //==========================================================================
+// GL 资源
+//==========================================================================
+    void Mesh::uploadToGPU(juce::OpenGLContext& ctx)
+    {
+        auto& ext = ctx.extensions;
+
+        ext.glGenVertexArrays(1, &vao);
+        ext.glBindVertexArray(vao);
+
+        ext.glGenBuffers(1, &vbo);
+        ext.glBindBuffer(juce::gl::GL_ARRAY_BUFFER, vbo);
+        ext.glBufferData(juce::gl::GL_ARRAY_BUFFER,
+            (GLsizeiptr)(vertices.size() * sizeof(MeshVertex)),
+            vertices.data(),
+            juce::gl::GL_STATIC_DRAW);
+
+        ext.glGenBuffers(1, &ebo);
+        ext.glBindBuffer(juce::gl::GL_ELEMENT_ARRAY_BUFFER, ebo);
+        ext.glBufferData(juce::gl::GL_ELEMENT_ARRAY_BUFFER,
+            (GLsizeiptr)(indices.size() * sizeof(unsigned int)),
+            indices.data(),
+            juce::gl::GL_STATIC_DRAW);
+
+        ext.glEnableVertexAttribArray(0);
+        ext.glVertexAttribPointer(0, 3, juce::gl::GL_FLOAT, juce::gl::GL_FALSE,
+            sizeof(MeshVertex), (void*)offsetof(MeshVertex, px));
+
+        ext.glEnableVertexAttribArray(1);
+        ext.glVertexAttribPointer(1, 3, juce::gl::GL_FLOAT, juce::gl::GL_FALSE,
+            sizeof(MeshVertex), (void*)offsetof(MeshVertex, nx));
+
+        ext.glEnableVertexAttribArray(2);
+        ext.glVertexAttribPointer(2, 2, juce::gl::GL_FLOAT, juce::gl::GL_FALSE,
+            sizeof(MeshVertex), (void*)offsetof(MeshVertex, u));
+
+        ext.glBindVertexArray(0);
+    }
+
+    void Mesh::releaseGPU(juce::OpenGLContext& ctx)
+    {
+        auto& ext = ctx.extensions;
+        if (ebo) { ext.glDeleteBuffers(1, &ebo); ebo = 0; }
+        if (vbo) { ext.glDeleteBuffers(1, &vbo); vbo = 0; }
+        if (vao) { ext.glDeleteVertexArrays(1, &vao); vao = 0; }
+    }
+
+    void Mesh::draw(juce::OpenGLContext& ctx)
+    {
+        if (!isUploaded()) return;
+        auto& ext = ctx.extensions;
+        ext.glBindVertexArray(vao);
+        juce::gl::glDrawElements(primitive,
+            (GLsizei)indices.size(),
+            juce::gl::GL_UNSIGNED_INT, nullptr);
+        ext.glBindVertexArray(0);
+    }
 }

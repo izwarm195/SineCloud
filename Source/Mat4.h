@@ -2,8 +2,8 @@
   ==============================================================================
     Mat4.h
     Layer 1: Math
-    列主序 4x4 矩阵（与 GL / juce::Matrix3D 一致）。
-    所有几何变换在这里集中实现，渲染层和场景层共用。
+    脕脨脰梅脨貌 4x4 戮脴脮贸拢篓脫毛 GL / juce::Matrix3D 脪禄脰脗拢漏隆拢
+    脣霉脫脨录赂潞脦卤盲禄禄脭脷脮芒脌茂录炉脰脨脢碌脧脰拢卢盲脰脠戮虏茫潞脥鲁隆戮掳虏茫鹿虏脫脙隆拢
   ==============================================================================
 */
 #pragma once
@@ -17,16 +17,16 @@ namespace sc
     using Mat4 = juce::Matrix3D<float>;
 
     //--------------------------------------------------------------------------
-    // 基础矩阵
+    // 禄霉麓隆戮脴脮贸
     //--------------------------------------------------------------------------
     inline Mat4 identity() noexcept
     {
-        return Mat4(); // juce 默认就是 identity
+        return Mat4(); // juce 脛卢脠脧戮脥脢脟 identity
     }
 
     inline Mat4 translation(const Vec3& t) noexcept
     {
-        // 列主序：平移分量放在第 12/13/14 个元素
+        // 脕脨脰梅脨貌拢潞脝陆脪脝路脰脕驴路脜脭脷碌脷 12/13/14 赂枚脭陋脣脴
         const float m[16] = {
             1.0f, 0.0f, 0.0f, 0.0f,
             0.0f, 1.0f, 0.0f, 0.0f,
@@ -52,7 +52,7 @@ namespace sc
         return scaling({ uniform, uniform, uniform });
     }
 
-    /** 绕任意单位轴旋转 angle 弧度（右手系，与 GL 一致）。 */
+    /** 脠脝脠脦脪芒碌楼脦禄脰谩脨媒脳陋 angle 禄隆露脠拢篓脫脪脢脰脧碌拢卢脫毛 GL 脪禄脰脗拢漏隆拢 */
     inline Mat4 rotationAxis(const Vec3& axisIn, float angleRad) noexcept
     {
         const Vec3 a = normalize(axisIn);
@@ -76,9 +76,9 @@ namespace sc
     inline Mat4 rotationZ(float r) noexcept { return rotationAxis({ 0, 0, 1 }, r); }
 
     //--------------------------------------------------------------------------
-    // 视图 / 投影
+    // 脢脫脥录 / 脥露脫掳
     //--------------------------------------------------------------------------
-    /** 右手系 lookAt，up 任意，会自动正交化。 */
+    /** 脫脪脢脰脧碌 lookAt拢卢up 脠脦脪芒拢卢禄谩脳脭露炉脮媒陆禄禄炉隆拢 */
     inline Mat4 lookAt(const Vec3& eye, const Vec3& target, const Vec3& upHint) noexcept
     {
         const Vec3 f = normalize(target - eye);   // forward
@@ -94,7 +94,7 @@ namespace sc
         return Mat4(m);
     }
 
-    /** 标准透视投影，右手系，clip space z ∈ [-1, 1]（GL 默认）。 */
+    /** 卤锚脳录脥赂脢脫脥露脫掳拢卢脫脪脢脰脧碌拢卢clip space z 隆脢 [-1, 1]拢篓GL 脛卢脠脧拢漏隆拢 */
     inline Mat4 perspective(float fovYRadians, float aspect,
         float zNear, float zFar) noexcept
     {
@@ -110,7 +110,7 @@ namespace sc
         return Mat4(m);
     }
 
-    /** 正交投影，调试 / 2D overlay 备用。 */
+    /** 脮媒陆禄脥露脫掳拢卢碌梅脢脭 / 2D overlay 卤赂脫脙隆拢 */
     inline Mat4 ortho(float left, float right,
         float bottom, float top,
         float zNear, float zFar) noexcept
@@ -132,7 +132,7 @@ namespace sc
     }
 
     //--------------------------------------------------------------------------
-    // 实用：把 Mat4 写到 GL uniform
+    // 脢碌脫脙拢潞掳脩 Mat4 脨麓碌陆 GL uniform
     //--------------------------------------------------------------------------
     inline void setMatrixUniform(juce::OpenGLShaderProgram& sh,
         const char* name,

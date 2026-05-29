@@ -5,14 +5,21 @@
               pluginCode="Sct1">
   <MAINGROUP id="MWtifI" name="SineCloud">
     <GROUP id="{9D89155D-745F-44F4-4A89-1045E4DDABEF}" name="Source">
+      <FILE id="ssqU1t" name="SceneView.cpp" compile="1" resource="0" file="Source/SceneView.cpp"/>
+      <FILE id="ZDqhJy" name="SceneView.h" compile="0" resource="0" file="Source/SceneView.h"/>
+      <FILE id="HeKp7W" name="Renderer.cpp" compile="1" resource="0" file="Source/Renderer.cpp"/>
+      <FILE id="bAZLMi" name="Renderer.h" compile="0" resource="0" file="Source/Renderer.h"/>
+      <FILE id="qYI9fw" name="PixelMaterial.h" compile="0" resource="0" file="Source/PixelMaterial.h"/>
+      <FILE id="VJRE1q" name="Lighting.h" compile="0" resource="0" file="Source/Lighting.h"/>
+      <FILE id="yxloaE" name="Camera.h" compile="0" resource="0" file="Source/Camera.h"/>
+      <FILE id="jpjUWd" name="Shader.h" compile="0" resource="0" file="Source/Shader.h"/>
+      <FILE id="JNKtpH" name="GLUtils.h" compile="0" resource="0" file="Source/GLUtils.h"/>
       <FILE id="nSqIkC" name="InertialValue.h" compile="0" resource="0" file="Source/InertialValue.h"/>
       <FILE id="r25g8d" name="Easing.h" compile="0" resource="0" file="Source/Easing.h"/>
       <FILE id="dWJCvC" name="Mat4.h" compile="0" resource="0" file="Source/Mat4.h"/>
       <FILE id="IMqnYB" name="Vec.h" compile="0" resource="0" file="Source/Vec.h"/>
       <FILE id="Oybwgo" name="InertialSlider.h" compile="0" resource="0"
             file="Source/InertialSlider.h"/>
-      <FILE id="Bz01yD" name="MeshTestComponent.h" compile="0" resource="0"
-            file="Source/MeshTestComponent.h"/>
       <FILE id="s22S74" name="Mesh.cpp" compile="1" resource="0" file="Source/Mesh.cpp"/>
       <FILE id="qZbb2S" name="Mesh.h" compile="0" resource="0" file="Source/Mesh.h"/>
       <GROUP id="{616F2A8B-5D83-5AC1-B0D1-05386C7D0D72}" name="Resources">

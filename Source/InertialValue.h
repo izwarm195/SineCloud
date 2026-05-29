@@ -2,13 +2,13 @@
   ==============================================================================
     InertialValue.h
     Layer 1: Math
-    脱离 juce::Slider / juce::Component 的惯性数值控制器：
-      - 拖动：把鼠标 dx/dy/dt 喂进来，内部记录瞬时速度
-      - 抬手：以瞬时速度滑行，按"每秒保留率"衰减直到停止
-      - 自动化：宿主端改变参数时调用 setValueFromHost(...)，不会触发回调
+    脥脩脌毛 juce::Slider / juce::Component 碌脛鹿脽脨脭脢媒脰碌驴脴脰脝脝梅拢潞
+      - 脥脧露炉拢潞掳脩脢贸卤锚 dx/dy/dt 脦鹿陆酶脌麓拢卢脛脷虏驴录脟脗录脣虏脢卤脣脵露脠
+      - 脤搂脢脰拢潞脪脭脣虏脢卤脣脵露脠禄卢脨脨拢卢掳麓"脙驴脙毛卤拢脕么脗脢"脣楼录玫脰卤碌陆脥拢脰鹿
+      - 脳脭露炉禄炉拢潞脣脼脰梅露脣赂脛卤盲虏脦脢媒脢卤碌梅脫脙 setValueFromHost(...)拢卢虏禄禄谩麓楼路垄禄脴碌梅
 
-    持有方（KnobEntity / ParamBridge）需要每帧调用 tick(dt)，并把 onValueChanged
-    回调指向 ParamBridge::write()。
+    鲁脰脫脨路陆拢篓KnobEntity / ParamBridge拢漏脨猫脪陋脙驴脰隆碌梅脫脙 tick(dt)拢卢虏垄掳脩 onValueChanged
+    禄脴碌梅脰赂脧貌 ParamBridge::write()隆拢
   ==============================================================================
 */
 #pragma once
@@ -26,9 +26,9 @@ namespace sc
         InertialValue() = default;
 
         //----------------------------------------------------------------------
-        // 配置
+        // 脜盲脰脙
         //----------------------------------------------------------------------
-        /** 真实值范围（与 APVTS 参数 min/max 对齐）。 */
+        /** 脮忙脢碌脰碌路露脦搂拢篓脫毛 APVTS 虏脦脢媒 min/max 露脭脝毛拢漏隆拢 */
         void setRange(float minValue, float maxValue) noexcept
         {
             jassert(maxValue > minValue);
@@ -37,35 +37,35 @@ namespace sc
             value = juce::jlimit(minV, maxV, value);
         }
 
-        /** 拖动灵敏度：拖满 dragRangePixels 像素 = 走完整个值域（min→max）。
-            旧 InertialSlider 用 setMouseDragSensitivity(400)，这里默认就 400。 */
+        /** 脥脧露炉脕茅脙么露脠拢潞脥脧脗煤 dragRangePixels 脧帽脣脴 = 脳脽脥锚脮没赂枚脰碌脫貌拢篓min隆煤max拢漏隆拢
+            戮脡 InertialSlider 脫脙 setMouseDragSensitivity(400)拢卢脮芒脌茂脛卢脠脧戮脥 400隆拢 */
         void setDragRangePixels(float pixels) noexcept
         {
             dragRangePx = juce::jmax(1.0f, pixels);
         }
 
-        /** 摩擦：每秒保留多少速度。0.05 = 1 秒后只剩 5% 速度（很涩），
-            0.5 = 1 秒后剩 50% 速度（很滑）。旧值 friction=0.9（每帧）≈ 0.0024（每秒）
-            过涩，这里默认设成 0.05，更接近"惯性手感"。 */
+        /** 脛娄虏脕拢潞脙驴脙毛卤拢脕么露脿脡脵脣脵露脠隆拢0.05 = 1 脙毛潞贸脰禄脢拢 5% 脣脵露脠拢篓潞脺脡卢拢漏拢卢
+            0.5 = 1 脙毛潞贸脢拢 50% 脣脵露脠拢篓潞脺禄卢拢漏隆拢戮脡脰碌 friction=0.9拢篓脙驴脰隆拢漏隆脰 0.0024拢篓脙驴脙毛拢漏
+            鹿媒脡卢拢卢脮芒脌茂脛卢脠脧脡猫鲁脡 0.05拢卢赂眉陆脫陆眉"鹿脽脨脭脢脰赂脨"隆拢 */
         void setFrictionPerSecond(float keepRatePerSecond) noexcept
         {
             frictionPerSec = juce::jlimit(1.0e-4f, 0.999f, keepRatePerSecond);
         }
 
-        /** 抬手时把瞬时速度乘以这个倍数，作为初始滑行速度。 */
+        /** 脤搂脢脰脢卤掳脩脣虏脢卤脣脵露脠鲁脣脪脭脮芒赂枚卤露脢媒拢卢脳梅脦陋鲁玫脢录禄卢脨脨脣脵露脠隆拢 */
         void setInertiaGain(float g) noexcept
         {
             inertiaGain = juce::jmax(0.0f, g);
         }
 
-        /** 速度低于此值（单位：值/秒）时停止滑行。 */
+        /** 脣脵露脠碌脥脫脷麓脣脰碌拢篓碌楼脦禄拢潞脰碌/脙毛拢漏脢卤脥拢脰鹿禄卢脨脨隆拢 */
         void setStopThreshold(float t) noexcept
         {
             stopThreshold = juce::jmax(0.0f, t);
         }
 
         //----------------------------------------------------------------------
-        // 数值访问
+        // 脢媒脰碌路脙脦脢
         //----------------------------------------------------------------------
         float getValue() const noexcept { return value; }
         float getMin()   const noexcept { return minV; }
@@ -77,7 +77,7 @@ namespace sc
         bool  isDragging() const noexcept { return dragging; }
         bool  isCoasting() const noexcept { return std::abs(velocity) > stopThreshold; }
 
-        /** 用户主动设置（会触发 onValueChanged）。 */
+        /** 脫脙禄搂脰梅露炉脡猫脰脙拢篓禄谩麓楼路垄 onValueChanged拢漏隆拢 */
         void setValue(float newValue, bool notify = true) noexcept
         {
             const float clamped = juce::jlimit(minV, maxV, newValue);
@@ -89,16 +89,16 @@ namespace sc
             }
         }
 
-        /** 宿主自动化 / preset 恢复回灌（不会回调，避免反向写入死循环）。 */
+        /** 脣脼脰梅脳脭露炉禄炉 / preset 禄脰赂麓禄脴鹿脿拢篓虏禄禄谩禄脴碌梅拢卢卤脺脙芒路麓脧貌脨麓脠毛脣脌脩颅禄路拢漏隆拢 */
         void setValueFromHost(float newValue) noexcept
         {
             value = juce::jlimit(minV, maxV, newValue);
-            // 来自宿主的变化应该清除惯性，否则手感和自动化会打架
+            // 脌麓脳脭脣脼脰梅碌脛卤盲禄炉脫娄赂脙脟氓鲁媒鹿脽脨脭拢卢路帽脭貌脢脰赂脨潞脥脳脭露炉禄炉禄谩麓貌录脺
             velocity = 0.0f;
         }
 
         //----------------------------------------------------------------------
-        // 鼠标交互
+        // 脢贸卤锚陆禄禄楼
         //----------------------------------------------------------------------
         void beginDrag() noexcept
         {
@@ -108,7 +108,7 @@ namespace sc
             lastDragTimeMs = juce::Time::getMillisecondCounterHiRes();
         }
 
-        /** 喂入本帧鼠标位移（像素）。约定：dy 向下为正，向上拖增大值（与旋钮直觉一致）。 */
+        /** 脦鹿脠毛卤戮脰隆脢贸卤锚脦禄脪脝拢篓脧帽脣脴拢漏隆拢脭录露篓拢潞dy 脧貌脧脗脦陋脮媒拢卢脧貌脡脧脥脧脭枚麓贸脰碌拢篓脫毛脨媒脜楼脰卤戮玫脪禄脰脗拢漏隆拢 */
         void onDragDelta(float dxPixels, float dyPixels) noexcept
         {
             if (!dragging) return;
@@ -117,11 +117,11 @@ namespace sc
             const float dtMs = (float)juce::jmax(1.0, now - lastDragTimeMs);
             lastDragTimeMs = now;
 
-            // 像素 → 值：拖满 dragRangePx 像素 = 走完一个值域跨度
+            // 脧帽脣脴 隆煤 脰碌拢潞脥脧脗煤 dragRangePx 脧帽脣脴 = 脳脽脥锚脪禄赂枚脰碌脫貌驴莽露脠
             const float range = maxV - minV;
             const float pxToVal = range / dragRangePx;
 
-            // 向上拖（dy<0）+ 向右拖（dx>0）= 增大值
+            // 脧貌脡脧脥脧拢篓dy<0拢漏+ 脧貌脫脪脥脧拢篓dx>0拢漏= 脭枚麓贸脰碌
             const float deltaPx = (-dyPixels) + dxPixels;
             const float deltaVal = deltaPx * pxToVal;
 
@@ -129,7 +129,7 @@ namespace sc
             const float actualDelta = newValue - value;
             value = newValue;
 
-            // 记录瞬时速度（值/秒），用于 endDrag 时启动滑行
+            // 录脟脗录脣虏脢卤脣脵露脠拢篓脰碌/脙毛拢漏拢卢脫脙脫脷 endDrag 脢卤脝么露炉禄卢脨脨
             instantVelocity = actualDelta / juce::jmax(1.0e-3f, dtMs * 0.001f);
 
             if (onValueChanged)
@@ -140,25 +140,25 @@ namespace sc
         {
             dragging = false;
             velocity = instantVelocity * inertiaGain;
-            // 防止抖动：太小直接归零
+            // 路脌脰鹿露露露炉拢潞脤芦脨隆脰卤陆脫鹿茅脕茫
             if (std::abs(velocity) < stopThreshold)
                 velocity = 0.0f;
         }
 
         //----------------------------------------------------------------------
-        // 每帧推进（由 SceneView / World 调用）
+        // 脙驴脰隆脥脝陆酶拢篓脫脡 SceneView / World 碌梅脫脙拢漏
         //----------------------------------------------------------------------
         void tick(float dtSec) noexcept
         {
             if (dragging || velocity == 0.0f)
                 return;
 
-            // 帧率无关衰减：v *= frictionPerSec ^ dt
+            // 脰隆脗脢脦脼鹿脴脣楼录玫拢潞v *= frictionPerSec ^ dt
             velocity *= std::pow(frictionPerSec, juce::jmax(1.0e-4f, dtSec));
 
             const float newValue = juce::jlimit(minV, maxV, value + velocity * dtSec);
 
-            // 撞到边界 → 立即停
+            // 脳虏碌陆卤脽陆莽 隆煤 脕垄录麓脥拢
             if (newValue <= minV || newValue >= maxV)
                 velocity = 0.0f;
 
@@ -174,26 +174,26 @@ namespace sc
         }
 
         //----------------------------------------------------------------------
-        // 回调（KnobEntity 在构造时连到 ParamBridge::write）
+        // 禄脴碌梅拢篓KnobEntity 脭脷鹿鹿脭矛脢卤脕卢碌陆 ParamBridge::write拢漏
         //----------------------------------------------------------------------
         std::function<void(float /*newRealValue*/)> onValueChanged;
 
     private:
-        // 状态
+        // 脳麓脤卢
         float value{ 0.0f };
-        float velocity{ 0.0f };          // 值/秒
-        float instantVelocity{ 0.0f };   // 拖动最后一帧的瞬时速度（值/秒）
+        float velocity{ 0.0f };          // 脰碌/脙毛
+        float instantVelocity{ 0.0f };   // 脥脧露炉脳卯潞贸脪禄脰隆碌脛脣虏脢卤脣脵露脠拢篓脰碌/脙毛拢漏
         bool  dragging{ false };
         double lastDragTimeMs{ 0.0 };
 
-        // 范围
+        // 路露脦搂
         float minV{ 0.0f };
         float maxV{ 1.0f };
 
-        // 调参
+        // 碌梅虏脦
         float dragRangePx{ 400.0f };
-        float frictionPerSec{ 0.05f };   // 1 秒衰减到 5%
+        float frictionPerSec{ 0.05f };   // 1 脙毛脣楼录玫碌陆 5%
         float inertiaGain{ 0.8f };
-        float stopThreshold{ 1.0e-4f };  // 值/秒
+        float stopThreshold{ 1.0e-4f };  // 脰碌/脙毛
     };
 }
