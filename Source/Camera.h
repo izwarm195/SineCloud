@@ -2,8 +2,8 @@
   ==============================================================================
     Camera.h
     Layer 2: Scene & Renderer
-    轨道相机，以 pivot 为圆心，(yaw, pitch, distance) 描述。
-    Z-up 坐标系；yaw 绕 +Z 旋转；pitch 抬头，pitch=0 平视，pi/2 正上方俯视。
+    轨道相机，以 pivot 为圆心，(yaw, pitch, distance) 描述 eye 位置。
+    Z-up 坐标系；yaw 绕 +Z；pitch 抬头，pitch=0 平视，pi/2 正俯视。
   ==============================================================================
 */
 #pragma once
@@ -30,11 +30,12 @@ namespace sc
         //----------------------------------------------------------------------
         void setPivot(const Vec3& p) noexcept { pivot = p; }
 
+        // ★ 参数名改为 dist，消除对成员变量 distance 的遮蔽
         void setOrbit(float yawRad, float pitchRad, float dist) noexcept
         {
             yaw = yawRad;
             pitch = juce::jlimit(minPitch, maxPitch, pitchRad);
-            distance = juce::jmax(0.01f, dist);   // ← 参数改名 dist，消除遮蔽
+            distance = juce::jmax(0.01f, dist);
         }
 
         void setYaw(float r) noexcept { yaw = r; }
@@ -43,7 +44,8 @@ namespace sc
 
         void setPitchLimits(float minR, float maxR) noexcept
         {
-            minPitch = minR; maxPitch = maxR;
+            minPitch = minR;
+            maxPitch = maxR;
             pitch = juce::jlimit(minPitch, maxPitch, pitch);
         }
 
@@ -54,7 +56,7 @@ namespace sc
             zFar = zFar_;
         }
 
-        /** 由 SceneView 在 resized() 和 newOpenGLContextCreated() 时调用。 */
+        /** 由 SceneView 在 resized() 和 newOpenGLContextCreated() 末尾调用。 */
         void setViewport(int widthPx, int heightPx) noexcept
         {
             vpW = juce::jmax(1, widthPx);
@@ -72,7 +74,10 @@ namespace sc
         float getMaxPitch() const noexcept { return maxPitch; }
         int   getViewportWidth()  const noexcept { return vpW; }
         int   getViewportHeight() const noexcept { return vpH; }
-        float getAspect()   const noexcept { return (float)vpW / (float)juce::jmax(1, vpH); }
+        float getAspect() const noexcept
+        {
+            return (float)vpW / (float)juce::jmax(1, vpH);
+        }
 
         Vec3 getEyeWorld() const noexcept
         {
@@ -85,23 +90,29 @@ namespace sc
                      pivot.z + distance * sp };
         }
 
-        /** 角色行进所用的"水平面前向"。
-            yaw=0 时指向 +Y（屏幕上方），符合 W/上键往屏幕上走的直觉。 */
+        /** 水平面前向，yaw=0 时指向 +Y（屏幕上方）。 */
         Vec3 getForwardOnGround() const noexcept
         {
-            return { -std::sin(yaw), +std::cos(yaw), 0.0f };   // ← +cos，修复 W/S 反
+            return { -std::sin(yaw), +std::cos(yaw), 0.0f };
         }
 
         Vec3 getRightOnGround() const noexcept
         {
-            return { std::cos(yaw), -std::sin(yaw), 0.0f };    // 不变
+            return { std::cos(yaw), -std::sin(yaw), 0.0f };
         }
 
         //----------------------------------------------------------------------
         // 矩阵
         //----------------------------------------------------------------------
-        Mat4 view() const noexcept { return lookAt(getEyeWorld(), pivot, { 0.0f, 0.0f, 1.0f }); }
-        Mat4 proj() const noexcept { return perspective(fovYRad, getAspect(), zNear, zFar); }
+        Mat4 view() const noexcept
+        {
+            return lookAt(getEyeWorld(), pivot, { 0.0f, 0.0f, 1.0f });
+        }
+
+        Mat4 proj() const noexcept
+        {
+            return perspective(fovYRad, getAspect(), zNear, zFar);
+        }
 
         //----------------------------------------------------------------------
         // 屏幕坐标 → 世界射线
@@ -112,9 +123,12 @@ namespace sc
             const float ndcY = -((2.0f * screenPx.y / (float)vpH) - 1.0f);
 
             const float tanHalf = std::tan(fovYRad * 0.5f);
-            const Vec3 dirCam{ ndcX * tanHalf * getAspect(),
-                               ndcY * tanHalf,
-                               -1.0f };
+            const Vec3 dirCam
+            {
+                ndcX * tanHalf * getAspect(),
+                ndcY * tanHalf,
+                -1.0f
+            };
 
             const Vec3 eye = getEyeWorld();
             const Vec3 fwd = normalize(pivot - eye);

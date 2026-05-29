@@ -22,74 +22,74 @@ namespace sc
         bool build()
         {
             const juce::String vs = R"(#version 330 core
-                layout(location = 0) in vec3 aPos;
-                layout(location = 1) in vec3 aNormal;
-                layout(location = 2) in vec2 aUV;
+layout(location = 0) in vec3 aPos;
+layout(location = 1) in vec3 aNormal;
+layout(location = 2) in vec2 aUV;
 
-                uniform mat4 uModel;
-                uniform mat4 uView;
-                uniform mat4 uProj;
+uniform mat4 uModel;
+uniform mat4 uView;
+uniform mat4 uProj;
 
-                out vec3 vNormalWS;
-                out vec3 vPosWS;
-                out vec2 vUV;
+out vec3 vNormalWS;
+out vec3 vPosWS;
+out vec2 vUV;
 
-                void main() {
-                    vec4 wp = uModel * vec4(aPos, 1.0);
-                    vPosWS = wp.xyz;
-                    // ¼ÙÉè model Ã»ÓÐ·Ç¾ùÔÈËõ·Å£¨box/cylinder factory ¶¼ÊÇ¾ùÔÈËõ·Å£©
-                    vNormalWS = mat3(uModel) * aNormal;
-                    vUV = aUV;
-                    gl_Position = uProj * uView * wp;
-                }
-            )";
+void main()
+{
+    vec4 wp = uModel * vec4(aPos, 1.0);
+    vPosWS = wp.xyz;
+    // NOTE: assumes uniform scale; non-uniform scale needs normal matrix
+    vNormalWS = mat3(uModel) * aNormal;
+    vUV = aUV;
+    gl_Position = uProj * uView * wp;
+}
+)";
 
             const juce::String fs = R"(#version 330 core
-                in vec3 vNormalWS;
-                in vec3 vPosWS;
-                in vec2 vUV;
+in vec3 vNormalWS;
+in vec3 vPosWS;
+in vec2 vUV;
 
-                uniform vec3  uLightDir;
-                uniform vec3  uLightColor;
-                uniform vec3  uAmbient;
-                uniform float uLightIntensity;
+uniform vec3  uLightDir;
+uniform vec3  uLightColor;
+uniform vec3  uAmbient;
+uniform float uLightIntensity;
 
-                uniform vec3  uBaseColor;
-                uniform vec3  uEmissive;
-                uniform float uShadeLevels; // Á¿»¯µµÊý£»<=1 Ê±¹Ø±ÕÁ¿»¯
+uniform vec3  uBaseColor;
+uniform vec3  uEmissive;
+uniform float uShadeLevels;
+uniform int   uIsLine;
 
-                uniform int   uIsLine;      // Íø¸ñÏßÄ£Ê½£ººöÂÔ¹âÕÕ
+out vec4 fragColor;
 
-                out vec4 fragColor;
+void main()
+{
+    if (uIsLine == 1)
+    {
+        fragColor = vec4(uBaseColor + uEmissive, 1.0);
+        return;
+    }
 
-                void main() {
-                    if (uIsLine == 1) {
-                        fragColor = vec4(uBaseColor + uEmissive, 1.0);
-                        return;
-                    }
+    vec3 N = normalize(vNormalWS);
+    vec3 L = -normalize(uLightDir);
+    float lambert = max(dot(N, L), 0.0);
 
-                    vec3 N = normalize(vNormalWS);
-                    vec3 L = -normalize(uLightDir);
-                    float lambert = max(dot(N, L), 0.0);
+    if (uShadeLevels > 1.5)
+        lambert = floor(lambert * uShadeLevels) / uShadeLevels;
 
-                    if (uShadeLevels > 1.5) {
-                        lambert = floor(lambert * uShadeLevels) / uShadeLevels;
-                    }
+    vec3 lit = uAmbient + uLightColor * uLightIntensity * lambert;
+    vec3 col = uBaseColor * lit + uEmissive;
 
-                    vec3 lit = uAmbient + uLightColor * uLightIntensity * lambert;
-                    vec3 col = uBaseColor * lit + uEmissive;
+    if (uShadeLevels > 1.5)
+        col = floor(col * uShadeLevels) / uShadeLevels;
 
-                    if (uShadeLevels > 1.5) {
-                        // ÑÕÉ«É«½×Á¿»¯£¨¸ü"ÏñËØ"£©
-                        col = floor(col * uShadeLevels) / uShadeLevels;
-                    }
-
-                    fragColor = vec4(col, 1.0);
-                }
-            )";
+    fragColor = vec4(col, 1.0);
+}
+)";
 
             return shader.build(vs, fs);
         }
+
 
         void use() noexcept { shader.use(); }
 
