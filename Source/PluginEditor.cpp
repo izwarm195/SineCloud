@@ -100,24 +100,6 @@ SineCloudAudioProcessorEditor::SineCloudAudioProcessorEditor(SineCloudAudioProce
     revSizeA = std::make_unique<SA>(s, SineCloudAudioProcessor::PARAM_REV_SIZE, revSizeSlider);
 
     startTimerHz(15);  // Ë¢ÐÂ Root ÏÔÊ¾
-    
-    // PluginEditor.cpp 构造函数末尾，在 sceneDemo 的 if 块之外或替换：
-    
-    /*if (kUseMeshTest)
-    {
-        meshTest = std::make_unique<MeshTestComponent>();
-        addAndMakeVisible(*meshTest);
-        setSize(800, 600);
-    }*/
-    
-    if (kUseSceneDemo)
-    {
-        sceneDemo = std::make_unique<IsoSceneDemo>(audioProcessor);
-        addAndMakeVisible(*sceneDemo);
-        setSize(1180, 700);
-    }
-    
-    
 }
 
 SineCloudAudioProcessorEditor::~SineCloudAudioProcessorEditor() = default;
@@ -172,17 +154,6 @@ void SineCloudAudioProcessorEditor::paint(juce::Graphics& g)
 
 void SineCloudAudioProcessorEditor::resized()
 {
-    if (meshTest != nullptr)
-    {
-        meshTest->setBounds(getLocalBounds());
-        return;
-    }
-    if (sceneDemo != nullptr)
-    {
-        sceneDemo->setBounds(getLocalBounds());
-        return;
-    }
-
     // ---- Group ±êÌâÎ»ÖÃ£¨Ã¿¸ö box ¶¥²¿¾ÓÖÐ£© ----
     dreamGroupLabel.setBounds(dreamBox.getX(), dreamBox.getY() + 4, dreamBox.getWidth(), 18);
     adsrGroupLabel.setBounds(adsrBox.getX(), adsrBox.getY() + 4, adsrBox.getWidth(), 18);
@@ -224,10 +195,6 @@ void SineCloudAudioProcessorEditor::resized()
     // µ×²¿ Root ÏÔÊ¾
     // ============================================================
     rootDisplay.setBounds(20, 460, 1140, 30);
-
-    //-------
-    if (meshTest) { meshTest->setBounds(getLocalBounds()); return; }
-    //--------
 }
 
 //==============================================================================
