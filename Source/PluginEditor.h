@@ -3,11 +3,8 @@
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
 #include "SceneView.h"
+#include "World.h"
 
-//==============================================================================
-// 极简 editor：整个客户区交给一个 GL 场景视口（当前是 MeshTestComponent，
-// 模块 2 之后会被替换成 SceneView）。
-// 这里不再持有任何 Slider / Label / Attachment。
 //==============================================================================
 class SineCloudAudioProcessorEditor : public juce::AudioProcessorEditor
 {
@@ -21,8 +18,8 @@ public:
 private:
     SineCloudAudioProcessor& audioProcessor;
 
-    // 当前阶段：直接挂 MeshTestComponent。
-    // 下一步会改成 std::unique_ptr<SceneView> sceneView; 同样的位置。
+    // 顺序很关键：world 必须在 sceneView 之前构造、之后析构
+    std::unique_ptr<sc::World>     world;
     std::unique_ptr<sc::SceneView> sceneView;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SineCloudAudioProcessorEditor)

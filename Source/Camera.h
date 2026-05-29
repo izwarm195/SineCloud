@@ -2,8 +2,8 @@
   ==============================================================================
     Camera.h
     Layer 2: Scene & Renderer
-    球面轨道相机：以 pivot 为圆心，球坐标 (yaw, pitch, distance) 决定 eye 位置。
-    Z-up 右手系：yaw 绕 +Z，pitch 抬头（pitch=0 平视，pi/2 完全俯视）。
+    脟貌脙忙鹿矛碌脌脧脿禄煤拢潞脪脭 pivot 脦陋脭虏脨脛拢卢脟貌脳酶卤锚 (yaw, pitch, distance) 戮枚露篓 eye 脦禄脰脙隆拢
+    Z-up 脫脪脢脰脧碌拢潞yaw 脠脝 +Z拢卢pitch 脤搂脥路拢篓pitch=0 脝陆脢脫拢卢pi/2 脥锚脠芦赂漏脢脫拢漏隆拢
   ==============================================================================
 */
 #pragma once
@@ -26,7 +26,7 @@ namespace sc
         Camera() = default;
 
         //----------------------------------------------------------------------
-        // 设置
+        // 脡猫脰脙
         //----------------------------------------------------------------------
         void setPivot(const Vec3& p) noexcept { pivot = p; }
         void setOrbit(float yawRad, float pitchRad, float distance) noexcept
@@ -51,7 +51,7 @@ namespace sc
             this->zFar = zFar;
         }
 
-        /** 由 SceneView 在 resized() 时调用。 */
+        /** 脫脡 SceneView 脭脷 resized() 脢卤碌梅脫脙隆拢 */
         void setViewport(int widthPx, int heightPx) noexcept
         {
             vpW = juce::jmax(1, widthPx);
@@ -59,7 +59,7 @@ namespace sc
         }
 
         //----------------------------------------------------------------------
-        // 读取
+        // 露脕脠隆
         //----------------------------------------------------------------------
         float getYaw()      const noexcept { return yaw; }
         float getPitch()    const noexcept { return pitch; }
@@ -77,13 +77,13 @@ namespace sc
             const float sp = std::sin(pitch);
             const float cy = std::cos(yaw);
             const float sy = std::sin(yaw);
-            // yaw=0 时 eye 在 pivot 的 -Y 方向（看向 +Y）
+            // yaw=0 脢卤 eye 脭脷 pivot 碌脛 -Y 路陆脧貌拢篓驴麓脧貌 +Y拢漏
             return { pivot.x + distance * cp * (-sy),
                      pivot.y + distance * cp * (-cy),
                      pivot.z + distance * sp };
         }
 
-        /** 角色 / 玩家行进所用的"水平面前向"（投影到 z=0 后的 forward）。 */
+        /** 陆脟脡芦 / 脥忙录脪脨脨陆酶脣霉脫脙碌脛"脣庐脝陆脙忙脟掳脧貌"拢篓脥露脫掳碌陆 z=0 潞贸碌脛 forward拢漏隆拢 */
         Vec3 getForwardOnGround() const noexcept
         {
             return { -std::sin(yaw), -std::cos(yaw), 0.0f };
@@ -94,7 +94,7 @@ namespace sc
         }
 
         //----------------------------------------------------------------------
-        // 矩阵
+        // 戮脴脮贸
         //----------------------------------------------------------------------
         Mat4 view() const noexcept
         {
@@ -106,28 +106,28 @@ namespace sc
         }
 
         //----------------------------------------------------------------------
-        // 屏幕 → 世界 射线（从 eye 出发）
+        // 脝脕脛禄 隆煤 脢脌陆莽 脡盲脧脽拢篓麓脫 eye 鲁枚路垄拢漏
         //----------------------------------------------------------------------
         Ray screenToWorldRay(juce::Point<float> screenPx) const noexcept
         {
-            // NDC: x∈[-1,1] 右正，y∈[-1,1] 上正
+            // NDC: x隆脢[-1,1] 脫脪脮媒拢卢y隆脢[-1,1] 脡脧脮媒
             const float ndcX = (2.0f * screenPx.x / (float)vpW) - 1.0f;
             const float ndcY = -((2.0f * screenPx.y / (float)vpH) - 1.0f);
 
-            // 用 pinhole 模型在相机空间构造方向：
-            // tan(fovY/2) * ndcY 是 y，aspect * tan(fovY/2) * ndcX 是 x，z = -1（相机看 -Z）
+            // 脫脙 pinhole 脛拢脨脥脭脷脧脿禄煤驴脮录盲鹿鹿脭矛路陆脧貌拢潞
+            // tan(fovY/2) * ndcY 脢脟 y拢卢aspect * tan(fovY/2) * ndcX 脢脟 x拢卢z = -1拢篓脧脿禄煤驴麓 -Z拢漏
             const float tanHalf = std::tan(fovYRad * 0.5f);
             const Vec3 dirCam{ ndcX * tanHalf * getAspect(),
                                ndcY * tanHalf,
                               -1.0f };
 
-            // 把 dirCam 旋转回世界：用相机 basis（与 view 矩阵反向一致）
+            // 掳脩 dirCam 脨媒脳陋禄脴脢脌陆莽拢潞脫脙脧脿禄煤 basis拢篓脫毛 view 戮脴脮贸路麓脧貌脪禄脰脗拢漏
             const Vec3 eye = getEyeWorld();
-            const Vec3 fwd = normalize(pivot - eye);                 // 相机 -Z（世界）
-            const Vec3 rgt = normalize(cross(fwd, { 0, 0, 1 }));     // 相机 +X
-            const Vec3 upT = cross(rgt, fwd);                        // 相机 +Y
+            const Vec3 fwd = normalize(pivot - eye);                 // 脧脿禄煤 -Z拢篓脢脌陆莽拢漏
+            const Vec3 rgt = normalize(cross(fwd, { 0, 0, 1 }));     // 脧脿禄煤 +X
+            const Vec3 upT = cross(rgt, fwd);                        // 脧脿禄煤 +Y
 
-            // dirCam = (x, y, -1) 对应 x*right + y*up + (-1)*(-fwd) = x*right + y*up + fwd
+            // dirCam = (x, y, -1) 露脭脫娄 x*right + y*up + (-1)*(-fwd) = x*right + y*up + fwd
             Vec3 dirWorld{
                 rgt.x * dirCam.x + upT.x * dirCam.y + fwd.x * 1.0f,
                 rgt.y * dirCam.x + upT.y * dirCam.y + fwd.y * 1.0f,
@@ -136,7 +136,7 @@ namespace sc
             return { eye, normalize(dirWorld) };
         }
 
-        /** 给定一条射线，求与 z=planeZ 平面的交点；若射线平行于平面返回 false。 */
+        /** 赂酶露篓脪禄脤玫脡盲脧脽拢卢脟贸脫毛 z=planeZ 脝陆脙忙碌脛陆禄碌茫拢禄脠么脡盲脧脽脝陆脨脨脫脷脝陆脙忙路碌禄脴 false隆拢 */
         static bool intersectGroundPlane(const Ray& r, float planeZ, Vec3& out) noexcept
         {
             if (std::abs(r.direction.z) < 1.0e-6f) return false;
@@ -149,24 +149,24 @@ namespace sc
         }
 
     private:
-        // 球坐标
+        // 脟貌脳酶卤锚
         float yaw{ 0.0f };
         float pitch{ juce::MathConstants<float>::pi * 0.35f };
         float distance{ 12.0f };
 
-        // 限制
+        // 脧脼脰脝
         float minPitch{ juce::MathConstants<float>::pi * 0.10f };
         float maxPitch{ juce::MathConstants<float>::pi * 0.48f };
 
-        // 中心
+        // 脰脨脨脛
         Vec3 pivot{ 0, 0, 0 };
 
-        // 投影
+        // 脥露脫掳
         float fovYRad{ juce::degreesToRadians(55.0f) };
         float zNear{ 0.1f };
         float zFar{ 500.0f };
 
-        // 视口（像素）
+        // 脢脫驴脷拢篓脧帽脣脴拢漏
         int vpW{ 1 }, vpH{ 1 };
     };
 }

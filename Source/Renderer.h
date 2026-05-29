@@ -2,8 +2,8 @@
   ==============================================================================
     Renderer.h
     Layer 2: Scene & Renderer
-    每帧渲染入口。持有 PixelMaterial，对外暴露 beginFrame / drawMesh / endFrame。
-    上层只需传 camera + 一组 (mesh, model, color)，不用关心 GL 状态。
+    脙驴脰隆盲脰脠戮脠毛驴脷隆拢鲁脰脫脨 PixelMaterial拢卢露脭脥芒卤漏脗露 beginFrame / drawMesh / endFrame隆拢
+    脡脧虏茫脰禄脨猫麓芦 camera + 脪禄脳茅 (mesh, model, color)拢卢虏禄脫脙鹿脴脨脛 GL 脳麓脤卢隆拢
   ==============================================================================
 */
 #pragma once
@@ -25,7 +25,7 @@ namespace sc
         }
 
         //----------------------------------------------------------------------
-        // 生命周期：与 OpenGLRenderer 的 newOpenGLContextCreated/openGLContextClosing 对齐
+        // 脡煤脙眉脰脺脝脷拢潞脫毛 OpenGLRenderer 碌脛 newOpenGLContextCreated/openGLContextClosing 露脭脝毛
         //----------------------------------------------------------------------
         bool initialise()
         {
@@ -40,7 +40,7 @@ namespace sc
         void shutdown() {}
 
         //----------------------------------------------------------------------
-        // 帧
+        // 脰隆
         //----------------------------------------------------------------------
         void beginFrame(const Camera& camera, const Lighting& light,
             const Vec3& clearColor = { 0.06f, 0.07f, 0.09f }) noexcept
@@ -54,7 +54,7 @@ namespace sc
 
             glEnable(GL_DEPTH_TEST);
             glDepthFunc(GL_LESS);
-            glDisable(GL_CULL_FACE); // 像素风暂不剔背面，便于调试
+            glDisable(GL_CULL_FACE); // 脧帽脣脴路莽脭脻虏禄脤脼卤鲁脙忙拢卢卤茫脫脷碌梅脢脭
             glClearColor(clearColor.x, clearColor.y, clearColor.z, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -65,7 +65,7 @@ namespace sc
             material.setLineMode(false);
         }
 
-        /** 标准实心 mesh 绘制。 */
+        /** 卤锚脳录脢碌脨脛 mesh 禄忙脰脝隆拢 */
         void drawMesh(Mesh& mesh, const Mat4& model,
             const Vec3& baseColor,
             const Vec3& emissive = { 0, 0, 0 }) noexcept
@@ -77,7 +77,7 @@ namespace sc
             mesh.draw(context);
         }
 
-        /** 网格线（GL_LINES）绘制：跳过光照。 */
+        /** 脥酶赂帽脧脽拢篓GL_LINES拢漏禄忙脰脝拢潞脤酶鹿媒鹿芒脮脮隆拢 */
         void drawLines(Mesh& mesh, const Mat4& model, const Vec3& color) noexcept
         {
             material.setLineMode(true);
@@ -93,9 +93,9 @@ namespace sc
         }
 
         //----------------------------------------------------------------------
-        // 风格控制
+        // 路莽赂帽驴脴脰脝
         //----------------------------------------------------------------------
-        /** 色阶量化档数。1 = 关闭，3~6 像素感最强。 */
+        /** 脡芦陆脳脕驴禄炉碌碌脢媒隆拢1 = 鹿脴卤脮拢卢3~6 脧帽脣脴赂脨脳卯脟驴隆拢 */
         void setShadeLevels(float levels) noexcept { shadeLevels = juce::jmax(1.0f, levels); }
 
     private:

@@ -2,8 +2,8 @@
   ==============================================================================
     PixelMaterial.h
     Layer 2: Scene & Renderer
-    像素风共享 material：方向光 toon + 色阶量化。
-    所有 3D 物体（地砖、玩家、旋钮、Boss）都用这一份 shader。
+    脧帽脣脴路莽鹿虏脧铆 material拢潞路陆脧貌鹿芒 toon + 脡芦陆脳脕驴禄炉隆拢
+    脣霉脫脨 3D 脦茂脤氓拢篓碌脴脳漏隆垄脥忙录脪隆垄脨媒脜楼隆垄Boss拢漏露录脫脙脮芒脪禄路脻 shader隆拢
   ==============================================================================
 */
 #pragma once
@@ -37,7 +37,7 @@ namespace sc
                 void main() {
                     vec4 wp = uModel * vec4(aPos, 1.0);
                     vPosWS = wp.xyz;
-                    // 假设 model 没有非均匀缩放（box/cylinder factory 都是均匀缩放）
+                    // 录脵脡猫 model 脙禄脫脨路脟戮霉脭脠脣玫路脜拢篓box/cylinder factory 露录脢脟戮霉脭脠脣玫路脜拢漏
                     vNormalWS = mat3(uModel) * aNormal;
                     vUV = aUV;
                     gl_Position = uProj * uView * wp;
@@ -56,9 +56,9 @@ namespace sc
 
                 uniform vec3  uBaseColor;
                 uniform vec3  uEmissive;
-                uniform float uShadeLevels; // 量化档数；<=1 时关闭量化
+                uniform float uShadeLevels; // 脕驴禄炉碌碌脢媒拢禄<=1 脢卤鹿脴卤脮脕驴禄炉
 
-                uniform int   uIsLine;      // 网格线模式：忽略光照
+                uniform int   uIsLine;      // 脥酶赂帽脧脽脛拢脢陆拢潞潞枚脗脭鹿芒脮脮
 
                 out vec4 fragColor;
 
@@ -80,7 +80,7 @@ namespace sc
                     vec3 col = uBaseColor * lit + uEmissive;
 
                     if (uShadeLevels > 1.5) {
-                        // 颜色色阶量化（更"像素"）
+                        // 脩脮脡芦脡芦陆脳脕驴禄炉拢篓赂眉"脧帽脣脴"拢漏
                         col = floor(col * uShadeLevels) / uShadeLevels;
                     }
 
@@ -94,7 +94,7 @@ namespace sc
         void use() noexcept { shader.use(); }
 
         //----------------------------------------------------------------------
-        // 每帧一次
+        // 脙驴脰隆脪禄麓脦
         //----------------------------------------------------------------------
         void setCameraMatrices(const Mat4& view, const Mat4& proj) noexcept
         {
@@ -113,14 +113,14 @@ namespace sc
         void setShadeLevels(float levels) noexcept { shader.setFloat("uShadeLevels", levels); }
 
         //----------------------------------------------------------------------
-        // 每个 draw call
+        // 脙驴赂枚 draw call
         //----------------------------------------------------------------------
         void setModel(const Mat4& m) noexcept { shader.setMat4("uModel", m); }
 
         void setBaseColor(const Vec3& c) noexcept { shader.setVec3("uBaseColor", c); }
         void setEmissive(const Vec3& c) noexcept { shader.setVec3("uEmissive", c); }
 
-        /** 切换"线模式"：网格线不参与光照。 */
+        /** 脟脨禄禄"脧脽脛拢脢陆"拢潞脥酶赂帽脧脽虏禄虏脦脫毛鹿芒脮脮隆拢 */
         void setLineMode(bool on) noexcept { shader.setInt("uIsLine", on ? 1 : 0); }
 
     private:

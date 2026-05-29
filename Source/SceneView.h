@@ -1,12 +1,10 @@
 /*
   ==============================================================================
     SceneView.h
-    Layer 2: Scene & Renderer
-    GL ÊÓ¿Ú×é¼ş£ºÓµÓĞ OpenGLContext / Camera / Renderer£¬60Hz Ö÷Ñ­»·¡£
-    World£¨Layer 3£©ÉĞÎ´ÒıÈëÊ±£¬×Ô´øÒ»¸öµ÷ÊÔ³¡¾°£ºµØÃæÍø¸ñ + Ô­µãÁ¢·½Ìå +
-    Ò»¸öĞı×ªµÄĞ¡ºĞ×Ó£¬Êó±êÍÏ×§Ğı×ªÊÓ½Ç£¬¹öÂÖËõ·Å¡£
-  ==============================================================================
-*/
+    Layer 2 + 3 æ¥åˆï¼šWorld æ¥å…¥ç‰ˆã€‚
+    è‹¥ setWorld(world) å·²æ³¨å…¥ï¼Œæ¸²æŸ“äº¤ç»™ world.draw + world.updateï¼›
+    å¦åˆ™é€€åŒ–åˆ°è‡ªå¸¦çš„è°ƒè¯•åœºæ™¯ï¼ˆåœ°é¢ + ç«‹æ–¹ä½“ + æ—‹è½¬ç›’ï¼‰ã€‚
+  ==============================================================================*/
 #pragma once
 
 #include <JuceHeader.h>
@@ -14,6 +12,8 @@
 #include "Renderer.h"
 #include "Mesh.h"
 #include "Lighting.h"
+#include "World.h"
+#include "InputState.h"
 
 namespace sc
 {
@@ -28,8 +28,8 @@ namespace sc
             setWantsKeyboardFocus(true);
 
             context.setRenderer(this);
-            context.setComponentPaintingEnabled(false); // ´¿ GL£¬²»ÈÃ JUCE ÔÚÉÏÃæÔÙ»­Ò»²ã
-            context.setContinuousRepainting(false);     // ÎÒÃÇÓÃ Timer Çı¶¯ÖØ»æ
+            context.setComponentPaintingEnabled(false);
+            context.setContinuousRepainting(false);
             context.attachTo(*this);
 
             startTimerHz(60);
@@ -41,49 +41,37 @@ namespace sc
             context.detach();
         }
 
-        //----------------------------------------------------------------------
-        // ¸ø Layer 3 ÓÃ£ºWorld ½Ó½øÀ´ºó»áÄÃ camera ¸úËæÍæ¼Ò
-        //----------------------------------------------------------------------
         Camera& getCamera()   noexcept { return camera; }
         Lighting& getLighting() noexcept { return lighting; }
 
-        //======================================================================
+        /** ç”± PluginEditor æ³¨å…¥ï¼›World å¿…é¡»æ¯” SceneView é•¿å¯¿ï¼Œæˆ–åœ¨ææ„å‰ setWorld(nullptr)ã€‚ */
+        void setWorld(World* w) noexcept { world = w; }
+
+        //----------------------------------------------------------------------
         // juce::Component
-        //======================================================================
-        void paint(juce::Graphics&) override {}     // È«²¿½»¸ø GL
+        //----------------------------------------------------------------------
+        void paint(juce::Graphics&) override {}
 
         void resized() override
         {
             camera.setViewport(getWidth(), getHeight());
         }
 
-        //======================================================================
-        // juce::OpenGLRenderer£¨GL Ïß³Ì£©
-        //======================================================================
+        //----------------------------------------------------------------------
+        // juce::OpenGLRenderer
+        //----------------------------------------------------------------------
         void newOpenGLContextCreated() override
         {
             renderer = std::make_unique<Renderer>(context);
-            if (!renderer->initialise())
-            {
-                DBG("SceneView: Renderer init failed");
-                renderer.reset();
-                return;
-            }
+            if (!renderer->initialise()) { renderer.reset(); return; }
 
-            // ---- µ÷ÊÔ³¡¾°×ÊÔ´£¨World ½ÓÈëºó»á±»Ìæ»»£© ----
-            gridMesh = Mesh::createGrid(20.0f, 1.0f);
-            gridMesh->uploadToGPU(context);
+            // è°ƒè¯• meshï¼ˆä»…å½“æ²¡æœ‰ world æ—¶ä½¿ç”¨ï¼‰
+            debugGrid = Mesh::createGrid(20.0f, 1.0f); debugGrid->uploadToGPU(context);
+            debugCube = Mesh::createBox(2.0f, 2.0f, 2.0f); debugCube->uploadToGPU(context);
 
-            cubeMesh = Mesh::createBox(2.0f, 2.0f, 2.0f);
-            cubeMesh->uploadToGPU(context);
+            // World å…±äº« mesh
+            if (world) world->uploadMeshes(context);
 
-            spinnerMesh = Mesh::createBox(0.6f, 0.6f, 0.6f);
-            spinnerMesh->uploadToGPU(context);
-
-            cylinderMesh = Mesh::createCylinder(0.6f, 0.4f, 24);
-            cylinderMesh->uploadToGPU(context);
-
-            // ---- Ä¬ÈÏÏà»ú ----
             camera.setPivot({ 0, 0, 0 });
             camera.setOrbit(juce::degreesToRadians(35.0f),
                 juce::degreesToRadians(55.0f),
@@ -95,126 +83,172 @@ namespace sc
         {
             if (renderer == nullptr) return;
 
-            // ---- Ö¡Ê±¼ä ----
+            // ---- dt ----
             const double now = juce::Time::getMillisecondCounterHiRes() * 0.001;
             const float dt = (lastRenderSec > 0.0)
                 ? (float)juce::jlimit(0.001, 0.1, now - lastRenderSec)
                 : 1.0f / 60.0f;
             lastRenderSec = now;
 
-            // ---- µ÷ÊÔ¶¯»­ ----
-            spinnerYaw += dt * juce::degreesToRadians(45.0f);
+            // ---- è¾“å…¥å¿«ç…§ ----
+            InputState in = pollInput();
+            in.viewportW = camera.getViewportWidth();
+            in.viewportH = camera.getViewportHeight();
 
-            // ---- äÖÈ¾ ----
+            // ---- update ----
+            if (world)
+                world->update(dt, in, camera);
+
+            // ---- draw ----
             renderer->beginFrame(camera, lighting);
 
-            // µØÃæÍø¸ñ£¨GL_LINES£¬²»²ÎÓë¹âÕÕ£©
-            if (gridMesh)
-                renderer->drawLines(*gridMesh, identity(),
-                    { 0.25f, 0.30f, 0.35f });
-
-            // ÖĞĞÄÁ¢·½Ìå£ºÌ§¸ß°ë¸öÉíÎ»£¬ÒÔ±ãÔÚÍø¸ñÉÏ·½
-            if (cubeMesh)
-                renderer->drawMesh(*cubeMesh,
-                    translation({ 0.0f, 0.0f, 1.0f }),
-                    { 0.55f, 0.50f, 0.45f });
-
-            // ĞıÅ¥ĞÎÔ²Öù£¨Õ¼Î»£¬ÑİÊ¾ cylinder factory£©
-            if (cylinderMesh)
-                renderer->drawMesh(*cylinderMesh,
-                    translation({ 4.0f, 0.0f, 0.0f }),
-                    { 0.30f, 0.55f, 0.70f });
-
-            // ×ÔĞıĞ¡ºĞ×Ó£¬ÑİÊ¾ model ¾ØÕó¶¯»­
-            if (spinnerMesh)
+            if (world)
             {
-                const Mat4 model = translation({ -4.0f, 0.0f, 0.6f })
-                    * rotationZ(spinnerYaw);
-                renderer->drawMesh(*spinnerMesh, model,
-                    { 0.85f, 0.30f, 0.30f });
+                world->draw(*renderer, camera);
+            }
+            else if (debugGrid && debugCube)
+            {
+                renderer->drawLines(*debugGrid, identity(), { 0.25f, 0.30f, 0.35f });
+                renderer->drawMesh(*debugCube, translation({ 0, 0, 1.0f }),
+                    { 0.55f, 0.50f, 0.45f });
             }
 
             renderer->endFrame();
+
+            // å¸§æœ«é‡ç½®ä¸€æ¬¡æ€§äº‹ä»¶
+            mouseJustPressedFlag = false;
+            mouseJustReleasedFlag = false;
+            lastMousePos = currentMousePos;
         }
 
         void openGLContextClosing() override
         {
-            if (gridMesh)     gridMesh->releaseGPU(context);
-            if (cubeMesh)     cubeMesh->releaseGPU(context);
-            if (spinnerMesh)  spinnerMesh->releaseGPU(context);
-            if (cylinderMesh) cylinderMesh->releaseGPU(context);
-            gridMesh.reset();
-            cubeMesh.reset();
-            spinnerMesh.reset();
-            cylinderMesh.reset();
+            if (world) world->releaseMeshes(context);
 
-            if (renderer) renderer->shutdown();
+            if (debugGrid) debugGrid->releaseGPU(context);
+            if (debugCube) debugCube->releaseGPU(context);
+            debugGrid.reset();
+            debugCube.reset();
+
             renderer.reset();
         }
 
-        //======================================================================
-        // ÊäÈë£ºµ÷ÊÔÆÚÖ±½ÓÇı¶¯Ïà»ú£»World ½ÓÈëºó¸ÄÎª×ª·¢ InputState
-        //======================================================================
+        //----------------------------------------------------------------------
+        // è¾“å…¥ï¼šé”®ç›˜èµ° isKeyCurrentlyDownï¼Œé¼ æ ‡èµ°äº‹ä»¶
+        //----------------------------------------------------------------------
         void mouseDown(const juce::MouseEvent& e) override
         {
-            dragging = true;
-            dragStart = e.position;
+            currentMousePos = e.position;
+            lastMousePos = e.position;
+            mouseDownFlag = true;
+            mouseJustPressedFlag = true;
+
+            if (world)
+            {
+                const auto ray = camera.screenToWorldRay(e.position);
+                if (world->onMousePress(ray))
+                    return;            // å‘½ä¸­æ—‹é’® -> ä¸æ—‹è½¬ç›¸æœº
+            }
+            camDragActive = true;
+            camDragStart = e.position;
             yawAtStart = camera.getYaw();
             pitchAtStart = camera.getPitch();
+
         }
 
         void mouseDrag(const juce::MouseEvent& e) override
         {
-            if (!dragging) return;
-            const float dx = e.position.x - dragStart.x;
-            const float dy = e.position.y - dragStart.y;
-            // ºáÏòÍÏ ¡ú yaw£»×İÏòÍÏ ¡ú pitch£¨ÏòÏÂÍÏÌ§Í·£©
-            camera.setYaw(yawAtStart + dx * 0.008f);
-            camera.setPitch(pitchAtStart - dy * 0.008f);
+            const auto delta = e.position - currentMousePos;
+            currentMousePos = e.position;
+
+            if (world)
+            {
+                world->onMouseDragDelta(delta);
+            }
+
+            if (camDragActive)
+            {
+                const float dx = e.position.x - camDragStart.x;
+                const float dy = e.position.y - camDragStart.y;
+                camera.setYaw(yawAtStart + dx * 0.008f);
+                camera.setPitch(pitchAtStart - dy * 0.008f);
+            }
         }
 
-        void mouseUp(const juce::MouseEvent&) override { dragging = false; }
+        void mouseUp(const juce::MouseEvent&) override
+        {
+            mouseDownFlag = false;
+            mouseJustReleasedFlag = true;
+            camDragActive = false;
+            if (world) world->onMouseRelease();
+        }
+
+        void mouseMove(const juce::MouseEvent& e) override
+        {
+            currentMousePos = e.position;
+        }
 
         void mouseWheelMove(const juce::MouseEvent&,
             const juce::MouseWheelDetails& w) override
         {
-            // ¹öÂÖËõ·Å£ºdeltaY > 0 À­½ü£¬< 0 ÍÆÔ¶
             const float factor = std::pow(0.9f, w.deltaY * 4.0f);
             camera.setDistance(camera.getDistance() * factor);
         }
 
     private:
-        //======================================================================
-        // Timer£º60Hz ´¥·¢ GL ÖØ»æ
-        //======================================================================
-        void timerCallback() override
+        void timerCallback() override { context.triggerRepaint(); }
+
+        InputState pollInput() const noexcept
         {
-            context.triggerRepaint();
+            InputState s;
+            s.keyUp = juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::upKey)
+                || juce::KeyPress::isKeyCurrentlyDown('W')
+                || juce::KeyPress::isKeyCurrentlyDown('w');
+            s.keyDown = juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::downKey)
+                || juce::KeyPress::isKeyCurrentlyDown('S')
+                || juce::KeyPress::isKeyCurrentlyDown('s');
+            s.keyLeft = juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::leftKey)
+                || juce::KeyPress::isKeyCurrentlyDown('A')
+                || juce::KeyPress::isKeyCurrentlyDown('a');
+            s.keyRight = juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::rightKey)
+                || juce::KeyPress::isKeyCurrentlyDown('D')
+                || juce::KeyPress::isKeyCurrentlyDown('d');
+            s.keyAttack = juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::spaceKey);
+
+            s.mousePos = currentMousePos;
+            s.mouseDown = mouseDownFlag;
+            s.mouseJustPressed = mouseJustPressedFlag;
+            s.mouseJustReleased = mouseJustReleasedFlag;
+            s.mouseDelta = currentMousePos - lastMousePos;
+            return s;
         }
 
-        //======================================================================
-        // Êı¾İ³ÉÔ±
-        //======================================================================
+        // GL
         juce::OpenGLContext context;
-
         Camera   camera;
         Lighting lighting;
-
         std::unique_ptr<Renderer> renderer;
 
-        // µ÷ÊÔ mesh£¨World ½ÓÈëºó»á´Ó SceneView ÒÆ×ß£©
-        std::unique_ptr<Mesh> gridMesh;
-        std::unique_ptr<Mesh> cubeMesh;
-        std::unique_ptr<Mesh> spinnerMesh;
-        std::unique_ptr<Mesh> cylinderMesh;
+        // è°ƒè¯• meshï¼ˆæ—  World æ—¶ä½¿ç”¨ï¼‰
+        std::unique_ptr<Mesh> debugGrid;
+        std::unique_ptr<Mesh> debugCube;
 
-        // µ÷ÊÔ¶¯»­
+        // æ³¨å…¥
+        World* world{ nullptr };
+
+        // æ—¶åº
         double lastRenderSec{ 0.0 };
-        float  spinnerYaw{ 0.0f };
 
-        // µ÷ÊÔÊäÈë
-        bool   dragging{ false };
-        juce::Point<float> dragStart;
+        // é¼ æ ‡çŠ¶æ€
+        juce::Point<float> currentMousePos{ 0, 0 };
+        juce::Point<float> lastMousePos{ 0, 0 };
+        bool mouseDownFlag{ false };
+        bool mouseJustPressedFlag{ false };
+        bool mouseJustReleasedFlag{ false };
+
+        // ç›¸æœºè½¨é“æ‹–æ‹½ï¼ˆé¼ æ ‡æ²¡å‘½ä¸­æ—‹é’®æ—¶ï¼‰
+        bool   camDragActive{ false };
+        juce::Point<float> camDragStart;
         float  yawAtStart{ 0.0f };
         float  pitchAtStart{ 0.0f };
 

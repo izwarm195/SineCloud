@@ -5,6 +5,14 @@
               pluginCode="Sct1">
   <MAINGROUP id="MWtifI" name="SineCloud">
     <GROUP id="{9D89155D-745F-44F4-4A89-1045E4DDABEF}" name="Source">
+      <FILE id="J5x0KL" name="World.cpp" compile="1" resource="0" file="Source/World.cpp"/>
+      <FILE id="UHl45c" name="World.h" compile="0" resource="0" file="Source/World.h"/>
+      <FILE id="aLrp7t" name="BossEntity.h" compile="0" resource="0" file="Source/BossEntity.h"/>
+      <FILE id="n3Yc3c" name="KnobEntity.h" compile="0" resource="0" file="Source/KnobEntity.h"/>
+      <FILE id="VkS0U6" name="Player.h" compile="0" resource="0" file="Source/Player.h"/>
+      <FILE id="PLbCKd" name="ParamBridge.h" compile="0" resource="0" file="Source/ParamBridge.h"/>
+      <FILE id="LuFurv" name="InputState.h" compile="0" resource="0" file="Source/InputState.h"/>
+      <FILE id="NsQtCt" name="Entity.h" compile="0" resource="0" file="Source/Entity.h"/>
       <FILE id="ssqU1t" name="SceneView.cpp" compile="1" resource="0" file="Source/SceneView.cpp"/>
       <FILE id="ZDqhJy" name="SceneView.h" compile="0" resource="0" file="Source/SceneView.h"/>
       <FILE id="HeKp7W" name="Renderer.cpp" compile="1" resource="0" file="Source/Renderer.cpp"/>

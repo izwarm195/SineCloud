@@ -2,7 +2,7 @@
   ==============================================================================
     Shader.h
     Layer 2: Scene & Renderer
-    juce::OpenGLShaderProgram 的薄封装 + 类型化 uniform setter。
+    juce::OpenGLShaderProgram 碌脛卤隆路芒脳掳 + 脌脿脨脥禄炉 uniform setter隆拢
   ==============================================================================
 */
 #pragma once
@@ -19,7 +19,7 @@ namespace sc
     public:
         explicit Shader(juce::OpenGLContext& ctx) : program(ctx) {}
 
-        /** 编译并链接。失败时返回 false，错误已通过 DBG 打印。 */
+        /** 卤脿脪毛虏垄脕麓陆脫隆拢脢搂掳脺脢卤路碌禄脴 false拢卢麓铆脦贸脪脩脥篓鹿媒 DBG 麓貌脫隆隆拢 */
         bool build(const juce::String& vsSource, const juce::String& fsSource)
         {
             program.release();

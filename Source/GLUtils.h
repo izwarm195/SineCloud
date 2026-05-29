@@ -2,7 +2,7 @@
   ==============================================================================
     GLUtils.h
     Layer 2: Scene & Renderer
-    GL 函数空间 / 错误检查 / 小工具。所有渲染层文件都通过这里访问 juce::gl::*。
+    GL 潞炉脢媒驴脮录盲 / 麓铆脦贸录矛虏茅 / 脨隆鹿陇戮脽隆拢脣霉脫脨盲脰脠戮虏茫脦脛录镁露录脥篓鹿媒脮芒脌茂路脙脦脢 juce::gl::*隆拢
   ==============================================================================
 */
 #pragma once
@@ -13,7 +13,7 @@ namespace sc::gl
 {
     using namespace juce::gl;
 
-    /** Debug 用：检查并打印 GL 错误（非致命），仅在 JUCE_DEBUG 下开启。 */
+    /** Debug 脫脙拢潞录矛虏茅虏垄麓貌脫隆 GL 麓铆脦贸拢篓路脟脰脗脙眉拢漏拢卢陆枚脭脷 JUCE_DEBUG 脧脗驴陋脝么隆拢 */
     inline void checkError(const char* tag) noexcept
     {
 #if JUCE_DEBUG
@@ -25,7 +25,7 @@ namespace sc::gl
 #endif
     }
 
-    /** 一行式获取 uniform location，找不到时返回 -1（GL 规范行为）。 */
+    /** 脪禄脨脨脢陆禄帽脠隆 uniform location拢卢脮脪虏禄碌陆脢卤路碌禄脴 -1拢篓GL 鹿忙路露脨脨脦陋拢漏隆拢 */
     inline GLint uniformLoc(juce::OpenGLShaderProgram& sh, const char* name) noexcept
     {
         return juce::gl::glGetUniformLocation(sh.getProgramID(), name);
