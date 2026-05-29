@@ -2,14 +2,14 @@
 
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
-#include "IsoSceneDemo.h"
-// ---------
 #include "MeshTestComponent.h"
-// ---------
 
 //==============================================================================
-class SineCloudAudioProcessorEditor : public juce::AudioProcessorEditor,
-    private juce::Timer
+// 极简 editor：整个客户区交给一个 GL 场景视口（当前是 MeshTestComponent，
+// 模块 2 之后会被替换成 SceneView）。
+// 这里不再持有任何 Slider / Label / Attachment。
+//==============================================================================
+class SineCloudAudioProcessorEditor : public juce::AudioProcessorEditor
 {
 public:
     explicit SineCloudAudioProcessorEditor(SineCloudAudioProcessor&);
@@ -19,53 +19,11 @@ public:
     void resized() override;
 
 private:
-
-    //--------
-    static constexpr bool kUseMeshTest = true;   // 临时开关
-    std::unique_ptr<MeshTestComponent> meshTest;
-
-    //--------
-
-
-    void timerCallback() override;
-
-    using SA = juce::AudioProcessorValueTreeState::SliderAttachment;
-
     SineCloudAudioProcessor& audioProcessor;
 
-    // ---- DREAM ¿ò ----
-    juce::Label    dreamGroupLabel;
-    InertialSlider dreamSlider, pitchSlider, floatSlider, shimmerSlider, densitySlider, gainSlider;
-    juce::Label    dreamLabel, pitchLabel, floatLabel, shimmerLabel, densityLabel, gainLabel;
-
-    // ---- ADSR ¿ò ----
-    juce::Label    adsrGroupLabel;
-    InertialSlider attackSlider, decaySlider, sustainSlider, releaseSlider;
-    juce::Label    attackLabel, decayLabel, sustainLabel, releaseLabel;
-
-    // ---- SPACE ¿ò ----
-    juce::Label    spaceGroupLabel;
-    InertialSlider dlyTimeSlider, dlyFbSlider, dlyMixSlider, revMixSlider, revSizeSlider;
-    juce::Label    dlyTimeLabel, dlyFbLabel, dlyMixLabel, revMixLabel, revSizeLabel;
-
-    // ---- Root ÏÔÊ¾ ----
-    juce::Label rootDisplay;
-
-    // ---- Attachments ----
-    std::unique_ptr<SA> dreamA, pitchA, floatA, shimmerA, densityA, gainA;
-    std::unique_ptr<SA> attackA, decayA, sustainA, releaseA;
-    std::unique_ptr<SA> dlyTimeA, dlyFbA, dlyMixA, revMixA, revSizeA;
-
-    juce::Rectangle<int> dreamBox, adsrBox, spaceBox;
-
-    void setupKnob(InertialSlider& s, juce::Label& lbl, const juce::String& name,
-        const juce::String& suffix, bool valueBox);
-    void styleGroupLabel(juce::Label& l, const juce::String& text);
-
-    // ---- demo ----
-    std::unique_ptr<IsoSceneDemo> sceneDemo;
-    static constexpr bool kUseSceneDemo = true;   // false = 老 UI, true = 场景 demo
-
+    // 当前阶段：直接挂 MeshTestComponent。
+    // 下一步会改成 std::unique_ptr<SceneView> sceneView; 同样的位置。
+    std::unique_ptr<MeshTestComponent> sceneView;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SineCloudAudioProcessorEditor)
 };

@@ -5,6 +5,10 @@
               pluginCode="Sct1">
   <MAINGROUP id="MWtifI" name="SineCloud">
     <GROUP id="{9D89155D-745F-44F4-4A89-1045E4DDABEF}" name="Source">
+      <FILE id="nSqIkC" name="InertialValue.h" compile="0" resource="0" file="Source/InertialValue.h"/>
+      <FILE id="r25g8d" name="Easing.h" compile="0" resource="0" file="Source/Easing.h"/>
+      <FILE id="dWJCvC" name="Mat4.h" compile="0" resource="0" file="Source/Mat4.h"/>
+      <FILE id="IMqnYB" name="Vec.h" compile="0" resource="0" file="Source/Vec.h"/>
       <FILE id="Oybwgo" name="InertialSlider.h" compile="0" resource="0"
             file="Source/InertialSlider.h"/>
       <FILE id="Bz01yD" name="MeshTestComponent.h" compile="0" resource="0"
