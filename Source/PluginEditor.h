@@ -18,7 +18,8 @@ public:
 private:
     SineCloudAudioProcessor& audioProcessor;
 
-    // 顺序很关键：world 必须在 sceneView 之前构造、之后析构
+    // 构造顺序：world 先于 sceneView；析构顺序相反（成员声明顺序决定）
+    // sceneView 析构时会调 context.detach()，此时 world 还活着 -> 安全
     std::unique_ptr<sc::World>     world;
     std::unique_ptr<sc::SceneView> sceneView;
 
