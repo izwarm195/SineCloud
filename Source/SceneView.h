@@ -29,10 +29,10 @@ namespace sc
 
             context.setRenderer(this);
             context.setComponentPaintingEnabled(false);
-            context.setContinuousRepainting(false);
+            context.setContinuousRepainting(true);  // ← 关键！
             context.attachTo(*this);
 
-            startTimerHz(60);
+            // startTimerHz(60);
         }
 
         ~SceneView() override
@@ -54,7 +54,14 @@ namespace sc
 
         void resized() override
         {
-            camera.setViewport(getWidth(), getHeight());
+            // ★ 确保在主线程中运行
+            jassert(juce::MessageManager::getInstance()->isThisTheMessageThread());
+
+            pendingVpW = getWidth();
+            pendingVpH = getHeight();
+            viewportDirty.store(true, std::memory_order_release);
+
+            context.triggerRepaint();
         }
 
         //----------------------------------------------------------------------
@@ -77,11 +84,22 @@ namespace sc
                 juce::degreesToRadians(55.0f),
                 14.0f);
             camera.setPerspective(50.0f, 0.1f, 200.0f);
+
+            //解决 standalone/VST3 初始黑屏
+            camera.setViewport(getWidth(), getHeight());
+
         }
 
         void renderOpenGL() override
         {
             if (renderer == nullptr) return;
+
+            // [新增] 在 GL 线程中安全更新 viewport
+            if (viewportDirty.load(std::memory_order_acquire))
+            {
+                camera.setViewport(pendingVpW, pendingVpH);
+                viewportDirty.store(false, std::memory_order_release);
+            }
 
             // ---- dt ----
             const double now = juce::Time::getMillisecondCounterHiRes() * 0.001;
@@ -171,7 +189,7 @@ namespace sc
                 const float dx = e.position.x - camDragStart.x;
                 const float dy = e.position.y - camDragStart.y;
                 camera.setYaw(yawAtStart + dx * 0.008f);
-                camera.setPitch(pitchAtStart - dy * 0.008f);
+                camera.setPitch(pitchAtStart + dy * 0.008f);
             }
         }
 
@@ -196,6 +214,10 @@ namespace sc
         }
 
     private:
+        //原子锁
+        std::atomic<bool> viewportDirty{ false };
+        int pendingVpW{ 0 }, pendingVpH{ 0 };
+
         void timerCallback() override { context.triggerRepaint(); }
 
         InputState pollInput() const noexcept

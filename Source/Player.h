@@ -34,9 +34,10 @@ namespace sc
             camRight = right;
         }
 
+        // Player.h - update() 函数改进
         void update(float dt, const InputState& in) override
         {
-            // ---- 输入方向 ----
+            // ---- 输入方向（跟随相机） ----
             Vec3 input{ 0, 0, 0 };
             if (in.keyUp)    input = input + camForward;
             if (in.keyDown)  input = input - camForward;
@@ -45,33 +46,34 @@ namespace sc
             input.z = 0.0f;
 
             const float len2 = input.x * input.x + input.y * input.y;
-            const bool hasInput = len2 > 1.0e-6f;
+            const bool hasInput = len2 > 0.01f;  // [改] 阈值更合理
             if (hasInput) input = normalize({ input.x, input.y, 0.0f });
 
-            // ---- 目标速度 + 加速/阻尼 ----
+            // ---- 目标速度 ----
             const Vec3 targetVel = hasInput
                 ? Vec3{ input.x * targetSpeed, input.y * targetSpeed, 0.0f }
             : Vec3{ 0, 0, 0 };
 
-            const float accelRate = hasInput ? accelPerSec : dampPerSec;
+            // [改] 加速/阻尼率调整
+            const float accelRate = hasInput ? 0.88f : 0.85f;  // 更大的值 = 更快反应
             velocity.x = easing::damp(velocity.x, targetVel.x, accelRate, dt);
             velocity.y = easing::damp(velocity.y, targetVel.y, accelRate, dt);
 
-            // 把非常小的残余直接归零，避免漂移
+            // [改] 清零阈值
             if (!hasInput)
             {
-                if (std::abs(velocity.x) < 0.02f) velocity.x = 0.0f;
-                if (std::abs(velocity.y) < 0.02f) velocity.y = 0.0f;
+                if (std::abs(velocity.x) < 0.05f) velocity.x = 0.0f;
+                if (std::abs(velocity.y) < 0.05f) velocity.y = 0.0f;
             }
 
             // ---- 位置 ----
             worldPos.x += velocity.x * dt;
             worldPos.y += velocity.y * dt;
 
-            // ---- 朝向：面向移动方向，否则保持 ----
+            // ---- 朝向 ----
             if (hasInput)
             {
-                const float targetYaw = std::atan2(input.x, input.y); // 让 +Y 为 yaw=0
+                const float targetYaw = std::atan2(input.x, input.y);
                 yaw = easing::damp(yaw, targetYaw, 0.95f, dt);
             }
         }
