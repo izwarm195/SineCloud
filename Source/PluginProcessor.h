@@ -1,4 +1,5 @@
 #pragma once
+#define JUCE_DISABLE_ASSERTIONS 1
 
 #include <JuceHeader.h>
 #include "SineCloudVoice.h"
