@@ -2,8 +2,8 @@
   ==============================================================================
     CameraDebugOverlay.h
     Layer 2: Debug Visualization
-    屏幕实时显示 Camera 参数的调试面板，支持 F3 切换显示/隐藏
-    ★ 在 OpenGL 中绘制（不是 Component）
+    脝脕脛禄脢碌脢卤脧脭脢戮 Camera 虏脦脢媒碌脛碌梅脢脭脙忙掳氓拢卢脰搂鲁脰 F3 脟脨禄禄脧脭脢戮/脪镁虏脴
+    隆茂 脭脷 OpenGL 脰脨禄忙脰脝拢篓虏禄脢脟 Component拢漏
   ==============================================================================
 */
 #pragma once
@@ -26,11 +26,11 @@ namespace sc
         void toggleVisible() noexcept { shouldDraw = !shouldDraw; }
         bool isVisible() const noexcept { return shouldDraw; }
 
-        /** 在 renderOpenGL 中调用此方法，使用 JUCE Graphics 在屏幕上方绘制 */
-        // CameraDebug.h 顶部新增
+        /** 脭脷 renderOpenGL 脰脨碌梅脫脙麓脣路陆路篓拢卢脢鹿脫脙 JUCE Graphics 脭脷脝脕脛禄脡脧路陆禄忙脰脝 */
+        // CameraDebug.h 露楼虏驴脨脗脭枚
 #include <cstdio>
 
-// 替换原来的 std::ostringstream 写法
+// 脤忙禄禄脭颅脌麓碌脛 std::ostringstream 脨麓路篓
         void drawDebugInfo(juce::Graphics& g, int windowWidth, int windowHeight)
         {
             if (!shouldDraw || !camera) return;
@@ -58,7 +58,7 @@ namespace sc
                     y += lineHeight;
                 };
 
-            // 标题（纯 ASCII，不要中文/全角）
+            // 卤锚脤芒拢篓麓驴 ASCII拢卢虏禄脪陋脰脨脦脛/脠芦陆脟拢漏
             g.drawFittedText(juce::String("== CAMERA DEBUG =="),
                 margin + 5, y, panelW - 10,
                 lineHeight, juce::Justification::centred, 1);

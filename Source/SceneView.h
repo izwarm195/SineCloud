@@ -15,6 +15,7 @@
 #include "InputState.h"
 #include "World.h"
 #include "CameraDebug.h"
+#include "PauseOverlay.h"
 
 namespace sc
 {
@@ -34,6 +35,17 @@ namespace sc
 
             debugOverlay.setCamera(&camera);
             startTimerHz(60);
+
+            // ---- Pause ----
+            addAndMakeVisible(pauseOverlay);
+            pauseOverlay.setVisible(false);
+            pauseOverlay.onResume = [this]()
+                {
+                    setPaused(false);
+                };
+
+            // 启动时进入鼠标跟随模式（隐藏光标）
+            setMouseCursor(juce::MouseCursor::NoCursor);
         }
 
 
@@ -61,10 +73,9 @@ namespace sc
         void resized() override
         {
             camera.setViewport(getWidth(), getHeight());
-
-            //debug
-            
+            pauseOverlay.setBounds(getLocalBounds());   // ← 新增
         }
+
 
         //======================================================================
         // juce::OpenGLRenderer（GL 线程）
@@ -107,43 +118,37 @@ namespace sc
         {
             if (renderer == nullptr) return;
 
+            // ---- 帧时间 ----
             const double now = juce::Time::getMillisecondCounterHiRes() * 0.001;
             const float dt = (lastRenderSec > 0.0)
-                               ? (float)juce::jlimit(0.001, 0.1, now - lastRenderSec)
-                               : 1.0f / 60.0f;
+                ? (float)juce::jlimit(0.001, 0.1, now - lastRenderSec)
+                : 1.0f / 60.0f;
             lastRenderSec = now;
 
             InputState in = pollInput();
-            in.viewportW  = camera.getViewportWidth();
-            in.viewportH  = camera.getViewportHeight();
+            in.viewportW = camera.getViewportWidth();
+            in.viewportH = camera.getViewportHeight();
 
-            if (world != nullptr)
+            // ★ 暂停时不更新世界
+            if (world != nullptr && !paused)
+            {
                 world->update(dt, in, camera);
+            }
 
+            // ---- 渲染（暂停时场景仍会绘制，只是冻结不动）----
             renderer->beginFrame(camera, lighting);
 
             if (world != nullptr)
-            {
                 world->draw(*renderer, camera);
-            }
-            else if (debugGrid && debugCube)
-            {
-                renderer->drawLines(*debugGrid, identity(),
-                                    { 0.25f, 0.30f, 0.35f });
-                renderer->drawMesh (*debugCube,
-                                    translation({ 0.0f, 0.0f, 1.0f }),
-                                    { 0.55f, 0.50f, 0.45f });
-            }
 
             renderer->endFrame();
-            // ---- debug ----
-            
-            
-            // ---------------
-            mouseJustPressedFlag  = false;
+
+            mouseJustPressedFlag = false;
             mouseJustReleasedFlag = false;
             lastMousePos = currentMousePos;
         }
+
+
 
         void openGLContextClosing() override
         {
@@ -160,76 +165,82 @@ namespace sc
         //======================================================================
         // 输入
         //======================================================================
+        void mouseMove(const juce::MouseEvent& e) override
+        {
+            if (paused) return;
+
+            if (!mouseLookInit)
+            {
+                // 第一帧不旋转，只记录位置，防止跳变
+                lastMouseLookPos = e.position;
+                mouseLookInit = true;
+                return;
+            }
+
+            const float dx = e.position.x - lastMouseLookPos.x;
+            const float dy = e.position.y - lastMouseLookPos.y;
+
+            // 灵敏度略低于原来的 0.008，因为每帧都触发，不需要太高
+            camera.setYaw(camera.getYaw() + dx * 0.005f);
+            camera.setPitch(camera.getPitch() - dy * 0.005f);
+
+            lastMouseLookPos = e.position;
+        }
+
         void mouseDown(const juce::MouseEvent& e) override
         {
-            currentMousePos      = e.position;
-            lastMousePos         = e.position;
-            mouseDownFlag        = true;
-            mouseJustPressedFlag = true;
-
+            // 有 World 时转发点击做拾取，否则忽略
             if (world != nullptr)
             {
                 const auto ray = camera.screenToWorldRay(e.position);
                 if (world->onMousePress(ray))
                     return;
             }
-
-            camDragActive = true;
-            camDragStart  = e.position;
-            yawAtStart    = camera.getYaw();
-            pitchAtStart  = camera.getPitch();
         }
 
         void mouseDrag(const juce::MouseEvent& e) override
         {
-            const juce::Point<float> delta = e.position - currentMousePos;
-            currentMousePos = e.position;
-
+            // 只转发给 World 做旋钮拖拽，不再旋转视角
             if (world != nullptr)
-                world->onMouseDragDelta(delta);
-
-            if (camDragActive)
-            {
-                const float dx = e.position.x - camDragStart.x;
-                const float dy = e.position.y - camDragStart.y;
-                camera.setYaw  (yawAtStart   + dx * 0.008f);
-                camera.setPitch(pitchAtStart + dy * 0.008f); // 向上拖 dy<0 → pitch 减小 → 抬头
-            }
+                world->onMouseDragDelta(e.position - lastMouseLookPos);
         }
 
         void mouseUp(const juce::MouseEvent&) override
         {
-            mouseDownFlag         = false;
-            mouseJustReleasedFlag = true;
-            camDragActive         = false;
             if (world != nullptr)
                 world->onMouseRelease();
         }
 
-        void mouseMove(const juce::MouseEvent& e) override
-        {
-            currentMousePos = e.position;
-        }
 
-        void mouseWheelMove(const juce::MouseEvent&,
-                            const juce::MouseWheelDetails& w) override
+        
+        void mouseWheelMove(const juce::MouseEvent&,const juce::MouseWheelDetails& w) override
         {
+            if (paused) return;                        // ← 新增
             const float factor = std::pow(0.9f, w.deltaY * 4.0f);
             camera.setDistance(camera.getDistance() * factor);
         }
 
+
         bool keyPressed(const juce::KeyPress& key) override
         {
-            // F3 切换调试面板显示
+            // ESC：切换暂停
+            if (key.getKeyCode() == juce::KeyPress::escapeKey)
+            {
+                setPaused(!paused);
+                return true;
+            }
+
+            // F3（保留你现有的逻辑）
             if (key.getKeyCode() == juce::KeyPress::F3Key)
             {
                 debugOverlay.toggleVisible();
                 repaint();
-                return true;  // 标记按键已处理
+                return true;
             }
-            return false;  // 其他按键不处理
-        }       
-        
+
+            return false;
+        }
+
 
     private:
         void timerCallback() override
@@ -290,6 +301,37 @@ namespace sc
         float pitchAtStart { 0.0f };
 
         CameraDebugOverlay debugOverlay;
+
+
+        // ---- 暂停 ----
+        void setPaused(bool p)
+        {
+            if (paused == p) return;
+            paused = p;
+
+            if (paused)
+            {
+                pauseOverlay.setVisible(true);
+                setMouseCursor(juce::MouseCursor::NormalCursor);
+                mouseLookInit = false;      // 恢复时重置，防止跳变
+            }
+            else
+            {
+                pauseOverlay.setVisible(false);
+                setMouseCursor(juce::MouseCursor::NoCursor);
+                mouseLookInit = false;      // 下次 mouseMove 第一帧只记录位置
+                grabKeyboardFocus();        // 确保 WASD 继续工作
+            }
+        }
+
+        // ---- 暂停状态 ----
+        bool paused = false;
+        PauseOverlay pauseOverlay;
+
+        // ---- 鼠标跟随 ----
+        juce::Point<float> lastMouseLookPos;
+        bool mouseLookInit = false;         // 第一帧标记，防止跳视角
+
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SceneView)
     };
