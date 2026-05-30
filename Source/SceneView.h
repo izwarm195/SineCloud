@@ -35,7 +35,6 @@ namespace sc
 
             //----Debug----
             debugOverlay.setCamera(&camera);
-            addAndMakeVisible(debugOverlay);
             //-------------
 
             startTimerHz(60);
@@ -63,7 +62,6 @@ namespace sc
 
             //debug
             
-            debugOverlay.setBounds(getLocalBounds());
         }
 
         //======================================================================
@@ -136,7 +134,10 @@ namespace sc
             }
 
             renderer->endFrame();
-
+            // ---- debug ----
+            
+            
+            // ---------------
             mouseJustPressedFlag  = false;
             mouseJustReleasedFlag = false;
             lastMousePos = currentMousePos;
@@ -225,7 +226,7 @@ namespace sc
                 return true;  // 标记按键已处理
             }
             return false;  // 其他按键不处理
-        }
+        }       
         
 
     private:
@@ -280,7 +281,7 @@ namespace sc
         float yawAtStart   { 0.0f };
         float pitchAtStart { 0.0f };
 
-        CameraDebug debugOverlay;
+        CameraDebugOverlay debugOverlay;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SceneView)
     };

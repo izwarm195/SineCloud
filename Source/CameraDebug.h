@@ -1,8 +1,9 @@
 /*
   ==============================================================================
-    CameraDebug.h
+    CameraDebugOverlay.h
     Layer 2: Debug Visualization
     屏幕实时显示 Camera 参数的调试面板，支持 F3 切换显示/隐藏
+    ★ 在 OpenGL 中绘制（不是 Component）
   ==============================================================================
 */
 #pragma once
@@ -14,10 +15,10 @@
 
 namespace sc
 {
-    class CameraDebug : public juce::Component
+    class CameraDebugOverlay
     {
     public:
-        CameraDebug() = default;
+        CameraDebugOverlay() = default;
 
         void setCamera(const Camera* cam) noexcept { camera = cam; }
 
@@ -25,7 +26,8 @@ namespace sc
         void toggleVisible() noexcept { shouldDraw = !shouldDraw; }
         bool isVisible() const noexcept { return shouldDraw; }
 
-        void paint(juce::Graphics& g) override
+        /** 在 renderOpenGL 中调用此方法，使用 JUCE Graphics 在屏幕上方绘制 */
+        void drawDebugInfo(juce::Graphics& g, int windowWidth, int windowHeight)
         {
             if (!shouldDraw || !camera) return;
 
@@ -143,12 +145,8 @@ namespace sc
                 juce::Justification::centred, 1);
         }
 
-        
-
     private:
         const Camera* camera{ nullptr };
         bool shouldDraw{ false };
-
-        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CameraDebug)
     };
 }
