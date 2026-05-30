@@ -112,6 +112,8 @@ namespace sc
 
             //debug
             debugOverlay.setVisible(false);
+            //
+            grabKeyboardFocus();
         }
 
         void renderOpenGL() override
@@ -169,47 +171,76 @@ namespace sc
         {
             if (paused) return;
 
+            if (ignoreNextMouseMove)
+            {
+                ignoreNextMouseMove = false;
+                return;
+            }
+
+            const auto sp = e.getScreenPosition();
+            const juce::Point<float> screenPos((float)sp.x, (float)sp.y);
+
+
             if (!mouseLookInit)
             {
-                // 第一帧不旋转，只记录位置，防止跳变
-                lastMouseLookPos = e.position;
+                lastMouseLookScreenPos = screenPos;
                 mouseLookInit = true;
                 return;
             }
 
-            const float dx = e.position.x - lastMouseLookPos.x;
-            const float dy = e.position.y - lastMouseLookPos.y;
+            const float dx = screenPos.x - lastMouseLookScreenPos.x;
+            const float dy = screenPos.y - lastMouseLookScreenPos.y;
 
-            // 灵敏度略低于原来的 0.008，因为每帧都触发，不需要太高
             camera.setYaw(camera.getYaw() + dx * 0.005f);
-            camera.setPitch(camera.getPitch() - dy * 0.005f);
+            camera.setPitch(camera.getPitch() + dy * 0.005f);
 
-            lastMouseLookPos = e.position;
+            const auto sb = getScreenBounds();
+            const juce::Point<float> center((float)sb.getCentreX(), (float)sb.getCentreY());
+
+            ignoreNextMouseMove = true;
+            juce::Desktop::getInstance().getMainMouseSource()
+                .setScreenPosition(center);
+            lastMouseLookScreenPos = center;
         }
 
-        void mouseDown(const juce::MouseEvent& e) override
+
+        void mouseDown(const juce::MouseEvent&) override
         {
-            // 有 World 时转发点击做拾取，否则忽略
-            if (world != nullptr)
-            {
-                const auto ray = camera.screenToWorldRay(e.position);
-                if (world->onMousePress(ray))
-                    return;
-            }
+            grabKeyboardFocus();
         }
 
-        void mouseDrag(const juce::MouseEvent& e) override
+        void mouseEnter(const juce::MouseEvent&) override
         {
-            // 只转发给 World 做旋钮拖拽，不再旋转视角
-            if (world != nullptr)
-                world->onMouseDragDelta(e.position - lastMouseLookPos);
+            grabKeyboardFocus();
         }
 
-        void mouseUp(const juce::MouseEvent&) override
-        {
-            if (world != nullptr)
-                world->onMouseRelease();
-        }
+
+
+
+
+        //void mouseDown(const juce::MouseEvent& e) override
+        //{
+        //    // 有 World 时转发点击做拾取，否则忽略
+        //    if (world != nullptr)
+        //    {
+        //        const auto ray = camera.screenToWorldRay(e.position);
+        //        if (world->onMousePress(ray))
+        //            return;
+        //    }
+        //}
+
+        //void mouseDrag(const juce::MouseEvent& e) override
+        //{
+        //    // 只转发给 World 做旋钮拖拽，不再旋转视角
+        //    if (world != nullptr)
+        //        world->onMouseDragDelta(e.position - lastMouseLookPos);
+        //}
+
+        //void mouseUp(const juce::MouseEvent&) override
+        //{
+        //    if (world != nullptr)
+        //        world->onMouseRelease();
+        //}
 
 
         
@@ -329,8 +360,10 @@ namespace sc
         PauseOverlay pauseOverlay;
 
         // ---- 鼠标跟随 ----
-        juce::Point<float> lastMouseLookPos;
-        bool mouseLookInit = false;         // 第一帧标记，防止跳视角
+        juce::Point<float> lastMouseLookScreenPos;   
+        bool mouseLookInit = false;
+        bool ignoreNextMouseMove = false;
+
 
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SceneView)
