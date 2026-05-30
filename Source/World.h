@@ -71,7 +71,7 @@ namespace sc
 
         // µ÷²Î
         float interactReach{ 1.6f }; // Íæ¼Òµ½ÐýÅ¥ÖÐÐÄµÄ"focus"¾àÀë
-        float pivotFollowRate{ 0.92f };
+        float pivotFollowRate{ 0.9999f };
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(World)
     };
