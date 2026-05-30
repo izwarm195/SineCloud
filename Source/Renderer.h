@@ -34,7 +34,9 @@ namespace sc
                 DBG("Renderer: PixelMaterial build failed");
                 return false;
             }
+
             return true;
+
         }
 
         void shutdown() {}
@@ -45,7 +47,13 @@ namespace sc
         void beginFrame(const Camera& camera, const Lighting& light,
             const Vec3& clearColor = { 0.06f, 0.07f, 0.09f }) noexcept
         {
+
             using namespace sc::gl;
+
+            if (juce::gl::glDebugMessageControl != nullptr)
+                juce::gl::glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE,
+                    GL_DEBUG_SEVERITY_NOTIFICATION,
+                    0, nullptr, GL_FALSE);
 
             const float scale = (float)context.getRenderingScale();
             const int wPx = (int)(camera.getViewportWidth() * scale);
@@ -63,6 +71,9 @@ namespace sc
             material.setLighting(light);
             material.setShadeLevels(shadeLevels);
             material.setLineMode(false);
+
+            
+
         }
 
         /** ±ê×¼ÊµÐÄ mesh »æÖÆ¡£ */

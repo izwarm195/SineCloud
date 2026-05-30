@@ -27,18 +27,15 @@ namespace sc
         {
             setOpaque(true);
             setWantsKeyboardFocus(true);
-
             context.setRenderer(this);
-            context.setComponentPaintingEnabled(false);
+            context.setComponentPaintingEnabled(true);   // ★ 关键：true，允许 GL 之后再叠 2D
             context.setContinuousRepainting(false);
             context.attachTo(*this);
 
-            //----Debug----
             debugOverlay.setCamera(&camera);
-            //-------------
-
             startTimerHz(60);
         }
+
 
         ~SceneView() override
         {
@@ -54,7 +51,12 @@ namespace sc
         //======================================================================
         // juce::Component
         //======================================================================
-        void paint(juce::Graphics&) override {}
+        void paint(juce::Graphics& g) override
+        {
+            // GL 已经画完场景，这里只在最上层叠加 debug 面板
+            debugOverlay.drawDebugInfo(g, getWidth(), getHeight());
+        }
+
 
         void resized() override
         {
@@ -230,7 +232,13 @@ namespace sc
         
 
     private:
-        void timerCallback() override { context.triggerRepaint(); }
+        void timerCallback() override
+        {
+            context.triggerRepaint();
+            if (debugOverlay.isVisible())
+                repaint();           // ★ 面板可见时同时刷 2D 层
+        }
+
 
         InputState pollInput() const noexcept
         {
