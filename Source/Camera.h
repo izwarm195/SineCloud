@@ -33,12 +33,23 @@ namespace sc
         // ★ 参数名改为 dist，消除对成员变量 distance 的遮蔽
         void setOrbit(float yawRad, float pitchRad, float dist) noexcept
         {
-            yaw = yawRad;
+            setYaw(yawRad);
             pitch = juce::jlimit(minPitch, maxPitch, pitchRad);
             distance = juce::jmax(0.01f, dist);
         }
 
-        void setYaw(float r) noexcept { yaw = r; }
+       
+        // 归一化setYaw
+        void setYaw(float r) noexcept
+        {
+            yaw = r;
+            constexpr float twoPi = juce::MathConstants<float>::twoPi;
+            constexpr float pi = juce::MathConstants<float>::pi;
+            yaw = std::fmod(yaw, twoPi);
+            if (yaw > pi) yaw -= twoPi;
+            if (yaw < -pi) yaw += twoPi;
+        }
+
         void setPitch(float r) noexcept { pitch = juce::jlimit(minPitch, maxPitch, r); }
         void setDistance(float d) noexcept { distance = juce::jmax(0.01f, d); }
 
