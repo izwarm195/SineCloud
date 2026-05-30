@@ -71,11 +71,28 @@ namespace sc
             worldPos.y += velocity.y * dt;
 
             // ---- 朝向 ----
+            // 改为 ↓
             if (hasInput)
             {
-                const float targetYaw = std::atan2(input.y, input.x);
-                yaw = easing::damp(yaw, targetYaw, 2.0f, dt);
+                const float targetYaw = std::atan2(input.y, input.x);       // 在 [-π, π]
+                constexpr float twoPi = juce::MathConstants<float>::twoPi;
+                constexpr float pi = juce::MathConstants<float>::pi;
+
+                // 把角度差归一化到 [-π, π]，最短弧
+                float diff = targetYaw - yaw;
+                diff = std::fmod(diff + pi, twoPi);
+                if (diff < 0.0f) diff += twoPi;
+                diff -= pi;
+
+                const float wrappedTarget = yaw + diff;
+                yaw = easing::damp(yaw, wrappedTarget, 0.9999f, dt);
+
+                // damp 之后也归一化，防止漂移
+                yaw = std::fmod(yaw + pi, twoPi);
+                if (yaw < 0.0f) yaw += twoPi;
+                yaw -= pi;
             }
+
         }
 
         void draw(Renderer& r, const Camera&) override
