@@ -5,6 +5,7 @@
               pluginCode="Sct1">
   <MAINGROUP id="MWtifI" name="SineCloud">
     <GROUP id="{9D89155D-745F-44F4-4A89-1045E4DDABEF}" name="Source">
+      <FILE id="l4D7vJ" name="CameraDebug.h" compile="0" resource="0" file="Source/CameraDebug.h"/>
       <FILE id="J5x0KL" name="World.cpp" compile="1" resource="0" file="Source/World.cpp"/>
       <FILE id="UHl45c" name="World.h" compile="0" resource="0" file="Source/World.h"/>
       <FILE id="aLrp7t" name="BossEntity.h" compile="0" resource="0" file="Source/BossEntity.h"/>

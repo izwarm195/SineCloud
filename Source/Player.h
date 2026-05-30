@@ -43,6 +43,7 @@ namespace sc
             if (in.keyDown)  input = input - camForward;
             if (in.keyRight) input = input - camRight;
             if (in.keyLeft)  input = input + camRight;
+
             input.z = 0.0f;
 
             const float len2 = input.x * input.x + input.y * input.y;
@@ -96,7 +97,7 @@ namespace sc
         // ---- µ÷²Î£¨ÑØÓÃ¾É demo µÄÊÖ¸Ð£¬µ¥Î»£ºÃ¿Ãë£© ----
         float targetSpeed{ 4.0f };   // ¾ÉÖµÊÇÃ¿Ö¡ 5.0 ÏñËØ ¡Ö 300px/s£¬ÕâÀï»»³ÉÊÀ½çµ¥Î»
         float accelPerSec{ 0.99f };  // Ô½½Ó½ü 1 ¼ÓËÙÔ½¿ì£¨damp rate£©
-        float dampPerSec{ 0.98f };  // ËÉÊÖ¼õËÙ
+        float dampPerSec{ 0.1f };  // ËÉÊÖ¼õËÙ
 
     private:
         Vec3 velocity{ 0, 0, 0 };

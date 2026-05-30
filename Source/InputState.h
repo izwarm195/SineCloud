@@ -19,7 +19,10 @@ namespace sc
         bool keyDown{ false };
         bool keyLeft{ false };
         bool keyRight{ false };
-        bool keyAttack{ false };   // ÔÝÊ±Õ¼Î»£¬ÈÕºó¸ø BossEntity ÓÃ
+        bool keyAttack{ false };   
+        bool keyF3{ false };   
+        
+        // ÔÝÊ±Õ¼Î»£¬ÈÕºó¸ø BossEntity ÓÃ
 
         // ---- Êó±ê ----
         juce::Point<float> mousePos{ 0.0f, 0.0f };

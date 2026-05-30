@@ -14,6 +14,7 @@
 #include "Lighting.h"
 #include "InputState.h"
 #include "World.h"
+#include "CameraDebug.h"
 
 namespace sc
 {
@@ -31,6 +32,11 @@ namespace sc
             context.setComponentPaintingEnabled(false);
             context.setContinuousRepainting(false);
             context.attachTo(*this);
+
+            //----Debug----
+            debugOverlay.setCamera(&camera);
+            addAndMakeVisible(debugOverlay);
+            //-------------
 
             startTimerHz(60);
         }
@@ -54,6 +60,10 @@ namespace sc
         void resized() override
         {
             camera.setViewport(getWidth(), getHeight());
+
+            //debug
+            
+            debugOverlay.setBounds(getLocalBounds());
         }
 
         //======================================================================
@@ -87,6 +97,10 @@ namespace sc
             // ★ 修复黑屏：GL context 创建时立即同步 viewport
             //   GL 线程此时拿到的 getWidth()/getHeight() 已是组件真实尺寸
             camera.setViewport(getWidth(), getHeight());
+
+
+            //debug
+            debugOverlay.setVisible(false);
         }
 
         void renderOpenGL() override
@@ -201,6 +215,19 @@ namespace sc
             camera.setDistance(camera.getDistance() * factor);
         }
 
+        bool keyPressed(const juce::KeyPress& key) override
+        {
+            // F3 切换调试面板显示
+            if (key.getKeyCode() == juce::KeyPress::F3Key)
+            {
+                debugOverlay.toggleVisible();
+                repaint();
+                return true;  // 标记按键已处理
+            }
+            return false;  // 其他按键不处理
+        }
+        
+
     private:
         void timerCallback() override { context.triggerRepaint(); }
 
@@ -220,6 +247,8 @@ namespace sc
             s.keyRight = juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::rightKey)
                       || juce::KeyPress::isKeyCurrentlyDown('D')
                       || juce::KeyPress::isKeyCurrentlyDown('d');
+
+            s.keyF3 = juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::F3Key);
             s.keyAttack = juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::spaceKey);
 
             s.mousePos          = currentMousePos;
@@ -250,6 +279,8 @@ namespace sc
         juce::Point<float> camDragStart { 0.0f, 0.0f };
         float yawAtStart   { 0.0f };
         float pitchAtStart { 0.0f };
+
+        CameraDebug debugOverlay;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SceneView)
     };
