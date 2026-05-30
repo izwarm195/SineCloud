@@ -180,10 +180,10 @@ namespace sc
             const auto sp = e.getScreenPosition();
             const juce::Point<float> screenPos((float)sp.x, (float)sp.y);
 
-
             if (!mouseLookInit)
             {
                 lastMouseLookScreenPos = screenPos;
+                warpTarget = screenPos;                 // ★ 记录初始位置，作为永久锁定点
                 mouseLookInit = true;
                 return;
             }
@@ -194,14 +194,13 @@ namespace sc
             camera.setYaw(camera.getYaw() + dx * 0.005f);
             camera.setPitch(camera.getPitch() + dy * 0.005f);
 
-            const auto sb = getScreenBounds();
-            const juce::Point<float> center((float)sb.getCentreX(), (float)sb.getCentreY());
-
+            // ★ 直接弹回存储的锁定点，不调 getScreenBounds()
             ignoreNextMouseMove = true;
             juce::Desktop::getInstance().getMainMouseSource()
-                .setScreenPosition(center);
-            lastMouseLookScreenPos = center;
+                .setScreenPosition(warpTarget);
+            lastMouseLookScreenPos = warpTarget;
         }
+
 
 
         void mouseDown(const juce::MouseEvent&) override
@@ -360,10 +359,10 @@ namespace sc
         PauseOverlay pauseOverlay;
 
         // ---- 鼠标跟随 ----
-        juce::Point<float> lastMouseLookScreenPos;   
+        juce::Point<float> lastMouseLookScreenPos;
+        juce::Point<float> warpTarget;           // ★ 新增
         bool mouseLookInit = false;
         bool ignoreNextMouseMove = false;
-
 
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SceneView)
