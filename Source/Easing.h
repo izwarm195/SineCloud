@@ -34,10 +34,7 @@ namespace sc::easing
             : 1.0f - std::pow(-2.0f * t + 2.0f, 3.0f) * 0.5f;
     }
 
-    /** Ö¡ÂÊÎÞ¹ØµÄÖ¸ÊýÇ÷½ü£ºÃ¿ÃëË¥¼õµ½ (1 - rate)¡£
-        Àý£ºrate=0.9 ±íÊ¾Ã¿Ãë¸²¸ÇÄ¿±êÖµµÄ 90%¡£ */
-    inline float damp(float current, float target,
-        float rate, float dt) noexcept
+    inline float damp(float current, float target, float rate, float dt) noexcept
     {
         rate = std::clamp(rate, 0.0f, 0.9999f);
         const float k = 1.0f - std::pow(1.0f - rate, dt);

@@ -257,7 +257,7 @@ namespace sc
                       || juce::KeyPress::isKeyCurrentlyDown('D')
                       || juce::KeyPress::isKeyCurrentlyDown('d');
 
-            s.keyF3 = juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::F3Key);
+            //s.keyF3 = juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::F3Key);
             s.keyAttack = juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::spaceKey);
 
             s.mousePos          = currentMousePos;
