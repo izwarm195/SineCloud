@@ -113,24 +113,30 @@ namespace sc
         /** Íæ¼ÒÊÇ·ñÔÚ½»»¥¾àÀëÄÚ£¨¾ö¶¨ Focused ×´Ì¬£©¡£ */
         void setFocused(bool f) noexcept { focused = f; }
 
-        /** Êó±ê°´ÏÂÃüÖÐ±¾ÐýÅ¥ -> ½øÈëÍÏ×§¡£ */
-        void beginMouseDrag() noexcept
+      
+        /*void beginMouseDrag() noexcept
         {
             dragging = true;
             inertia.beginDrag();
         }
-
-        /** ÍÏ×§¹ý³ÌÖÐµÄ mouse delta£¨ÏñËØ£©¡£ */
         void onMouseDragDelta(juce::Point<float> delta) noexcept
         {
             if (!dragging) return;
             inertia.onDragDelta(delta.x, delta.y);
-        }
+        }*/
 
         void endMouseDrag() noexcept
         {
             if (!dragging) return;
             dragging = false;
+            inertia.endDrag();
+        }
+        /** 滚轮微调参数值，一个滚轮刻度 ≈ 5% 的量程 */
+        void onMouseWheel(float deltaY) noexcept
+        {
+            // 利用现有 InertialValue 的拖拽通路：20px/刻度，400px = 满量程 → 每刻度 5%
+            inertia.beginDrag();
+            inertia.onDragDelta(0.0f, deltaY * 20.0f);
             inertia.endDrag();
         }
 

@@ -179,7 +179,6 @@ namespace sc
 
             if (!mouseLookInit)
             {
-                // 兜底：如果 mouseEnter 没触发（极小概率），这里仍可初始化
                 lastMouseLookScreenPos = screenPos;
                 warpTarget = screenPos;
                 mouseLookInit = true;
@@ -195,7 +194,7 @@ namespace sc
             ignoreNextMouseMove = true;
             juce::Desktop::getInstance().getMainMouseSource()
                 .setScreenPosition(warpTarget);
-            lastMouseLookScreenPos = warpTarget;
+            lastMouseLookScreenPos = warpTarget;   // ★ 不管 OS 有没有弹回去，都当弹回去了
         }
 
         void mouseDown(const juce::MouseEvent&) override
@@ -203,13 +202,30 @@ namespace sc
             grabKeyboardFocus();
         }
 
+        void mouseUp(const juce::MouseEvent&) override
+        {
+            // 松手时重置 mouseLookInit，防止 setScreenPosition 被 OS 拦截期间积累的偏移在下一帧跳变
+            mouseLookInit = false;
+        }
+
+
+
         void mouseWheelMove(const juce::MouseEvent&,
             const juce::MouseWheelDetails& w) override
         {
             if (paused) return;
+
+            // ★ 有聚焦旋钮 → 滚轮调参数；否则 → 缩放相机
+            if (world != nullptr && world->getFocusedKnob() != nullptr)
+            {
+                world->onMouseWheel(w.deltaY);
+                return;
+            }
+
             const float factor = std::pow(0.9f, w.deltaY * 4.0f);
             camera.setDistance(camera.getDistance() * factor);
         }
+
 
         bool keyPressed(const juce::KeyPress& key) override
         {
@@ -289,15 +305,18 @@ namespace sc
                 pauseOverlay.setVisible(true);
                 setMouseCursor(juce::MouseCursor::NormalCursor);
                 mouseLookInit = false;
+            
             }
             else
             {
                 pauseOverlay.setVisible(false);
                 setMouseCursor(juce::MouseCursor::NoCursor);
                 mouseLookInit = false;
+            
                 grabKeyboardFocus();
             }
         }
+
 
         bool paused = false;
         PauseOverlay pauseOverlay;
@@ -307,6 +326,7 @@ namespace sc
         juce::Point<float> warpTarget;
         bool mouseLookInit = false;
         bool ignoreNextMouseMove = false;
+        
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SceneView)
     };

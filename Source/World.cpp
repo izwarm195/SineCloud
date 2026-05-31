@@ -106,6 +106,9 @@ namespace sc
         for (auto& k : knobs)
             k->setFocused(k.get() == nearest);
 
+        focusedKnob = nearest;
+
+
         // 4. Ïà»ú pivot Èí¸úËæÍæ¼Ò£¨XY Æ½Ãæ£¬²»¶¯ Z£©
         Vec3 pivot = cam.getPivot();
         pivot.x = easing::damp(pivot.x, player->worldPos.x, pivotFollowRate, dt);
@@ -141,16 +144,22 @@ namespace sc
         }
         if (hit == nullptr) return false;
         draggingKnob = hit;
-        draggingKnob->beginMouseDrag();
+        //draggingKnob->beginMouseDrag();
         return true;
     }
 
+    void World::onMouseWheel(float deltaY)
+    {
+        if (focusedKnob != nullptr)
+            focusedKnob->onMouseWheel(deltaY);
+    }
 
-    void World::onMouseDragDelta(juce::Point<float> deltaPx)
+
+    /*void World::onMouseDragDelta(juce::Point<float> deltaPx)
     {
         if (draggingKnob != nullptr)
             draggingKnob->onMouseDragDelta(deltaPx);
-    }
+    }*/
 
     void World::onMouseRelease()
     {

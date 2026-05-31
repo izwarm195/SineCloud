@@ -47,6 +47,14 @@ namespace sc
         void onMouseDragDelta(juce::Point<float> deltaPx);
         void onMouseRelease();
 
+        // 交互
+        KnobEntity* getFocusedKnob() const noexcept { return focusedKnob; }
+        void onMouseWheel(float deltaY);
+
+        // 私有成员区（加在 draggingKnob 旁边）
+        KnobEntity* focusedKnob{ nullptr };   // ← 当前玩家临近的旋钮
+
+
         // µ÷ÊÔ / ÐÅÏ¢
         Player& getPlayer() noexcept { return *player; }
         const std::vector<std::unique_ptr<KnobEntity>>& getKnobs() const noexcept { return knobs; }
