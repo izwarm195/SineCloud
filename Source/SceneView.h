@@ -20,8 +20,8 @@
 namespace sc
 {
     class SceneView : public juce::Component,
-                      public juce::OpenGLRenderer,
-                      private juce::Timer
+        public juce::OpenGLRenderer,
+        private juce::Timer
     {
     public:
         SceneView()
@@ -29,7 +29,7 @@ namespace sc
             setOpaque(true);
             setWantsKeyboardFocus(true);
             context.setRenderer(this);
-            context.setComponentPaintingEnabled(true);   // ★ 关键：true，允许 GL 之后再叠 2D
+            context.setComponentPaintingEnabled(true);
             context.setContinuousRepainting(false);
             context.attachTo(*this);
 
@@ -44,10 +44,9 @@ namespace sc
                     setPaused(false);
                 };
 
-            // 启动时进入鼠标跟随模式（隐藏光标）
+            // 启动时隐藏光标，等鼠标首次进入组件时居中锁定
             setMouseCursor(juce::MouseCursor::NoCursor);
         }
-
 
         ~SceneView() override
         {
@@ -55,7 +54,7 @@ namespace sc
             context.detach();
         }
 
-        Camera&   getCamera()   noexcept { return camera; }
+        Camera& getCamera()   noexcept { return camera; }
         Lighting& getLighting() noexcept { return lighting; }
 
         void setWorld(World* w) noexcept { world = w; }
@@ -65,17 +64,14 @@ namespace sc
         //======================================================================
         void paint(juce::Graphics& g) override
         {
-            // GL 已经画完场景，这里只在最上层叠加 debug 面板
             debugOverlay.drawDebugInfo(g, getWidth(), getHeight());
         }
-
 
         void resized() override
         {
             camera.setViewport(getWidth(), getHeight());
-            pauseOverlay.setBounds(getLocalBounds());   // ← 新增
+            pauseOverlay.setBounds(getLocalBounds());
         }
-
 
         //======================================================================
         // juce::OpenGLRenderer（GL 线程）
@@ -90,7 +86,6 @@ namespace sc
                 return;
             }
 
-            // 调试 mesh（World 注入后不会用到）
             debugGrid = Mesh::createGrid(20.0f, 1.0f);
             debugGrid->uploadToGPU(context);
             debugCube = Mesh::createBox(2.0f, 2.0f, 2.0f);
@@ -101,18 +96,12 @@ namespace sc
 
             camera.setPivot({ 0.0f, 0.0f, 0.0f });
             camera.setOrbit(juce::degreesToRadians(35.0f),
-                            juce::degreesToRadians(55.0f),
-                            14.0f);
+                juce::degreesToRadians(55.0f),
+                14.0f);
             camera.setPerspective(50.0f, 0.1f, 200.0f);
-
-            // ★ 修复黑屏：GL context 创建时立即同步 viewport
-            //   GL 线程此时拿到的 getWidth()/getHeight() 已是组件真实尺寸
             camera.setViewport(getWidth(), getHeight());
 
-
-            //debug
             debugOverlay.setVisible(false);
-            //
             grabKeyboardFocus();
         }
 
@@ -120,7 +109,6 @@ namespace sc
         {
             if (renderer == nullptr) return;
 
-            // ---- 帧时间 ----
             const double now = juce::Time::getMillisecondCounterHiRes() * 0.001;
             const float dt = (lastRenderSec > 0.0)
                 ? (float)juce::jlimit(0.001, 0.1, now - lastRenderSec)
@@ -131,26 +119,16 @@ namespace sc
             in.viewportW = camera.getViewportWidth();
             in.viewportH = camera.getViewportHeight();
 
-            // ★ 暂停时不更新世界
             if (world != nullptr && !paused)
-            {
                 world->update(dt, in, camera);
-            }
 
-            // ---- 渲染（暂停时场景仍会绘制，只是冻结不动）----
             renderer->beginFrame(camera, lighting);
 
             if (world != nullptr)
                 world->draw(*renderer, camera);
 
             renderer->endFrame();
-
-            mouseJustPressedFlag = false;
-            mouseJustReleasedFlag = false;
-            lastMousePos = currentMousePos;
         }
-
-
 
         void openGLContextClosing() override
         {
@@ -167,6 +145,25 @@ namespace sc
         //======================================================================
         // 输入
         //======================================================================
+        void mouseEnter(const juce::MouseEvent&) override
+        {
+            grabKeyboardFocus();
+
+            // ★ 启动时把鼠标移到组件正中央并锁定
+            if (!mouseLookInit && !paused)
+            {
+                const auto sb = getScreenBounds();
+                warpTarget = juce::Point<float>(
+                    (float)sb.getCentreX(), (float)sb.getCentreY());
+
+                juce::Desktop::getInstance().getMainMouseSource()
+                    .setScreenPosition(warpTarget);
+
+                lastMouseLookScreenPos = warpTarget;
+                mouseLookInit = true;
+            }
+        }
+
         void mouseMove(const juce::MouseEvent& e) override
         {
             if (paused) return;
@@ -182,8 +179,9 @@ namespace sc
 
             if (!mouseLookInit)
             {
+                // 兜底：如果 mouseEnter 没触发（极小概率），这里仍可初始化
                 lastMouseLookScreenPos = screenPos;
-                warpTarget = screenPos;                 // ★ 记录初始位置，作为永久锁定点
+                warpTarget = screenPos;
                 mouseLookInit = true;
                 return;
             }
@@ -194,73 +192,33 @@ namespace sc
             camera.setYaw(camera.getYaw() + dx * 0.005f);
             camera.setPitch(camera.getPitch() + dy * 0.005f);
 
-            // ★ 直接弹回存储的锁定点，不调 getScreenBounds()
             ignoreNextMouseMove = true;
             juce::Desktop::getInstance().getMainMouseSource()
                 .setScreenPosition(warpTarget);
             lastMouseLookScreenPos = warpTarget;
         }
 
-
-
         void mouseDown(const juce::MouseEvent&) override
         {
             grabKeyboardFocus();
         }
 
-        void mouseEnter(const juce::MouseEvent&) override
+        void mouseWheelMove(const juce::MouseEvent&,
+            const juce::MouseWheelDetails& w) override
         {
-            grabKeyboardFocus();
-        }
-
-
-
-
-
-        //void mouseDown(const juce::MouseEvent& e) override
-        //{
-        //    // 有 World 时转发点击做拾取，否则忽略
-        //    if (world != nullptr)
-        //    {
-        //        const auto ray = camera.screenToWorldRay(e.position);
-        //        if (world->onMousePress(ray))
-        //            return;
-        //    }
-        //}
-
-        //void mouseDrag(const juce::MouseEvent& e) override
-        //{
-        //    // 只转发给 World 做旋钮拖拽，不再旋转视角
-        //    if (world != nullptr)
-        //        world->onMouseDragDelta(e.position - lastMouseLookPos);
-        //}
-
-        //void mouseUp(const juce::MouseEvent&) override
-        //{
-        //    if (world != nullptr)
-        //        world->onMouseRelease();
-        //}
-
-
-        
-        void mouseWheelMove(const juce::MouseEvent&,const juce::MouseWheelDetails& w) override
-        {
-            if (paused) return;                        // ← 新增
+            if (paused) return;
             const float factor = std::pow(0.9f, w.deltaY * 4.0f);
             camera.setDistance(camera.getDistance() * factor);
         }
 
-
         bool keyPressed(const juce::KeyPress& key) override
         {
-            // ESC：切换暂停
             if (key.getKeyCode() == juce::KeyPress::escapeKey)
             {
                 setPaused(!paused);
                 return true;
             }
 
-            // F3（保留你现有的逻辑）
             if (key.getKeyCode() == juce::KeyPress::F3Key)
             {
                 debugOverlay.toggleVisible();
@@ -271,67 +229,54 @@ namespace sc
             return false;
         }
 
-
     private:
         void timerCallback() override
         {
             context.triggerRepaint();
             if (debugOverlay.isVisible())
-                repaint();           // ★ 面板可见时同时刷 2D 层
+                repaint();
         }
-
 
         InputState pollInput() const noexcept
         {
             InputState s;
-            // W/上键 → 往屏幕上方（+Y），映射到 keyUp
-            s.keyUp    = juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::upKey)
-                      || juce::KeyPress::isKeyCurrentlyDown('W')
-                      || juce::KeyPress::isKeyCurrentlyDown('w');
-            s.keyDown  = juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::downKey)
-                      || juce::KeyPress::isKeyCurrentlyDown('S')
-                      || juce::KeyPress::isKeyCurrentlyDown('s');
-            s.keyLeft  = juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::leftKey)
-                      || juce::KeyPress::isKeyCurrentlyDown('A')
-                      || juce::KeyPress::isKeyCurrentlyDown('a');
-            s.keyRight = juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::rightKey)
-                      || juce::KeyPress::isKeyCurrentlyDown('D')
-                      || juce::KeyPress::isKeyCurrentlyDown('d');
 
-            //s.keyF3 = juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::F3Key);
+            s.keyUp = juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::upKey)
+                || juce::KeyPress::isKeyCurrentlyDown('W')
+                || juce::KeyPress::isKeyCurrentlyDown('w');
+            s.keyDown = juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::downKey)
+                || juce::KeyPress::isKeyCurrentlyDown('S')
+                || juce::KeyPress::isKeyCurrentlyDown('s');
+            s.keyLeft = juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::leftKey)
+                || juce::KeyPress::isKeyCurrentlyDown('A')
+                || juce::KeyPress::isKeyCurrentlyDown('a');
+            s.keyRight = juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::rightKey)
+                || juce::KeyPress::isKeyCurrentlyDown('D')
+                || juce::KeyPress::isKeyCurrentlyDown('d');
             s.keyAttack = juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::spaceKey);
 
-            s.mousePos          = currentMousePos;
-            s.mouseDown         = mouseDownFlag;
-            s.mouseJustPressed  = mouseJustPressedFlag;
-            s.mouseJustReleased = mouseJustReleasedFlag;
-            s.mouseDelta        = currentMousePos - lastMousePos;
+            // 鼠标字段暂不维护（鼠标被锁定做视角控制），填默认值
+            s.mousePos = { 0.0f, 0.0f };
+            s.mouseDown = false;
+            s.mouseJustPressed = false;
+            s.mouseJustReleased = false;
+            s.mouseDelta = { 0.0f, 0.0f };
+
             return s;
         }
 
+        // ---- 渲染 ----
         juce::OpenGLContext context;
         Camera   camera;
         Lighting lighting;
         std::unique_ptr<Renderer> renderer;
         std::unique_ptr<Mesh> debugGrid;
         std::unique_ptr<Mesh> debugCube;
-        World* world { nullptr };
+        World* world{ nullptr };
+        double lastRenderSec{ 0.0 };
 
-        double lastRenderSec { 0.0 };
-
-        juce::Point<float> currentMousePos { 0.0f, 0.0f };
-        juce::Point<float> lastMousePos    { 0.0f, 0.0f };
-        bool mouseDownFlag         { false };
-        bool mouseJustPressedFlag  { false };
-        bool mouseJustReleasedFlag { false };
-
-        bool camDragActive { false };
-        juce::Point<float> camDragStart { 0.0f, 0.0f };
-        float yawAtStart   { 0.0f };
-        float pitchAtStart { 0.0f };
-
+        // ---- 调试 ----
         CameraDebugOverlay debugOverlay;
-
 
         // ---- 暂停 ----
         void setPaused(bool p)
@@ -343,27 +288,25 @@ namespace sc
             {
                 pauseOverlay.setVisible(true);
                 setMouseCursor(juce::MouseCursor::NormalCursor);
-                mouseLookInit = false;      // 恢复时重置，防止跳变
+                mouseLookInit = false;
             }
             else
             {
                 pauseOverlay.setVisible(false);
                 setMouseCursor(juce::MouseCursor::NoCursor);
-                mouseLookInit = false;      // 下次 mouseMove 第一帧只记录位置
-                grabKeyboardFocus();        // 确保 WASD 继续工作
+                mouseLookInit = false;
+                grabKeyboardFocus();
             }
         }
 
-        // ---- 暂停状态 ----
         bool paused = false;
         PauseOverlay pauseOverlay;
 
         // ---- 鼠标跟随 ----
         juce::Point<float> lastMouseLookScreenPos;
-        juce::Point<float> warpTarget;           // ★ 新增
+        juce::Point<float> warpTarget;
         bool mouseLookInit = false;
         bool ignoreNextMouseMove = false;
-
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SceneView)
     };
