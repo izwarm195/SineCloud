@@ -42,10 +42,7 @@ namespace sc
         void update(float dt, const InputState& in, Camera& cam);
         void draw(Renderer& r, const Camera& cam);
 
-        // Êó±ê
-        bool onMousePress(const Ray& worldRay);
-        void onMouseDragDelta(juce::Point<float> deltaPx);
-        void onMouseRelease();
+    
 
         // 交互
         KnobEntity* getFocusedKnob() const noexcept { return focusedKnob; }
@@ -74,8 +71,6 @@ namespace sc
         std::unique_ptr<Player> player;
         std::vector<std::unique_ptr<KnobEntity>> knobs;
 
-        // ÍÏ×§ÖÐµÄÐýÅ¥
-        KnobEntity* draggingKnob{ nullptr };
 
         // µ÷²Î
         float interactReach{ 1.6f }; // Íæ¼Òµ½ÐýÅ¥ÖÐÐÄµÄ"focus"¾àÀë

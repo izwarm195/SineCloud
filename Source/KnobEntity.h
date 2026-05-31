@@ -1,13 +1,16 @@
-/*
-  ==============================================================================
-    KnobEntity.h
-    Layer 3: Game / Interaction
-    µØÃæÐýÅ¥£ºµ××ùÔ²Öù + ¶¥¸Ç + Ö¸ÕëÌõ¡£
-    ÊýÖµ±ä»¯Ö»¸Ä pointerYaw£¨model ¾ØÕóÐý×ª£©£¬shader ×ÔÈ»Í¸ÊÓ¡£
-    ½»»¥£ºÍæ¼Ò¿¿½ü -> Focused£»Êó±ê°´ÏÂÃüÖÐ¶¥¸Ç -> Dragging£¨Î¹ InertialValue£©¡£
-    ÊýÖµÍ¬²½£ºInertialValue.onValueChanged -> ParamBridge.write
-              ParamBridge.onHostChanged   -> InertialValue.setValueFromHost
-  ==============================================================================*/
+/* ==============================================================================
+   KnobEntity.h   Layer 3: Game / Interaction
+
+   Cylinder + pointer knob in the 3D world.
+
+   Interaction:
+     - Looking at a knob → focused (highlighted)
+     - Mouse wheel over a focused knob → nudge parameter target
+     - InertialValue smoothly chases the target (visible on the pointer)
+
+   No mouse-drag interaction.  Wheel-only, with smooth glide.
+   ============================================================================== */
+
 #pragma once
 
 #include "Entity.h"
@@ -15,63 +18,61 @@
 #include "InertialValue.h"
 #include "ParamBridge.h"
 
-namespace sc
-{
+namespace sc {
+
     class KnobEntity : public Entity
     {
     public:
         KnobEntity(juce::AudioProcessorValueTreeState& apvts,
             const juce::String& paramId,
             const juce::String& displayName)
-            : bridge(apvts, paramId), label(displayName)
+            : bridge(apvts, paramId)
+            , label(displayName)
         {
-            // ÓÃ ParamBridge ÍÆ¶Ï·¶Î§
             const auto rng = bridge.getRange();
             inertia.setRange(rng.start, rng.end);
-            inertia.setDragRangePixels(400.0f);
-            inertia.setFrictionPerSecond(0.05f);
-            inertia.setInertiaGain(0.6f);
+            inertia.setSmoothSpeed(10.0f);          // gentle glide — tweak to taste
 
-            // µ±Ç°ÕæÊµÖµ -> InertialValue
+            // Current host value → InertialValue
             inertia.setValueFromHost(bridge.read());
 
-            // InertialValue -> APVTS
-            inertia.onValueChanged = [this](float v) { bridge.write(v); };
+            // InertialValue → APVTS
+            inertia.onValueChanged = [this](float v)
+                {
+                    bridge.write(v);
+                };
 
-            // APVTS£¨host ×Ô¶¯»¯ / preset£©-> InertialValue
-            bridge.onHostChanged = [this](float v) { inertia.setValueFromHost(v); };
+            // Host automation / preset → InertialValue
+            bridge.onHostChanged = [this](float v)
+                {
+                    inertia.setValueFromHost(v);
+                };
         }
 
-        //----------------------------------------------------------------------
-        // ¹²Ïí mesh£¨World Ìá¹©£©
-        //----------------------------------------------------------------------
+        // ---- Meshes (supplied by World) ----
+
         void setMeshes(Mesh* baseCylinder, Mesh* pointerBox) noexcept
         {
             cylMesh = baseCylinder;
             ptrMesh = pointerBox;
         }
 
-        //----------------------------------------------------------------------
-        // ¼¸ºÎ
-        //----------------------------------------------------------------------
-        void setRadius(float r) noexcept { radius = juce::jmax(0.05f, r); }
-        void setHeight(float h) noexcept { height = juce::jmax(0.05f, h); }
+        // ---- Dimensions ----
 
+        void  setRadius(float r) noexcept { radius = juce::jmax(0.05f, r); }
+        void  setHeight(float h) noexcept { height = juce::jmax(0.05f, h); }
         float getRadius() const noexcept { return radius; }
         float getHeight() const noexcept { return height; }
 
-        //----------------------------------------------------------------------
-        // ×´Ì¬
-        //----------------------------------------------------------------------
-        bool isFocused()  const noexcept { return focused; }
-        bool isDragging() const noexcept { return dragging; }
+        // ---- State ----
 
+        bool isFocused() const noexcept { return focused; }
+        bool isMoving()  const noexcept { return inertia.isMoving(); }
         const juce::String& getLabel() const noexcept { return label; }
         float getValueNormalised() const noexcept { return inertia.getNormalised(); }
 
-        //----------------------------------------------------------------------
-        // Ê°È¡£ºÍæ¼ÒÎ»ÖÃ / Êó±êÉäÏß
-        //----------------------------------------------------------------------
+        // ---- Picking ----
+
         bool isWithinReach(const Vec3& playerPos, float reach) const noexcept
         {
             const float dx = playerPos.x - worldPos.x;
@@ -79,11 +80,8 @@ namespace sc
             return dx * dx + dy * dy <= reach * reach;
         }
 
-        /** ¼òµ¥°üÎ§Çò / Ô²ÖùÊ°È¡£¨¶¥¸ÇÇøÓò£©¡£ */
         bool intersectsRay(const Ray& ray) const noexcept
         {
-            // °ÑÐýÅ¥¿´×÷ z ¡Ê [0, height + capHeight] µÄÊúÖ±Ô²Öù£¨°ë¾¶ radius£©
-            // Çó ray ÓëÎÞÏÞÔ²Öù£¨ÖáÑØ z£©µÄ½»µã£¬ÔÙ clamp z
             const float ox = ray.origin.x - worldPos.x;
             const float oy = ray.origin.y - worldPos.y;
             const float dx = ray.direction.x;
@@ -91,6 +89,7 @@ namespace sc
 
             const float a = dx * dx + dy * dy;
             if (a < 1.0e-6f) return false;
+
             const float b = 2.0f * (ox * dx + oy * dy);
             const float c = ox * ox + oy * oy - radius * radius;
             const float disc = b * b - 4.0f * a * c;
@@ -107,42 +106,23 @@ namespace sc
             return zHit >= worldPos.z && zHit <= topZ;
         }
 
-        //----------------------------------------------------------------------
-        // ÓÉ World ÍÆ¶¯
-        //----------------------------------------------------------------------
-        /** Íæ¼ÒÊÇ·ñÔÚ½»»¥¾àÀëÄÚ£¨¾ö¶¨ Focused ×´Ì¬£©¡£ */
+        // ---- Focus ----
+
+        /** Called by World when the player is closest to this knob. */
         void setFocused(bool f) noexcept { focused = f; }
 
-      
-        /*void beginMouseDrag() noexcept
-        {
-            dragging = true;
-            inertia.beginDrag();
-        }
-        void onMouseDragDelta(juce::Point<float> delta) noexcept
-        {
-            if (!dragging) return;
-            inertia.onDragDelta(delta.x, delta.y);
-        }*/
+        // ---- Mouse wheel ----
 
-        void endMouseDrag() noexcept
-        {
-            if (!dragging) return;
-            dragging = false;
-            inertia.endDrag();
-        }
-        /** 滚轮微调参数值，一个滚轮刻度 ≈ 5% 的量程 */
+        /** One wheel tick ≈ 5% of the parameter range.
+            Value glides smoothly to the new target (see InertialValue::tick). */
         void onMouseWheel(float deltaY) noexcept
         {
-            // 利用现有 InertialValue 的拖拽通路：20px/刻度，400px = 满量程 → 每刻度 5%
-            inertia.beginDrag();
-            inertia.onDragDelta(0.0f, deltaY * 20.0f);
-            inertia.endDrag();
+            constexpr float stepPerTick = 0.1f;
+            inertia.nudgeTarget(deltaY * stepPerTick);
         }
 
-        //----------------------------------------------------------------------
-        // Entity
-        //----------------------------------------------------------------------
+        // ---- Entity overrides ----
+
         void update(float dt, const InputState&) override
         {
             inertia.tick(dt);
@@ -150,68 +130,67 @@ namespace sc
 
         void draw(Renderer& r, const Camera&) override
         {
-            if (!visible || cylMesh == nullptr || ptrMesh == nullptr) return;
+            if (!visible || cylMesh == nullptr || ptrMesh == nullptr)
+                return;
 
-            // ---- µ××ùÔ²Öù£ºz ¡Ê [0, height]£¬°ë¾¶ radius ----
-            // ¹²Ïí mesh ÊÇ createCylinder(0.5f, 1.0f, segs)£¬ËùÒÔ¶ÔÎ»ÓÃ scale(radius*2, ...)
-            // µ« createCylinder Ö±½ÓÊÇ (radius, height) ÕæÊµ³ß´ç£¬World ÄÇ±ß´´½¨Ê±°´ 1.0/1.0 -> ÕâÀï·Ç¾ùÔÈËõ·Å
+            // ---- Cylinder body ----
             const Mat4 baseModel = translation(worldPos)
                 * rotationZ(yaw)
                 * scaling({ radius, radius, height });
+
             const Vec3 baseColor = focused ? Vec3{ 0.45f, 0.55f, 0.70f }
             : Vec3{ 0.30f, 0.35f, 0.42f };
             const Vec3 emissive = focused ? Vec3{ 0.10f, 0.14f, 0.20f }
             : Vec3{ 0, 0, 0 };
+
             r.drawMesh(*cylMesh, baseModel, baseColor, emissive);
 
-            // ---- ¶¥¸Ç£ºÔÚ height Ö®ÉÏµþÒ»¸ö°«Ô²Öù ----
+            // ---- Cap disc on top ----
             const Mat4 capModel = translation({ worldPos.x, worldPos.y, worldPos.z + height })
                 * rotationZ(yaw)
                 * scaling({ radius * 0.95f, radius * 0.95f, capHeight });
+
             r.drawMesh(*cylMesh, capModel,
                 focused ? Vec3{ 0.80f, 0.80f, 0.85f }
             : Vec3{ 0.65f, 0.65f, 0.70f });
 
-            // ---- Ö¸Õë£º´ÓÖÐÐÄÖ¸Ïò"Ç°"£¬Ðý×ª½Ç¸ù¾Ý¹éÒ»»¯Öµ ----
-            // ÊýÖµ 0~1 Ó³Éäµ½ [-135¡ã, +135¡ã]
+            // ---- Pointer: maps normalised [0..1] → angle [-135°, +135°] ----
             const float t = inertia.getNormalised();
             const float ptrAngle = juce::degreesToRadians(-135.0f)
                 + juce::degreesToRadians(270.0f) * t;
 
-            // Ö¸ÕëÌõ£º³¤ = 0.85*radius£¬¿í/ºñ = ºÜ±¡£»ÖÐÐÄÔÚ¶¥¸ÇÉÏ·½Ò»µã
             const float pLen = radius * 0.85f;
             const float pThk = radius * 0.10f;
 
-            const Mat4 ptrModel = translation({ worldPos.x,
-                                                worldPos.y,
-                                                worldPos.z + height + capHeight + pThk * 0.5f })
+            const Mat4 ptrModel = translation({
+                                      worldPos.x,
+                                      worldPos.y,
+                                      worldPos.z + height + capHeight + pThk * 0.5f
+                })
                 * rotationZ(yaw + ptrAngle)
-                // Ö¸ÕëÌõÔÚ +X ·½ÏòÑÓÉì£ºÏÈÆ½ÒÆµ½×ÔÉíÖÐµã
                 * translation({ pLen * 0.5f, 0.0f, 0.0f })
                 * scaling({ pLen, pThk, pThk });
-            r.drawMesh(*ptrMesh, ptrModel, { 0.95f, 0.95f, 0.98f },
+
+            r.drawMesh(*ptrMesh, ptrModel,
+                { 0.95f, 0.95f, 0.98f },
                 focused ? Vec3{ 0.20f, 0.20f, 0.20f } : Vec3{ 0, 0, 0 });
         }
 
     private:
-        // ÇÅ½Ó
         ParamBridge   bridge;
         InertialValue inertia;
         juce::String  label;
 
-        // ¼¸ºÎ²ÎÊý
         float radius{ 0.6f };
         float height{ 0.4f };
         float capHeight{ 0.15f };
 
-        // ¹²Ïí mesh
         Mesh* cylMesh{ nullptr };
         Mesh* ptrMesh{ nullptr };
 
-        // ×´Ì¬
         bool focused{ false };
-        bool dragging{ false };
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(KnobEntity)
     };
-}
+
+} // namespace sc

@@ -131,22 +131,7 @@ namespace sc
     // Êó±ê
     //==========================================================================
 
-    bool World::onMousePress(const Ray& worldRay)
-    {
-        KnobEntity* hit = nullptr;
-        float bestT = std::numeric_limits<float>::max();
-        for (auto& k : knobs)
-        {
-            if (!k->intersectsRay(worldRay)) continue;
-            const Vec3 d = k->worldPos - worldRay.origin;
-            const float dist2 = d.x * d.x + d.y * d.y + d.z * d.z;
-            if (dist2 < bestT) { bestT = dist2; hit = k.get(); }
-        }
-        if (hit == nullptr) return false;
-        draggingKnob = hit;
-        //draggingKnob->beginMouseDrag();
-        return true;
-    }
+   
 
     void World::onMouseWheel(float deltaY)
     {
@@ -154,19 +139,5 @@ namespace sc
             focusedKnob->onMouseWheel(deltaY);
     }
 
-
-    /*void World::onMouseDragDelta(juce::Point<float> deltaPx)
-    {
-        if (draggingKnob != nullptr)
-            draggingKnob->onMouseDragDelta(deltaPx);
-    }*/
-
-    void World::onMouseRelease()
-    {
-        if (draggingKnob != nullptr)
-        {
-            draggingKnob->endMouseDrag();
-            draggingKnob = nullptr;
-        }
-    }
+    
 }
