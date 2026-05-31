@@ -196,7 +196,7 @@ namespace sc
 
         // ---- 加载外部 OBJ 场景模型 ----
         const auto assetsDir = juce::File::getSpecialLocation(
-            juce::File::currentExecutableFile)
+            juce::File::currentApplicationFile)
             .getParentDirectory()
             .getChildFile("assets");
 
