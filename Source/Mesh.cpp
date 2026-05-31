@@ -1,8 +1,8 @@
 /*
-  ==============================================================================
-    Mesh.cpp
-    Layer 2: Scene & Renderer
-  ==============================================================================
+==============================================================================
+ Mesh.cpp
+ Layer 2: Scene & Renderer
+==============================================================================
 */
 #include "Mesh.h"
 #include "GLUtils.h"
@@ -16,9 +16,11 @@
 
 namespace sc
 {
+
     //==========================================================================
     // OBJ 加载（行为与旧版本一致，仅迁入命名空间）
     //==========================================================================
+
     static inline std::string makeKey(int p, int n, int t)
     {
         return std::to_string(p) + "/" + std::to_string(n) + "/" + std::to_string(t);
@@ -29,17 +31,18 @@ namespace sc
         vertices.clear();
         indices.clear();
 
-        tinyobj::attrib_t attrib;
-        std::vector<tinyobj::shape_t> shapes;
+        tinyobj::attrib_t                attrib;
+        std::vector<tinyobj::shape_t>    shapes;
         std::vector<tinyobj::material_t> materials;
         std::string warn, err;
 
-        std::string text(objText, length);
+        std::string        text(objText, length);
         std::istringstream iss(text);
 
         bool ok = tinyobj::LoadObj(&attrib, &shapes, &materials,
             &warn, &err, &iss, nullptr,
             /*triangulate=*/ true);
+
         if (!warn.empty()) DBG("tinyobj warn: " << warn);
         if (!err.empty())  DBG("tinyobj err : " << err);
         if (!ok) return false;
@@ -83,12 +86,38 @@ namespace sc
                 indices.push_back(newIndex);
             }
         }
+
         return true;
+    }
+
+    //==========================================================================
+    // 磁盘 / BinaryData 加载（新增）
+    //==========================================================================
+
+    bool Mesh::loadFromObjFile(const juce::File& file)
+    {
+        juce::MemoryBlock mb;
+        if (!file.loadFileAsData(mb))
+        {
+            DBG("Mesh: failed to read file: " << file.getFullPathName());
+            return false;
+        }
+        return loadFromObjMemory(
+            static_cast<const char*>(mb.getData()),
+            mb.getSize());
+    }
+
+    bool Mesh::loadFromBinaryData(const void* data, size_t size)
+    {
+        return loadFromObjMemory(
+            static_cast<const char*>(data),
+            size);
     }
 
     //==========================================================================
     // 程序化几何
     //==========================================================================
+
     std::unique_ptr<Mesh> Mesh::createPlane(float sizeX, float sizeY)
     {
         auto m = std::make_unique<Mesh>();
@@ -112,16 +141,14 @@ namespace sc
         const float hy = sy * 0.5f;
         const float hz = sz * 0.5f;
 
-        // 6 个面，每面 4 顶点（不共享，保留硬法线）
-        // 顺序：+X, -X, +Y, -Y, +Z, -Z
         struct Face { Vec3 n; Vec3 p[4]; };
         const Face faces[6] = {
-            { {  1, 0, 0 }, { {  hx, -hy, -hz }, {  hx,  hy, -hz }, {  hx,  hy,  hz }, {  hx, -hy,  hz } } },
-            { { -1, 0, 0 }, { { -hx,  hy, -hz }, { -hx, -hy, -hz }, { -hx, -hy,  hz }, { -hx,  hy,  hz } } },
-            { {  0, 1, 0 }, { {  hx,  hy, -hz }, { -hx,  hy, -hz }, { -hx,  hy,  hz }, {  hx,  hy,  hz } } },
-            { {  0,-1, 0 }, { { -hx, -hy, -hz }, {  hx, -hy, -hz }, {  hx, -hy,  hz }, { -hx, -hy,  hz } } },
-            { {  0, 0, 1 }, { { -hx, -hy,  hz }, {  hx, -hy,  hz }, {  hx,  hy,  hz }, { -hx,  hy,  hz } } },
-            { {  0, 0,-1 }, { { -hx,  hy, -hz }, {  hx,  hy, -hz }, {  hx, -hy, -hz }, { -hx, -hy, -hz } } }
+            { { 1, 0, 0 }, { { hx, -hy, -hz }, { hx,  hy, -hz }, { hx,  hy,  hz }, { hx, -hy,  hz } } },
+            { {-1, 0, 0 }, { {-hx,  hy, -hz }, {-hx, -hy, -hz }, {-hx, -hy,  hz }, {-hx,  hy,  hz } } },
+            { { 0, 1, 0 }, { { hx,  hy, -hz }, {-hx,  hy, -hz }, {-hx,  hy,  hz }, { hx,  hy,  hz } } },
+            { { 0,-1, 0 }, { {-hx, -hy, -hz }, { hx, -hy, -hz }, { hx, -hy,  hz }, {-hx, -hy,  hz } } },
+            { { 0, 0, 1 }, { {-hx, -hy,  hz }, { hx, -hy,  hz }, { hx,  hy,  hz }, {-hx,  hy,  hz } } },
+            { { 0, 0,-1 }, { {-hx,  hy, -hz }, { hx,  hy, -hz }, { hx, -hy, -hz }, {-hx, -hy, -hz } } }
         };
 
         const float uvs[4][2] = { {0,0}, {1,0}, {1,1}, {0,1} };
@@ -156,7 +183,6 @@ namespace sc
                 m->vertices.push_back(v);
             };
 
-        // 平行于 Y 轴的线
         for (float x = -halfRange; x <= halfRange + 0.5f * step; x += step)
         {
             const auto base = (unsigned int)m->vertices.size();
@@ -165,7 +191,7 @@ namespace sc
             m->indices.push_back(base);
             m->indices.push_back(base + 1);
         }
-        // 平行于 X 轴的线
+
         for (float y = -halfRange; y <= halfRange + 0.5f * step; y += step)
         {
             const auto base = (unsigned int)m->vertices.size();
@@ -174,17 +200,16 @@ namespace sc
             m->indices.push_back(base);
             m->indices.push_back(base + 1);
         }
+
         return m;
     }
 
     std::unique_ptr<Mesh> Mesh::createCylinder(float radius, float height, int segments)
     {
         segments = juce::jmax(3, segments);
-
         auto m = std::make_unique<Mesh>();
         const float twoPi = juce::MathConstants<float>::twoPi;
 
-        // 侧面：每个 segment 两个顶点（底/顶），法线指向径向
         for (int i = 0; i <= segments; ++i)
         {
             const float t = (float)i / (float)segments;
@@ -210,12 +235,10 @@ namespace sc
             m->indices.insert(m->indices.end(), { b0, b1, t1, b0, t1, t0 });
         }
 
-        // 顶/底盖：扇形三角形
         const auto sideCount = (unsigned int)m->vertices.size();
-        // 底面中心
+
         MeshVertex cb{}; cb.px = 0; cb.py = 0; cb.pz = 0; cb.nx = 0; cb.ny = 0; cb.nz = -1;
         m->vertices.push_back(cb);
-        // 顶面中心
         MeshVertex ct{}; ct.px = 0; ct.py = 0; ct.pz = height; ct.nx = 0; ct.ny = 0; ct.nz = 1;
         m->vertices.push_back(ct);
 
@@ -227,7 +250,6 @@ namespace sc
             const float a0 = (float)i / (float)segments * twoPi;
             const float a1 = (float)(i + 1) / (float)segments * twoPi;
 
-            // 底盘新顶点（独立，因为法线朝下）
             MeshVertex b0{}; b0.px = radius * std::cos(a0); b0.py = radius * std::sin(a0); b0.pz = 0;
             b0.nx = 0; b0.ny = 0; b0.nz = -1;
             MeshVertex b1{}; b1.px = radius * std::cos(a1); b1.py = radius * std::sin(a1); b1.pz = 0;
@@ -236,7 +258,6 @@ namespace sc
             const auto bi1 = (unsigned int)m->vertices.size(); m->vertices.push_back(b1);
             m->indices.insert(m->indices.end(), { bottomCenter, bi1, bi0 });
 
-            // 顶盘新顶点（法线朝上）
             MeshVertex t0v{}; t0v.px = radius * std::cos(a0); t0v.py = radius * std::sin(a0); t0v.pz = height;
             t0v.nx = 0; t0v.ny = 0; t0v.nz = 1;
             MeshVertex t1v{}; t1v.px = radius * std::cos(a1); t1v.py = radius * std::sin(a1); t1v.pz = height;
@@ -250,12 +271,12 @@ namespace sc
     }
 
     //==========================================================================
-// GL 资源
-//==========================================================================
+    // GL 资源
+    //==========================================================================
+
     void Mesh::uploadToGPU(juce::OpenGLContext& ctx)
     {
         auto& ext = ctx.extensions;
-
         ext.glGenVertexArrays(1, &vao);
         ext.glBindVertexArray(vao);
 
@@ -276,11 +297,9 @@ namespace sc
         ext.glEnableVertexAttribArray(0);
         ext.glVertexAttribPointer(0, 3, juce::gl::GL_FLOAT, juce::gl::GL_FALSE,
             sizeof(MeshVertex), (void*)offsetof(MeshVertex, px));
-
         ext.glEnableVertexAttribArray(1);
         ext.glVertexAttribPointer(1, 3, juce::gl::GL_FLOAT, juce::gl::GL_FALSE,
             sizeof(MeshVertex), (void*)offsetof(MeshVertex, nx));
-
         ext.glEnableVertexAttribArray(2);
         ext.glVertexAttribPointer(2, 2, juce::gl::GL_FLOAT, juce::gl::GL_FALSE,
             sizeof(MeshVertex), (void*)offsetof(MeshVertex, u));
@@ -306,4 +325,5 @@ namespace sc
             juce::gl::GL_UNSIGNED_INT, nullptr);
         ext.glBindVertexArray(0);
     }
-}
+
+} // namespace sc
