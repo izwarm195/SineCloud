@@ -208,6 +208,40 @@ namespace sc
             mouseLookInit = false;
         }
 
+        void mouseDrag(const juce::MouseEvent& e) override
+        {
+            // 和 mouseMove 完全一样的逻辑，因为 JUCE 按住按键时走 mouseDrag 而非 mouseMove
+            if (paused) return;
+
+            if (ignoreNextMouseMove)
+            {
+                ignoreNextMouseMove = false;
+                return;
+            }
+
+            const auto sp = e.getScreenPosition();
+            const juce::Point<float> screenPos((float)sp.x, (float)sp.y);
+
+            if (!mouseLookInit)
+            {
+                lastMouseLookScreenPos = screenPos;
+                warpTarget = screenPos;
+                mouseLookInit = true;
+                return;
+            }
+
+            const float dx = screenPos.x - lastMouseLookScreenPos.x;
+            const float dy = screenPos.y - lastMouseLookScreenPos.y;
+
+            camera.setYaw(camera.getYaw() + dx * 0.005f);
+            camera.setPitch(camera.getPitch() + dy * 0.005f);
+
+            ignoreNextMouseMove = true;
+            juce::Desktop::getInstance().getMainMouseSource()
+                .setScreenPosition(warpTarget);
+            lastMouseLookScreenPos = warpTarget;
+        }
+
 
 
         void mouseWheelMove(const juce::MouseEvent&,
