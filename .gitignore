@@ -1,21 +1,25 @@
-# === Build outputs ===
-Builds/
-JuceLibraryCode/
-*.vst3/
-*.exe
-*.dll
-*.obj
+# === 编译中间产物（体积最大的文件）===
+
 *.pdb
 *.lib
 *.exp
-*.idb
 *.ilk
+*.idb
+*.tlog
+*.log
+*.recipe
 
-# === Visual Studio ===
+*.sln
+*.vcxproj
+*.filters
+
+
+
+# === JUCE 生成的库代码 ===
+JuceLibraryCode/
+
+# === Visual Studio 临时文件 ===
 .vs/
-x64/
-Debug/
-Release/
 *.user
 *.suo
 *.aps
@@ -23,6 +27,7 @@ Release/
 *.opensdf
 *.VC.db
 *.VC.opendb
+
 
 # === macOS ===
 .DS_Store
@@ -36,5 +41,12 @@ Release/
 Thumbs.db
 desktop.ini
 
-# === JUCE specific ===
+# === JUCE ===
 *.exporters_lock
+
+# === Builds 特定目录/文件 ===
+**/Shared Code/
+**/Resources/
+**/Win32/
+include_juce_audio_plugin_client_VST3.obj
+include_juce_audio_plugin_client_Standalone.obj
