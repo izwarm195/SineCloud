@@ -172,7 +172,7 @@ namespace sc
         float pitch{ juce::MathConstants<float>::pi * 0.35f };
         float distance{ 12.0f };
 
-        float minPitch{ juce::MathConstants<float>::pi * 0.10f };
+        float minPitch{ juce::MathConstants<float>::pi * 0.05f };
         float maxPitch{ juce::MathConstants<float>::pi * 0.48f };
 
         Vec3  pivot{ 0, 0, 0 };
