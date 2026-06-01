@@ -103,9 +103,12 @@ namespace sc
             if (!visible || boxMesh == nullptr) return;
 
             // Ì§¸ß°ë¸öÉíÎ»£¬ÈÃÁ¢·½ÌåµÄµ×ÃæÌùµØ£¨box ÖÐÐÄÔÚ z=0£©
-            const Mat4 model = translation({ worldPos.x, worldPos.y, scale.z * 0.5f })
+            const Mat4 model = translation({ worldPos.x,
+                                 worldPos.y,
+                                 worldPos.z + scale.z * 0.5f }) // ← 加上地形高度
                 * rotationZ(yaw)
                 * scaling(scale);
+
             r.drawMesh(*boxMesh, model, { 0.85f, 0.30f, 0.30f });
         }
 

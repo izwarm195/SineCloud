@@ -75,7 +75,6 @@ namespace sc
         SineCloudAudioProcessor& processor;
 
         // 共享 mesh
-        std::unique_ptr<Mesh> groundMesh;
         std::unique_ptr<Mesh> boxMesh;
         std::unique_ptr<Mesh> cylMesh;
         std::unique_ptr<Mesh> ptrMesh;
@@ -98,6 +97,7 @@ namespace sc
         float pivotFollowRate{ 0.9999f };
         float playerRadius{ 0.4f };
         float maxSlopeCos{ 0.5f };
+        float groundFollowRate{ 0.85f }; // player.z 贴地形的平滑系数
 
         // 交互状态
         KnobEntity* focusedKnob{ nullptr };

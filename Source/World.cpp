@@ -180,12 +180,12 @@ namespace sc
 
     void World::uploadMeshes(juce::OpenGLContext& ctx)
     {
-        groundMesh = Mesh::createGrid(20.0f, 1.0f);
+        
         boxMesh = Mesh::createBox(1.0f, 1.0f, 1.0f);
         cylMesh = Mesh::createCylinder(1.0f, 1.0f, 32);
         ptrMesh = Mesh::createBox(1.0f, 1.0f, 1.0f);
 
-        groundMesh->uploadToGPU(ctx);
+        
         boxMesh->uploadToGPU(ctx);
         cylMesh->uploadToGPU(ctx);
         ptrMesh->uploadToGPU(ctx);
@@ -217,11 +217,11 @@ namespace sc
 
     void World::releaseMeshes(juce::OpenGLContext& ctx)
     {
-        if (groundMesh) groundMesh->releaseGPU(ctx);
+        
         if (boxMesh)    boxMesh->releaseGPU(ctx);
         if (cylMesh)    cylMesh->releaseGPU(ctx);
         if (ptrMesh)    ptrMesh->releaseGPU(ctx);
-        groundMesh.reset();
+        
         boxMesh.reset();
         cylMesh.reset();
         ptrMesh.reset();
@@ -311,6 +311,13 @@ namespace sc
             k->setFocused(k.get() == nearest);
         focusedKnob = nearest;
 
+        //playerz
+        const float gz = heightField.sampleHeight(player->worldPos.x,
+            player->worldPos.y);
+        // 直接贴地；如需平滑可改用 easing::damp(player->worldPos.z, gz, rate, dt)
+        player->worldPos.z = easing::damp(player->worldPos.z, gz, groundFollowRate, dt);
+
+
         // 7. 相机 pivot 跟随
         Vec3 pivot = cam.getPivot();
         pivot.x = easing::damp(pivot.x, player->worldPos.x, pivotFollowRate, dt);
@@ -360,9 +367,6 @@ namespace sc
                 { 0.01f, 0.01f, 0.01f });
         }
 
-        // 调试网格线
-        if (groundMesh)
-            r.drawLines(*groundMesh, identity(), { 0.22f, 0.27f, 0.32f });
 
         // 实体
         for (auto& k : knobs) k->draw(r, cam);

@@ -34,12 +34,15 @@ namespace sc
         void setPivot(const Vec3& p) noexcept { pivot = p; }
 
         // ★ 参数名改为 dist，消除对成员变量 distance 的遮蔽
-        void setOrbit(float yawRad, float pitchRad, float dist) noexcept
+        void setOrbit(float yawRad, float pitchRad, float distance) noexcept
         {
-            setYaw(yawRad);
+            yaw = yawRad;
             pitch = juce::jlimit(minPitch, maxPitch, pitchRad);
-            distance = juce::jmax(0.01f, dist);
+            this->distance = juce::jlimit(minDistance, maxDistance, distance);
         }
+
+        
+
 
        
         // 归一化setYaw
@@ -65,7 +68,10 @@ namespace sc
         }
 
         void setPitch(float r) noexcept { pitch = easing::damp(pitch, juce::jlimit(minPitch, maxPitch, r),DampRate, 1.0f / 60.0f); }
-        void setDistance(float d) noexcept { distance = juce::jmax(0.01f, d); }
+        void setDistance(float d) noexcept
+        {
+            distance = juce::jlimit(minDistance, maxDistance, d);
+        }
 
         void setPitchLimits(float minR, float maxR) noexcept
         {
@@ -73,6 +79,14 @@ namespace sc
             maxPitch = maxR;
             pitch = juce::jlimit(minPitch, maxPitch, pitch);
         }
+
+        void setDistanceLimits(float minD, float maxD) noexcept
+        {
+            minDistance = juce::jmax(0.01f, minD);
+            maxDistance = juce::jmax(minDistance, maxD);
+            distance = juce::jlimit(minDistance, maxDistance, distance);
+        }
+
 
         void setPerspective(float fovYDeg, float zNear_, float zFar_) noexcept
         {
@@ -185,6 +199,9 @@ namespace sc
         float yaw{ 0.0f };
         float pitch{ juce::MathConstants<float>::pi * 0.35f };
         float distance{ 12.0f };
+        float minDistance{ 3.0f };   // 新增
+        float maxDistance{ 30.0f };  // 新增
+
 
         float minPitch{ juce::MathConstants<float>::pi * 0.05f };
         float maxPitch{ juce::MathConstants<float>::pi * 0.48f };
