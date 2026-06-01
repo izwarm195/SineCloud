@@ -11,6 +11,9 @@
 #include <JuceHeader.h>
 #include "Vec.h"
 #include "Mat4.h"
+#include "Easing.h"
+
+
 
 namespace sc
 {
@@ -42,15 +45,26 @@ namespace sc
         // 归一化setYaw
         void setYaw(float r) noexcept
         {
-            yaw = r;
             constexpr float twoPi = juce::MathConstants<float>::twoPi;
             constexpr float pi = juce::MathConstants<float>::pi;
+
+            // 最短弧：把 delta 折叠到 [-pi, pi]
+            float delta = r - yaw;
+            delta = std::fmod(delta, twoPi);
+            if (delta > pi) delta -= twoPi;
+            if (delta < -pi) delta += twoPi;
+            r = yaw + delta;  // 现在 r 在 yaw 的同一条"分支"上
+
+            // damp 插值（dt 取 1/60，与 60Hz timer 一致）
+            yaw = easing::damp(yaw, r, DampRate, 1.0f / 60.0f);
+
+            // 最终 wrap 到 [-pi, pi]
             yaw = std::fmod(yaw, twoPi);
             if (yaw > pi) yaw -= twoPi;
             if (yaw < -pi) yaw += twoPi;
         }
 
-        void setPitch(float r) noexcept { pitch = juce::jlimit(minPitch, maxPitch, r); }
+        void setPitch(float r) noexcept { pitch = easing::damp(pitch, juce::jlimit(minPitch, maxPitch, r),DampRate, 1.0f / 60.0f); }
         void setDistance(float d) noexcept { distance = juce::jmax(0.01f, d); }
 
         void setPitchLimits(float minR, float maxR) noexcept
@@ -180,6 +194,9 @@ namespace sc
         float fovYRad{ juce::degreesToRadians(55.0f) };
         float zNear{ 0.1f };
         float zFar{ 500.0f };
+
+        float DampRate{ 0.9999f };
+
 
         int vpW{ 1 }, vpH{ 1 };
     };

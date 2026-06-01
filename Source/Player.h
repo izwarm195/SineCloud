@@ -11,6 +11,7 @@
 #include "InputState.h"
 #include "Easing.h"
 
+
 namespace sc
 {
     class Player : public Entity //继承Entity
@@ -69,6 +70,8 @@ namespace sc
             // ---- 移动 ----
             worldPos.x += velocity.x * dt;
             worldPos.y += velocity.y * dt;
+           
+
 
             // ---- 朝向 ----
             // 改为 ↓

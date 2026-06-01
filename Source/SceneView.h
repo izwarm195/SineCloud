@@ -86,8 +86,8 @@ namespace sc
                 return;
             }
 
-            debugGrid = Mesh::createGrid(20.0f, 1.0f);
-            debugGrid->uploadToGPU(context);
+           /* debugGrid = Mesh::createGrid(20.0f, 1.0f);
+            debugGrid->uploadToGPU(context);*/
             debugCube = Mesh::createBox(2.0f, 2.0f, 2.0f);
             debugCube->uploadToGPU(context);
 
@@ -135,7 +135,7 @@ namespace sc
             if (world != nullptr)
                 world->releaseMeshes(context);
 
-            if (debugGrid) { debugGrid->releaseGPU(context); debugGrid.reset(); }
+            /*if (debugGrid) { debugGrid->releaseGPU(context); debugGrid.reset(); }*/
             if (debugCube) { debugCube->releaseGPU(context); debugCube.reset(); }
 
             if (renderer) renderer->shutdown();
@@ -317,10 +317,10 @@ namespace sc
 
         // ---- 渲染 ----
         juce::OpenGLContext context;
-        Camera   camera;
+        Camera camera;
         Lighting lighting;
         std::unique_ptr<Renderer> renderer;
-        std::unique_ptr<Mesh> debugGrid;
+        /*std::unique_ptr<Mesh> debugGrid;*/
         std::unique_ptr<Mesh> debugCube;
         World* world{ nullptr };
         double lastRenderSec{ 0.0 };

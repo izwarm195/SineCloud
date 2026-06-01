@@ -20,6 +20,7 @@
 #include "PluginProcessor.h"
 #include "CollisionTypes.h"
 
+
 namespace sc
 {
 
@@ -65,6 +66,7 @@ namespace sc
         Player& getPlayer() noexcept { return *player; }
         const std::vector<std::unique_ptr<KnobEntity>>& getKnobs() const noexcept { return knobs; }
 
+        
     private:
         void buildKnobs();
         void loadCollidersFromJSON(const juce::File& jsonFile);
