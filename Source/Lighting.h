@@ -15,7 +15,7 @@ namespace sc
     {
         Vec3  direction{ -0.4f, 0.6f, -0.7f };  // ´Ó¹âÔ´Ö¸ÏòÊÀ½çµÄ·½Ïò
         Vec3  color{ 1.0f, 0.96f, 0.88f };
-        Vec3  ambient{ 0.18f, 0.20f, 0.24f };
+        Vec3  ambient{ 0.28f, 0.30f, 0.34f };
         float intensity{ 2.0f };
     };
 }
