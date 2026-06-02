@@ -48,18 +48,18 @@ namespace sc
             input.z = 0.0f;
 
             const float len2 = input.x * input.x + input.y * input.y;
-            const bool hasInput = len2 > 0.01f;  // [¸Ä] ãÐÖµ¸üºÏÀí
+            const bool hasInput = len2 > 0.01f;  
             if (hasInput) input = normalize({ input.x, input.y, 0.0f });
 
             // ---- 目标速度向量 ----
             const Vec3 targetVel = 
-                hasInput ? Vec3{ input.x * targetSpeed, input.y * targetSpeed, 0.0f }: Vec3{ 0, 0, 0 };
+              hasInput ? Vec3{ input.x * targetSpeed, input.y * targetSpeed, 0.0f }: Vec3{ 0, 0, 0 };
 
             // 加速
-            const float accelRate = hasInput ? 0.999f : 0.999f;  // ¸ü´óµÄÖµ = ¸ü¿ì·´Ó¦
-            velocity.x = easing::damp(velocity.x, targetVel.x, accelRate, dt);
-            velocity.y = easing::damp(velocity.y, targetVel.y, accelRate, dt);
-
+            const float accelResponsiveness = hasInput ? 15.0f : 10.0f;
+            velocity.x = easing::damp(velocity.x, targetVel.x, accelResponsiveness, dt);
+            velocity.y = easing::damp(velocity.y, targetVel.y, accelResponsiveness, dt);
+            
             // 归零
             if (!hasInput)
             {
@@ -67,13 +67,8 @@ namespace sc
                 if (std::abs(velocity.y) < 0.05f) velocity.y = 0.0f;
             }
 
-            // ---- 移动 ----
-            worldPos.x += velocity.x * dt;
-            worldPos.y += velocity.y * dt;
-           
-
-
             // ---- 朝向 ----
+            // 
             // 改为 ↓
             if (hasInput)
             {
@@ -88,7 +83,7 @@ namespace sc
                 diff -= pi;
 
                 const float wrappedTarget = yaw + diff;
-                yaw = easing::damp(yaw, wrappedTarget, 0.9999f, dt);
+                yaw = easing::damp(yaw, wrappedTarget, 25.0f, dt);
 
                 // damp 之后也归一化，防止漂移
                 yaw = std::fmod(yaw + pi, twoPi);

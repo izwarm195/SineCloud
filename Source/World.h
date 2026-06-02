@@ -104,10 +104,8 @@ namespace sc
 
         // 调参
         float interactReach{ 1.6f };
-        float pivotFollowRate{ 0.9999f };
         float playerRadius{ 0.4f };
         float maxSlopeCos{ 0.5f };
-        float groundFollowRate{ 0.9999f }; // player.z 贴地形的平滑系数
 
         // 交互状态
         KnobEntity* focusedKnob{ nullptr };

@@ -113,6 +113,7 @@ namespace sc
             const float dt = (lastRenderSec > 0.0)
                 ? (float)juce::jlimit(0.001, 0.1, now - lastRenderSec)
                 : 1.0f / 60.0f;
+            lastDt = dt;
             lastRenderSec = now;
 
             InputState in = pollInput();
@@ -188,8 +189,8 @@ namespace sc
             const float dx = screenPos.x - lastMouseLookScreenPos.x;
             const float dy = screenPos.y - lastMouseLookScreenPos.y;
 
-            camera.setYaw(camera.getYaw() + dx * 0.005f);
-            camera.setPitch(camera.getPitch() + dy * 0.005f);
+            camera.setYaw(camera.getYaw() + dx * 0.005f, lastDt);
+            camera.setPitch(camera.getPitch() + dy * 0.005f, lastDt);
 
             ignoreNextMouseMove = true;
             juce::Desktop::getInstance().getMainMouseSource()
@@ -233,8 +234,8 @@ namespace sc
             const float dx = screenPos.x - lastMouseLookScreenPos.x;
             const float dy = screenPos.y - lastMouseLookScreenPos.y;
 
-            camera.setYaw(camera.getYaw() + dx * 0.005f);
-            camera.setPitch(camera.getPitch() + dy * 0.005f);
+            camera.setYaw(camera.getYaw() + dx * 0.005f, lastDt);
+            camera.setPitch(camera.getPitch() + dy * 0.005f, lastDt);
 
             ignoreNextMouseMove = true;
             juce::Desktop::getInstance().getMainMouseSource()
@@ -324,6 +325,7 @@ namespace sc
         std::unique_ptr<Mesh> debugCube;
         World* world{ nullptr };
         double lastRenderSec{ 0.0 };
+        float lastDt{ 1.0f / 60.0f };
 
         // ---- 调试 ----
         CameraDebugOverlay debugOverlay;

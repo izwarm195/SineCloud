@@ -13,8 +13,6 @@
 #include "Mat4.h"
 #include "Easing.h"
 
-
-
 namespace sc
 {
     struct Ray
@@ -46,7 +44,7 @@ namespace sc
 
        
         // 归一化setYaw
-        void setYaw(float r) noexcept
+        void setYaw(float r, float dt) noexcept
         {
             constexpr float twoPi = juce::MathConstants<float>::twoPi;
             constexpr float pi = juce::MathConstants<float>::pi;
@@ -59,7 +57,7 @@ namespace sc
             r = yaw + delta;  // 现在 r 在 yaw 的同一条"分支"上
 
             // damp 插值（dt 取 1/60，与 60Hz timer 一致）
-            yaw = easing::damp(yaw, r, DampRate, 1.0f / 60.0f);
+            yaw = easing::damp(yaw, r, DampRate, dt);
 
             // 最终 wrap 到 [-pi, pi]
             yaw = std::fmod(yaw, twoPi);
@@ -67,7 +65,7 @@ namespace sc
             if (yaw < -pi) yaw += twoPi;
         }
 
-        void setPitch(float r) noexcept { pitch = easing::damp(pitch, juce::jlimit(minPitch, maxPitch, r),DampRate, 1.0f / 60.0f); }
+        void setPitch(float r, float dt) noexcept { pitch = easing::damp(pitch, juce::jlimit(minPitch, maxPitch, r), DampRate, dt); }
         void setDistance(float d) noexcept
         {
             distance = juce::jlimit(minDistance, maxDistance, d);
@@ -212,7 +210,7 @@ namespace sc
         float zNear{ 0.1f };
         float zFar{ 500.0f };
 
-        float DampRate{ 0.9999f };
+        float DampRate{ 20.0f };
 
 
         int vpW{ 1 }, vpH{ 1 };

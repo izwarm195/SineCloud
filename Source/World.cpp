@@ -351,11 +351,11 @@ namespace sc
 
     void World::update(float dt, const InputState& in, Camera& cam)
     {
-        // 1. 注入相机基向量
-        player->setBasis(cam.getForwardOnGround(), cam.getRightOnGround());
-
-        // 2. update entity
-        player->update(dt, in);
+        // 1. Player XY
+        const Vec3 vel = player->getVelocity();
+        player->worldPos.x += vel.x * dt;
+        player->worldPos.y += vel.y * dt;
+        // 2. Knobs
         for (auto& k : knobs)
             k->update(dt, in);
 
@@ -364,15 +364,8 @@ namespace sc
 
         // 4. 地面高度钳制
         const float gz = heightField.sampleHeight(player->worldPos.x,
-            player->worldPos.y);
-        player->worldPos.z = easing::damp(player->worldPos.z, gz, groundFollowRate, dt);
-
-        // 5. 斜坡约束
-        const Vec3 groundNormal = heightField.sampleNormal(
-            player->worldPos.x, player->worldPos.y);
-        // 如果太陡，此处可加回退逻辑（暂时留空）
-
-        
+            +player->worldPos.y);
+        player->worldPos.z = easing::damp(player->worldPos.z, gz, 40.0f, dt);
 
         // 6. 计算 Focused
         KnobEntity* nearest = nullptr;
@@ -382,24 +375,15 @@ namespace sc
             const float dx = player->worldPos.x - k->worldPos.x;
             const float dy = player->worldPos.y - k->worldPos.y;
             const float d2 = dx * dx + dy * dy;
-            if (d2 <= bestDist2)
-            {
-                bestDist2 = d2;
-                nearest = k.get();
-            }
+            if (d2 <= bestDist2) { bestDist2 = d2; nearest = k.get(); }
         }
-        for (auto& k : knobs)
-            k->setFocused(k.get() == nearest);
+        for (auto& k : knobs) k->setFocused(k.get() == nearest);
         focusedKnob = nearest;
-
-        
-        
-
 
         // 7. 相机 pivot 跟随
         Vec3 pivot = cam.getPivot();
-        pivot.x = easing::damp(pivot.x, player->worldPos.x, pivotFollowRate, dt);
-        pivot.y = easing::damp(pivot.y, player->worldPos.y, pivotFollowRate, dt);
+        pivot.x = easing::damp(pivot.x, player->worldPos.x, 20.0f, dt);
+        pivot.y = easing::damp(pivot.y, player->worldPos.y, 20.0f, dt);
         cam.setPivot(pivot);
     }
 

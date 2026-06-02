@@ -36,7 +36,7 @@ namespace sc::easing
 
     inline float damp(float current, float target, float rate, float dt) noexcept
     {
-        const float k = 1.0f - std::exp(-rate * 10 * dt);
+        const float k = 1.0f - std::exp(-rate * dt);
         return current + (target - current) * k;
     }
 }
