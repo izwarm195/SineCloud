@@ -29,17 +29,27 @@ namespace sc
     //==========================================================================
     struct HeightField
     {
-        std::vector<Vec3> vertices;
-
         float sampleHeight(float x, float y) const;
         Vec3  sampleNormal(float x, float y) const;
         void  buildFromMesh(const class Mesh& mesh);
 
+        bool  isEmpty() const noexcept { return tris.empty(); }
+
     private:
+        struct Tri { Vec3 a, b, c; Vec3 normal; }; // 预存几何法线
+
+        // 在三角形 t 的 XY 投影内做重心插值；命中则写 outZ/outN 返回 true
+        bool sampleTri(const Tri& t, float x, float y,
+            float& outZ, Vec3& outN) const noexcept;
+
+        std::vector<Tri> tris;
+        std::unordered_map<int64_t, std::vector<int>> spatialMap; // cell -> 三角形索引
         float cellSize{ 1.0f };
-        std::unordered_map<int64_t, std::vector<int>> spatialMap;
+        float fallbackZ{ 0.0f }; // 没命中任何三角形时的兜底高度
+
         int64_t cellKey(int cx, int cy) const noexcept;
     };
+
 
     //==========================================================================
     // World

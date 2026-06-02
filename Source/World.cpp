@@ -13,77 +13,155 @@ namespace sc
 {
 
     //==========================================================================
-    // HeightField
-    //==========================================================================
+// HeightField  (三角面 + 重心插值版)
+//==========================================================================
 
     int64_t HeightField::cellKey(int cx, int cy) const noexcept
     {
-        return (static_cast<int64_t>(cx) << 32) | static_cast<int64_t>(cy & 0xFFFFFFFF);
+        // 固定语义：高32位=cx，低32位=cy（均按补码截断）。build/query 一致即可唯一。
+        return (static_cast<int64_t>(cx) << 32)
+            | (static_cast<int64_t>(static_cast<uint32_t>(cy)));
     }
 
     void HeightField::buildFromMesh(const Mesh& mesh)
     {
-        vertices.clear();
+        tris.clear();
         spatialMap.clear();
 
-        for (const auto& v : mesh.vertices)
-        {
-            vertices.push_back({ v.px, v.py, v.pz });
+        const auto& V = mesh.vertices;
+        const auto& I = mesh.indices;
+        if (I.size() < 3) return;
 
-            const int cx = static_cast<int>(std::floor(v.px / cellSize));
-            const int cy = static_cast<int>(std::floor(v.py / cellSize));
-            spatialMap[cellKey(cx, cy)].push_back(static_cast<int>(vertices.size()) - 1);
+        // ---- 1) 自适应 cellSize：用三角形平均边长，避免与 mesh 密度脱钩 ----
+        double edgeSum = 0.0; int edgeCnt = 0;
+        for (size_t i = 0; i + 2 < I.size(); i += 3)
+        {
+            const auto& p0 = V[I[i]];   const auto& p1 = V[I[i + 1]];
+            const float e = std::hypot(p1.px - p0.px, p1.py - p0.py);
+            edgeSum += e; ++edgeCnt;
         }
+        if (edgeCnt > 0)
+            cellSize = juce::jmax(0.1f, (float)(edgeSum / edgeCnt));
+
+        // ---- 2) 建三角形 + 预算法线，并把三角形索引塞进它 AABB 覆盖的所有格子 ----
+        tris.reserve(I.size() / 3);
+        double zAccum = 0.0;
+
+        for (size_t i = 0; i + 2 < I.size(); i += 3)
+        {
+            const auto& v0 = V[I[i]];
+            const auto& v1 = V[I[i + 1]];
+            const auto& v2 = V[I[i + 2]];
+
+            Tri t;
+            t.a = { v0.px, v0.py, v0.pz };
+            t.b = { v1.px, v1.py, v1.pz };
+            t.c = { v2.px, v2.py, v2.pz };
+
+            Vec3 n = cross(t.b - t.a, t.c - t.a);
+            const float l2 = n.x * n.x + n.y * n.y + n.z * n.z;
+            n = (l2 < 1.0e-12f) ? Vec3{ 0,0,1 } : n * (1.0f / std::sqrt(l2));
+            if (n.z < 0.0f) n = n * -1.0f;        // 法线统一朝上
+            t.normal = n;
+
+            const int idx = (int)tris.size();
+            tris.push_back(t);
+            zAccum += (t.a.z + t.b.z + t.c.z) / 3.0;
+
+            // 三角形在 XY 上的 AABB -> 覆盖的格子范围
+            const float minX = std::min({ t.a.x, t.b.x, t.c.x });
+            const float maxX = std::max({ t.a.x, t.b.x, t.c.x });
+            const float minY = std::min({ t.a.y, t.b.y, t.c.y });
+            const float maxY = std::max({ t.a.y, t.b.y, t.c.y });
+
+            const int cx0 = (int)std::floor(minX / cellSize);
+            const int cx1 = (int)std::floor(maxX / cellSize);
+            const int cy0 = (int)std::floor(minY / cellSize);
+            const int cy1 = (int)std::floor(maxY / cellSize);
+
+            for (int cx = cx0; cx <= cx1; ++cx)
+                for (int cy = cy0; cy <= cy1; ++cy)
+                    spatialMap[cellKey(cx, cy)].push_back(idx);
+        }
+
+        fallbackZ = tris.empty() ? 0.0f : (float)(zAccum / (double)tris.size());
+    }
+
+    bool HeightField::sampleTri(const Tri& t, float x, float y,
+        float& outZ, Vec3& outN) const noexcept
+    {
+        // 在 XY 平面用重心坐标判断 (x,y) 是否落在三角形内
+        const float x1 = t.a.x, y1 = t.a.y;
+        const float x2 = t.b.x, y2 = t.b.y;
+        const float x3 = t.c.x, y3 = t.c.y;
+
+        const float det = (y2 - y3) * (x1 - x3) + (x3 - x2) * (y1 - y3);
+        if (std::abs(det) < 1.0e-12f) return false; // 退化三角形（XY 投影成线）
+
+        const float inv = 1.0f / det;
+        const float l1 = ((y2 - y3) * (x - x3) + (x3 - x2) * (y - y3)) * inv;
+        const float l2 = ((y3 - y1) * (x - x3) + (x1 - x3) * (y - y3)) * inv;
+        const float l3 = 1.0f - l1 - l2;
+
+        const float e = -1.0e-4f; // 小容差，避免边界缝隙漏采
+        if (l1 < e || l2 < e || l3 < e) return false;
+
+        outZ = l1 * t.a.z + l2 * t.b.z + l3 * t.c.z; // 面上精确插值
+        outN = t.normal;
+        return true;
     }
 
     float HeightField::sampleHeight(float x, float y) const
     {
-        if (vertices.empty()) return 0.0f;
+        if (tris.empty()) return fallbackZ;
 
-        const int cx = static_cast<int>(std::floor(x / cellSize));
-        const int cy = static_cast<int>(std::floor(y / cellSize));
+        const int cx = (int)std::floor(x / cellSize);
+        const int cy = (int)std::floor(y / cellSize);
 
-        float bestDist2 = std::numeric_limits<float>::max();
-        float bestZ = 0.0f;
-
-        for (int dx = -1; dx <= 1; ++dx)
+        const auto it = spatialMap.find(cellKey(cx, cy));
+        if (it != spatialMap.end())
         {
-            for (int dy = -1; dy <= 1; ++dy)
+            // 多三角覆盖（如悬崖/重叠面）时取最高，避免穿模
+            float best = -std::numeric_limits<float>::max();
+            bool hit = false;
+            for (int idx : it->second)
             {
-                const auto it = spatialMap.find(cellKey(cx + dx, cy + dy));
-                if (it == spatialMap.end()) continue;
-
-                for (int idx : it->second)
+                float z; Vec3 n;
+                if (sampleTri(tris[(size_t)idx], x, y, z, n) && z > best)
                 {
-                    const auto& v = vertices[static_cast<size_t>(idx)];
-                    const float d2 = (v.x - x) * (v.x - x) + (v.y - y) * (v.y - y);
-                    if (d2 < bestDist2)
-                    {
-                        bestDist2 = d2;
-                        bestZ = v.z;
-                    }
+                    best = z; hit = true;
                 }
             }
+            if (hit) return best;
         }
-
-        return bestZ;
+        return fallbackZ; // 落在网格空洞外：返回平均高度而非 0
     }
 
     Vec3 HeightField::sampleNormal(float x, float y) const
     {
-        const float eps = 0.3f;
-        const float zC = sampleHeight(x, y);
-        const float zR = sampleHeight(x + eps, y);
-        const float zF = sampleHeight(x, y + eps);
+        if (tris.empty()) return { 0.0f, 0.0f, 1.0f };
 
-        const Vec3 dzdx = { eps, 0.0f, zR - zC };
-        const Vec3 dzdy = { 0.0f, eps, zF - zC };
+        const int cx = (int)std::floor(x / cellSize);
+        const int cy = (int)std::floor(y / cellSize);
 
-        Vec3 n = cross(dzdy, dzdx);
-        const float len2 = n.x * n.x + n.y * n.y + n.z * n.z;
-        if (len2 < 1.0e-8f) return { 0.0f, 0.0f, 1.0f };
-        return n * (1.0f / std::sqrt(len2));
+        const auto it = spatialMap.find(cellKey(cx, cy));
+        if (it != spatialMap.end())
+        {
+            float best = -std::numeric_limits<float>::max();
+            Vec3 bestN{ 0, 0, 1 }; bool hit = false;
+            for (int idx : it->second)
+            {
+                float z; Vec3 n;
+                if (sampleTri(tris[(size_t)idx], x, y, z, n) && z > best)
+                {
+                    best = z; bestN = n; hit = true;
+                }
+            }
+            if (hit) return bestN; // 直接取所在三角形的几何法线，无需有限差分
+        }
+        return { 0.0f, 0.0f, 1.0f };
     }
+
 
     //==========================================================================
     // CollisionShape
