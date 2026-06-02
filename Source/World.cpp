@@ -351,6 +351,8 @@ namespace sc
 
     void World::update(float dt, const InputState& in, Camera& cam)
     {
+        player->setBasis(cam.getForwardOnGround(), cam.getRightOnGround());
+        player->update(dt, in);
         // 1. Player XY
         const Vec3 vel = player->getVelocity();
         player->worldPos.x += vel.x * dt;

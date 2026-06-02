@@ -83,7 +83,7 @@ namespace sc
                 diff -= pi;
 
                 const float wrappedTarget = yaw + diff;
-                yaw = easing::damp(yaw, wrappedTarget, 25.0f, dt);
+                yaw = easing::damp(yaw, wrappedTarget, 10.0f, dt);
 
                 // damp 之后也归一化，防止漂移
                 yaw = std::fmod(yaw + pi, twoPi);
