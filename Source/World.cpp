@@ -359,17 +359,20 @@ namespace sc
         for (auto& k : knobs)
             k->update(dt, in);
 
-        // 3. 地面高度钳制
-        player->worldPos.z = heightField.sampleHeight(
-            player->worldPos.x, player->worldPos.y);
+        // 3. 障碍物碰撞
+        resolvePlayerCollisions();
 
-        // 4. 斜坡约束
+        // 4. 地面高度钳制
+        const float gz = heightField.sampleHeight(player->worldPos.x,
+            player->worldPos.y);
+        player->worldPos.z = easing::damp(player->worldPos.z, gz, groundFollowRate, dt);
+
+        // 5. 斜坡约束
         const Vec3 groundNormal = heightField.sampleNormal(
             player->worldPos.x, player->worldPos.y);
         // 如果太陡，此处可加回退逻辑（暂时留空）
 
-        // 5. 障碍物碰撞
-        resolvePlayerCollisions();
+        
 
         // 6. 计算 Focused
         KnobEntity* nearest = nullptr;
@@ -389,11 +392,8 @@ namespace sc
             k->setFocused(k.get() == nearest);
         focusedKnob = nearest;
 
-        //playerz
-        const float gz = heightField.sampleHeight(player->worldPos.x,
-            player->worldPos.y);
-        // 直接贴地；如需平滑可改用 easing::damp(player->worldPos.z, gz, rate, dt)
-        player->worldPos.z = easing::damp(player->worldPos.z, gz, groundFollowRate, dt);
+        
+        
 
 
         // 7. 相机 pivot 跟随
