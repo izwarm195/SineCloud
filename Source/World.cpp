@@ -278,17 +278,25 @@ namespace sc
             .getParentDirectory()
             .getChildFile("assets");
 
-        groundVisMesh = std::make_unique<Mesh>();
-        if (groundVisMesh->loadFromObjFile(assetsDir.getChildFile("ground_visual.obj")))
-            groundVisMesh->uploadToGPU(ctx);
-
-        propsVisMesh = std::make_unique<Mesh>();
-        if (propsVisMesh->loadFromObjFile(assetsDir.getChildFile("props_visual.obj")))
-            propsVisMesh->uploadToGPU(ctx);
-
-        groundColMesh = std::make_unique<Mesh>();
-        if (groundColMesh->loadFromObjFile(assetsDir.getChildFile("ground_collision.obj")))
-            heightField.buildFromMesh(*groundColMesh);
+        
+        propRockMesh = std::make_unique<Mesh>();
+        if (propRockMesh->loadFromObjFile(assetsDir.getChildFile("props_rock.obj")))
+             propRockMesh->uploadToGPU(ctx);
+        propBouquetMesh = std::make_unique<Mesh>();
+        if (propBouquetMesh->loadFromObjFile(assetsDir.getChildFile("props_bouquet.obj")))
+             propBouquetMesh->uploadToGPU(ctx);
+        propBouquetPillarMesh = std::make_unique<Mesh>();
+        if (propBouquetPillarMesh->loadFromObjFile(assetsDir.getChildFile("props_bouquetPillar.obj")))
+             propBouquetPillarMesh->uploadToGPU(ctx);
+        propKnobPillarMesh = std::make_unique<Mesh>();
+        if (propKnobPillarMesh->loadFromObjFile(assetsDir.getChildFile("props_knobPillar.obj")))
+             propKnobPillarMesh->uploadToGPU(ctx);
+        propMainPillarMesh = std::make_unique<Mesh>();
+        if (propMainPillarMesh->loadFromObjFile(assetsDir.getChildFile("props_mainPillar.obj")))
+             propMainPillarMesh->uploadToGPU(ctx);
+        propSurroundPillarMesh = std::make_unique<Mesh>();
+        if (propSurroundPillarMesh->loadFromObjFile(assetsDir.getChildFile("props_surroundPillar.obj")))
+             propSurroundPillarMesh->uploadToGPU(ctx);
 
         loadCollidersFromJSON(assetsDir.getChildFile("colliders.json"));
     }
@@ -305,11 +313,19 @@ namespace sc
         ptrMesh.reset();
 
         if (groundVisMesh) groundVisMesh->releaseGPU(ctx);
-        if (propsVisMesh)  propsVisMesh->releaseGPU(ctx);
-        groundVisMesh.reset();
-        propsVisMesh.reset();
-        groundColMesh.reset();
-        colliders.clear();
+        
+        if (propRockMesh)          propRockMesh->releaseGPU(ctx);
+        if (propBouquetMesh)       propBouquetMesh->releaseGPU(ctx);
+        if (propBouquetPillarMesh) propBouquetPillarMesh->releaseGPU(ctx);
+        if (propKnobPillarMesh)    propKnobPillarMesh->releaseGPU(ctx);
+        if (propMainPillarMesh)    propMainPillarMesh->releaseGPU(ctx);
+        if (propSurroundPillarMesh) propSurroundPillarMesh->releaseGPU(ctx);
+        propRockMesh.reset();
+        propBouquetMesh.reset();
+        propBouquetPillarMesh.reset();
+        propKnobPillarMesh.reset();
+        propMainPillarMesh.reset();
+        propSurroundPillarMesh.reset();
     }
 
     void World::loadCollidersFromJSON(const juce::File& jsonFile)
@@ -424,12 +440,43 @@ namespace sc
                 { 0.02f, 0.02f, 0.02f });
         }
 
-        if (propsVisMesh && propsVisMesh->isUploaded())
-        {
-            r.drawMesh(*propsVisMesh, identity(),
-                { 0.40f, 0.38f, 0.34f },
+        
+         if (propRockMesh && propRockMesh->isUploaded())
+             {
+            r.drawMesh(*propRockMesh, identity(),
+                { 0.50f, 0.48f, 0.44f },    // 石头：灰褐
+                { 0.02f, 0.01f, 0.01f });
+            }
+         if (propBouquetMesh && propBouquetMesh->isUploaded())
+             {
+            r.drawMesh(*propBouquetMesh, identity(),
+                { 0.30f, 0.45f, 0.25f },    // 花束/植被：草木绿
+                { 0.01f, 0.02f, 0.01f });
+            }
+         if (propBouquetPillarMesh && propBouquetPillarMesh->isUploaded())
+             {
+            r.drawMesh(*propBouquetPillarMesh, identity(),
+                { 0.48f, 0.44f, 0.36f },    // 花束柱：暖砂岩
+                { 0.02f, 0.01f, 0.01f });
+            }
+         if (propKnobPillarMesh && propKnobPillarMesh->isUploaded())
+             {
+            r.drawMesh(*propKnobPillarMesh, identity(),
+                { 0.42f, 0.38f, 0.42f },    // 旋钮柱：暗紫灰
+                { 0.01f, 0.01f, 0.02f });
+            }
+         if (propMainPillarMesh && propMainPillarMesh->isUploaded())
+             {
+            r.drawMesh(*propMainPillarMesh, identity(),
+                { 0.45f, 0.43f, 0.40f },    // 主柱：深砂岩
+                { 0.02f, 0.02f, 0.01f });
+            }
+         if (propSurroundPillarMesh && propSurroundPillarMesh->isUploaded())
+             {
+            r.drawMesh(*propSurroundPillarMesh, identity(),
+                { 0.40f, 0.38f, 0.36f },    // 环绕柱：稍暗
                 { 0.01f, 0.01f, 0.01f });
-        }
+            }
 
 
         // 实体

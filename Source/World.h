@@ -91,7 +91,12 @@ namespace sc
 
         // 场景 OBJ mesh
         std::unique_ptr<Mesh> groundVisMesh;
-        std::unique_ptr<Mesh> propsVisMesh;
+        std::unique_ptr<Mesh> propRockMesh;
+        std::unique_ptr<Mesh> propBouquetMesh;
+        std::unique_ptr<Mesh> propBouquetPillarMesh;
+        std::unique_ptr<Mesh> propKnobPillarMesh;
+        std::unique_ptr<Mesh> propMainPillarMesh;
+        std::unique_ptr<Mesh> propSurroundPillarMesh;
         std::unique_ptr<Mesh> groundColMesh;
 
         // 实体
