@@ -53,6 +53,8 @@ in vec2 vUV;
 uniform vec3  uLightDir;
 uniform vec3  uLightColor;
 uniform vec3  uAmbient;
+uniform vec3 uSkyColor;
+uniform vec3 uGroundColor;
 uniform float uLightIntensity;
 
 uniform vec3  uBaseColor;
@@ -77,7 +79,11 @@ void main()
     if (uShadeLevels > 1.5)
         lambert = floor(lambert * uShadeLevels) / uShadeLevels;
 
-    vec3 lit = uAmbient + uLightColor * uLightIntensity * lambert;
+     // 半球环境光：顶面偏天空色，底面偏地色，侧面渐变
+     float hemi = N.z * 0.5 + 0.5; // 0=朝下, 1=朝上
+     vec3 hemiAmbient = mix(uGroundColor, uSkyColor, hemi);
+ 
+     vec3 lit = uAmbient + hemiAmbient + uLightColor * uLightIntensity * lambert;
     vec3 col = uBaseColor * lit + uEmissive;
 
     if (uShadeLevels > 1.5)
@@ -107,6 +113,8 @@ void main()
             shader.setVec3("uLightDir", l.direction);
             shader.setVec3("uLightColor", l.color);
             shader.setVec3("uAmbient", l.ambient);
+            shader.setVec3("uSkyColor", l.skyColor);
+            shader.setVec3("uGroundColor", l.groundColor);
             shader.setFloat("uLightIntensity", l.intensity);
         }
 
