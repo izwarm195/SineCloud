@@ -298,6 +298,14 @@ namespace sc
         if (propSurroundPillarMesh->loadFromObjFile(assetsDir.getChildFile("props_surroundPillar.obj")))
              propSurroundPillarMesh->uploadToGPU(ctx);
 
+        groundVisMesh = std::make_unique<Mesh>();
+        if (groundVisMesh->loadFromObjFile(assetsDir.getChildFile("ground_visual.obj")))
+            groundVisMesh->uploadToGPU(ctx);
+
+        groundColMesh = std::make_unique<Mesh>();
+        if (groundColMesh->loadFromObjFile(assetsDir.getChildFile("ground_collision.obj")))
+            heightField.buildFromMesh(*groundColMesh);
+
         loadCollidersFromJSON(assetsDir.getChildFile("colliders.json"));
     }
 
