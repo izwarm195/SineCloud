@@ -105,6 +105,7 @@ namespace sc
         return loadFromObjMemory(
             static_cast<const char*>(mb.getData()),
             mb.getSize());
+
     }
 
     bool Mesh::loadFromBinaryData(const void* data, size_t size)

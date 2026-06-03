@@ -9,6 +9,7 @@
 #include <cmath>
 #include <limits>
 
+
 namespace sc
 {
 
@@ -382,8 +383,8 @@ namespace sc
         player->worldPos.x += vel.x * dt;
         player->worldPos.y += vel.y * dt;
         // 2. Knobs
-        for (auto& k : knobs)
-            k->update(dt, in);
+        /*for (auto& k : knobs)
+            k->update(dt, in);*/
 
         // 3. 障碍物碰撞
         resolvePlayerCollisions();
@@ -488,7 +489,7 @@ namespace sc
 
 
         // 实体
-        for (auto& k : knobs) k->draw(r, cam);
+        for (auto& k : knobs) //k->draw(r, cam);
         player->draw(r, cam);
     }
 
