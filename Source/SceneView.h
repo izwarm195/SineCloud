@@ -93,14 +93,14 @@ namespace sc
 
             if (world != nullptr)
                 world->uploadMeshes(context);
-
+            //----
             camera.setPivot({ 0.0f, 0.0f, 0.0f });
             camera.setOrbit(juce::degreesToRadians(35.0f),
                 juce::degreesToRadians(55.0f),
                 14.0f);
-            camera.setPerspective(50.0f, 0.1f, 200.0f);
+            camera.setPerspective(20.0f, 0.1f, 200.0f);
             camera.setViewport(getWidth(), getHeight());
-
+            //----
             debugOverlay.setVisible(false);
             grabKeyboardFocus();
         }

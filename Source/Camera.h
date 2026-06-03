@@ -201,12 +201,12 @@ namespace sc
         float maxDistance{ 30.0f };  // 新增
 
 
-        float minPitch{ juce::MathConstants<float>::pi * 0.05f };
+        float minPitch{ juce::MathConstants<float>::pi * 0.20f };
         float maxPitch{ juce::MathConstants<float>::pi * 0.48f };
 
         Vec3  pivot{ 0, 0, 0 };
 
-        float fovYRad{ juce::degreesToRadians(55.0f) };
+        float fovYRad{ juce::degreesToRadians(2.0f) };
         float zNear{ 0.1f };
         float zFar{ 500.0f };
 
