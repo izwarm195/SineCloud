@@ -80,6 +80,7 @@ namespace sc
     private:
         void buildKnobs();
         void loadCollidersFromJSON(const juce::File& jsonFile);
+        void buildCollidersFromObjFile(const juce::File& objFile);
         void resolvePlayerCollisions();
 
         SineCloudAudioProcessor& processor;
@@ -88,6 +89,7 @@ namespace sc
         std::unique_ptr<Mesh> boxMesh;
         std::unique_ptr<Mesh> cylMesh;
         std::unique_ptr<Mesh> ptrMesh;
+        std::unique_ptr<Mesh> propsMesh;
 
         // 场景 OBJ mesh
         std::unique_ptr<Mesh> groundVisMesh;
@@ -102,6 +104,7 @@ namespace sc
         // 实体
         std::unique_ptr<Player>                  player;
         std::vector<std::unique_ptr<KnobEntity>> knobs;
+        std::vector<CollisionShape> propColliders;
 
         // 物理
         HeightField                 heightField;

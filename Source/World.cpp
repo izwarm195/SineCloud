@@ -8,6 +8,8 @@
 #include "CollisionTypes.h"
 #include <cmath>
 #include <limits>
+#include "tiny_obj_loader.h"
+#include <sstream>
 
 
 namespace sc
@@ -307,6 +309,10 @@ namespace sc
         if (groundColMesh->loadFromObjFile(assetsDir.getChildFile("ground_collision.obj")))
             heightField.buildFromMesh(*groundColMesh);
 
+        // ---- props：从合并 OBJ 加载渲染 mesh + 碰撞体 ----
+        
+        buildCollidersFromObjFile(assetsDir.getChildFile("props_collision.obj"));
+
         loadCollidersFromJSON(assetsDir.getChildFile("colliders.json"));
     }
 
@@ -373,6 +379,76 @@ namespace sc
             colliders.push_back(cs);
         }
     }
+
+    void World::buildCollidersFromObjFile(const juce::File& objFile) {
+        if (!objFile.existsAsFile()) return;
+
+        // ---- 读取文件到内存 ----
+        juce::MemoryBlock mb;
+        if (!objFile.loadFileAsData(mb)) return;
+
+        const char* data = static_cast<const char*>(mb.getData());
+        const size_t length = mb.getSize();
+        std::string text(data, length);
+        std::istringstream iss(text);
+
+        // ---- tinyobj 解析（仅取顶点，不关心法线/UV） ----
+        tinyobj::attrib_t attrib;
+        std::vector<tinyobj::shape_t> shapes;
+        std::vector<tinyobj::material_t> materials;
+        std::string warn, err;
+
+        if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err,
+            &iss, nullptr, true)) {
+            DBG("buildCollidersFromObjFile: tinyobj failed: " << err);
+            return;
+        }
+
+        DBG("buildCollidersFromObjFile: " << (int)shapes.size()
+            << " shapes in " << objFile.getFileName());
+
+        // ---- 每个 shape → 一个 Cylinder 碰撞体 ----
+        for (const auto& shape : shapes) {
+            if (shape.mesh.indices.empty()) continue;
+
+            // 计算该 shape 所有顶点的 XY AABB + Z 范围
+            float minX = 1e9f, minY = 1e9f, minZ = 1e9f;
+            float maxX = -1e9f, maxY = -1e9f, maxZ = -1e9f;
+
+            for (const auto& idx : shape.mesh.indices) {
+                const int pi = idx.vertex_index;
+                if (pi < 0) continue;
+
+                const float x = attrib.vertices[3 * pi + 0];
+                const float y = attrib.vertices[3 * pi + 1];
+                const float z = attrib.vertices[3 * pi + 2];
+
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+                if (z < minZ) minZ = z;
+                if (z > maxZ) maxZ = z;
+            }
+
+            // AABB → Cylinder
+            CollisionShape cs;
+            cs.type = CollisionShape::Cylinder;
+            cs.center.x = (minX + maxX) * 0.5f;
+            cs.center.y = (minY + maxY) * 0.5f;
+            cs.center.z = minZ;                            // 底部贴地
+            cs.radius = std::max(maxX - minX, maxY - minY) * 0.5f;
+            cs.halfHeight = (maxZ - minZ) * 0.5f;
+
+            colliders.push_back(cs);
+
+            DBG("  collider#" << (int)colliders.size()
+                << " center=(" << cs.center.x << "," << cs.center.y << "," << cs.center.z << ")"
+                << " r=" << cs.radius << "hh=" << cs.halfHeight);
+        }
+        DBG("buildCollidersFromObjFile: added " << (int)shapes.size() << " colliders");
+    }
+
 
     void World::update(float dt, const InputState& in, Camera& cam)
     {
