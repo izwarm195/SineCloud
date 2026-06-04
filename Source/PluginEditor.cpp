@@ -8,7 +8,7 @@ SineCloudAudioProcessorEditor::SineCloudAudioProcessorEditor(SineCloudAudioProce
     setOpaque(true);
     setResizable(true, true);
     setResizeLimits(640, 360, 1920, 1080);
-    setSize(960, 600);
+    setSize(1600, 900);
     setWantsKeyboardFocus(false); // 键盘焦点交给 SceneView
 
     // World 先构造（不依赖 GL，只创建 KnobEntity / Player 对象）

@@ -310,10 +310,11 @@ namespace sc
             heightField.buildFromMesh(*groundColMesh);
 
         // ---- props：从合并 OBJ 加载渲染 mesh + 碰撞体 ----
-        
+        colliders.clear();
+        loadCollidersFromJSON(assetsDir.getChildFile("colliders.json"));
         buildCollidersFromObjFile(assetsDir.getChildFile("props_collision.obj"));
 
-        loadCollidersFromJSON(assetsDir.getChildFile("colliders.json"));
+        
     }
 
     void World::releaseMeshes(juce::OpenGLContext& ctx)
@@ -345,7 +346,6 @@ namespace sc
 
     void World::loadCollidersFromJSON(const juce::File& jsonFile)
     {
-        colliders.clear();
 
         if (!jsonFile.existsAsFile()) return;
 
@@ -367,8 +367,7 @@ namespace sc
                 cs.type = CollisionShape::Cylinder;
             else if (typeStr == "box")
                 cs.type = CollisionShape::Box;
-            else
-                continue;
+            
 
             cs.center.x = static_cast<float>(obj->getProperty("x"));
             cs.center.y = static_cast<float>(obj->getProperty("y"));
