@@ -445,8 +445,8 @@ namespace sc
          if (groundVisMesh && groundVisMesh->isUploaded())
          {
              r.drawMesh(*groundVisMesh, identity(),
-                 { 0.50f, 0.48f, 0.44f },    
-                 { 1.00f, 0.00f, 0.00f });
+                 { 0.50f, 0.51f, 0.52f },    
+                 { 0.00f, 0.00f, 0.00f });
          }
 
         
@@ -460,26 +460,26 @@ namespace sc
          if (propBouquetMesh && propBouquetMesh->isUploaded())
              {
             r.drawMesh(*propBouquetMesh, identity(),
-                { 0.30f, 0.45f, 0.25f },    // 花束/植被：草木绿
-                { 0.01f, 0.02f, 0.01f });
+                { 0.32f, 0.32f, 0.34f },    // 花坛
+                { 0.01f, 0.01f, 0.01f });
             }
          if (propBouquetPillarMesh && propBouquetPillarMesh->isUploaded())
              {
             r.drawMesh(*propBouquetPillarMesh, identity(),
-                { 0.48f, 0.44f, 0.36f },    // 花束柱：暖砂岩
+                { 0.28f, 0.28f, 0.30f },    // 花束柱：暖砂岩
                 { 0.02f, 0.01f, 0.01f });
             }
          if (propKnobPillarMesh && propKnobPillarMesh->isUploaded())
              {
             r.drawMesh(*propKnobPillarMesh, identity(),
-                { 0.42f, 0.38f, 0.42f },    // 旋钮柱：暗紫灰
-                { 0.01f, 0.01f, 0.02f });
+                { 0.16f, 0.15f, 0.20f },    // 旋钮柱：暗紫灰
+                { 0.01f, 0.01f, 0.13f });
             }
          if (propMainPillarMesh && propMainPillarMesh->isUploaded())
              {
             r.drawMesh(*propMainPillarMesh, identity(),
-                { 0.45f, 0.43f, 0.40f },    // 主柱：深砂岩
-                { 0.02f, 0.02f, 0.01f });
+                { 0.26f, 0.26f, 0.28f },    // 主柱：深砂岩
+                { 0.01f, 0.01f, 0.01f });
             }
          if (propSurroundPillarMesh && propSurroundPillarMesh->isUploaded())
              {

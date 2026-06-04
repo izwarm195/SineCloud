@@ -12,7 +12,7 @@ namespace sc
             Vec3 direction{ -0.577f, 0.577f, -0.577f }; // normalized: (-0.577, 0.577, -0.577)
         Vec3 color{ 1.00f, 0.94f, 0.82f }; // 暖黄昏光
         
-        Vec3 ambient{ 0.12f, 0.14f, 0.5f }; // 暗面基础环境光
+        Vec3 ambient{ 0.12f, 0.14f, 0.18f }; // 暗面基础环境光
         
                 // 半球环境光：顶上偏暖的天空散射，底下偏暗的地面反弹
             Vec3 skyColor{ 0.18f, 0.20f, 0.26f };  // 朝上的面微蓝
