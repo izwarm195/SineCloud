@@ -379,10 +379,10 @@ namespace sc
         }
     }
 
-    void World::buildCollidersFromObjFile(const juce::File& objFile) {
+    void World::buildCollidersFromObjFile(const juce::File& objFile)
+    {
         if (!objFile.existsAsFile()) return;
 
-        // ---- 读取文件到内存 ----
         juce::MemoryBlock mb;
         if (!objFile.loadFileAsData(mb)) return;
 
@@ -391,62 +391,67 @@ namespace sc
         std::string text(data, length);
         std::istringstream iss(text);
 
-        // ---- tinyobj 解析（仅取顶点，不关心法线/UV） ----
         tinyobj::attrib_t attrib;
         std::vector<tinyobj::shape_t> shapes;
         std::vector<tinyobj::material_t> materials;
         std::string warn, err;
 
         if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err,
-            &iss, nullptr, true)) {
+            &iss, nullptr, true))
+        {
             DBG("buildCollidersFromObjFile: tinyobj failed: " << err);
             return;
         }
 
-        DBG("buildCollidersFromObjFile: " << (int)shapes.size()
-            << " shapes in " << objFile.getFileName());
+        collisionTris.clear();
+        int triCount = 0;
 
-        // ---- 每个 shape → 一个 Cylinder 碰撞体 ----
-        for (const auto& shape : shapes) {
-            if (shape.mesh.indices.empty()) continue;
+        for (const auto& shape : shapes)
+        {
+            // 遍历每个三角形（indices 每 3 个一组）
+            for (size_t f = 0; f + 2 < shape.mesh.indices.size(); f += 3)
+            {
+                const int i0 = shape.mesh.indices[f + 0].vertex_index;
+                const int i1 = shape.mesh.indices[f + 1].vertex_index;
+                const int i2 = shape.mesh.indices[f + 2].vertex_index;
 
-            // 计算该 shape 所有顶点的 XY AABB + Z 范围
-            float minX = 1e9f, minY = 1e9f, minZ = 1e9f;
-            float maxX = -1e9f, maxY = -1e9f, maxZ = -1e9f;
+                if (i0 < 0 || i1 < 0 || i2 < 0) continue;
 
-            for (const auto& idx : shape.mesh.indices) {
-                const int pi = idx.vertex_index;
-                if (pi < 0) continue;
+                CollisionTri tri;
+                tri.a = { attrib.vertices[3 * i0 + 0],
+                          attrib.vertices[3 * i0 + 1],
+                          attrib.vertices[3 * i0 + 2] };
+                tri.b = { attrib.vertices[3 * i1 + 0],
+                          attrib.vertices[3 * i1 + 1],
+                          attrib.vertices[3 * i1 + 2] };
+                tri.c = { attrib.vertices[3 * i2 + 0],
+                          attrib.vertices[3 * i2 + 1],
+                          attrib.vertices[3 * i2 + 2] };
 
-                const float x = attrib.vertices[3 * pi + 0];
-                const float y = attrib.vertices[3 * pi + 1];
-                const float z = attrib.vertices[3 * pi + 2];
+                // 计算面法线
+                Vec3 e1 = tri.b - tri.a;
+                Vec3 e2 = tri.c - tri.a;
+                tri.normal = cross(e1, e2);
+                float len2 = tri.normal.x * tri.normal.x
+                    + tri.normal.y * tri.normal.y
+                    + tri.normal.z * tri.normal.z;
+                if (len2 < 1e-12f) continue; // 退化三角形跳过
+                tri.normal = tri.normal * (1.0f / std::sqrt(len2));
 
-                if (x < minX) minX = x;
-                if (x > maxX) maxX = x;
-                if (y < minY) minY = y;
-                if (y > maxY) maxY = y;
-                if (z < minZ) minZ = z;
-                if (z > maxZ) maxZ = z;
+                // 只保留接近竖直的面（法线接近水平 = 面是墙/柱子侧面）
+                // 跳过地面/顶面（法线接近竖直），因为地面碰撞由 heightField 处理
+                float nzAbs = std::abs(tri.normal.z);
+                if (nzAbs > 0.85f) continue; // 接近水平的面跳过
+
+                collisionTris.push_back(tri);
+                ++triCount;
             }
-
-            // AABB → Cylinder
-            CollisionShape cs;
-            cs.type = CollisionShape::Cylinder;
-            cs.center.x = (minX + maxX) * 0.5f;
-            cs.center.y = (minY + maxY) * 0.5f;
-            cs.center.z = minZ;                            // 底部贴地
-            cs.radius = std::max(maxX - minX, maxY - minY) * 0.5f;
-            cs.halfHeight = (maxZ - minZ) * 0.5f;
-
-            colliders.push_back(cs);
-
-            DBG("  collider#" << (int)colliders.size()
-                << " center=(" << cs.center.x << "," << cs.center.y << "," << cs.center.z << ")"
-                << " r=" << cs.radius << "hh=" << cs.halfHeight);
         }
-        DBG("buildCollidersFromObjFile: added " << (int)shapes.size() << " colliders");
+
+        DBG("buildCollidersFromObjFile: added " << triCount
+            << " collision triangles from " << objFile.getFileName());
     }
+
 
 
     void World::update(float dt, const InputState& in, Camera& cam)
@@ -491,17 +496,19 @@ namespace sc
 
     void World::resolvePlayerCollisions()
     {
-        for (const auto& obs : colliders)
+        // === 三角形碰撞（来自 props_collision.obj） ===
+        for (const auto& tri : collisionTris)
         {
             Vec3 push;
             bool hit = false;
 
-            if (obs.type == CollisionShape::Cylinder)
-                hit = CollisionShape::collidePlayerCylinder(
-                    player->worldPos, playerRadius, obs, push);
-            else if (obs.type == CollisionShape::Box)
-                hit = CollisionShape::collidePlayerBox(
-                    player->worldPos, playerRadius, obs, push);
+            // 检测三条边
+            if (collidePlayerTriEdge(player->worldPos, playerRadius, tri.a, tri.b, push))
+                hit = true;
+            else if (collidePlayerTriEdge(player->worldPos, playerRadius, tri.b, tri.c, push))
+                hit = true;
+            else if (collidePlayerTriEdge(player->worldPos, playerRadius, tri.c, tri.a, push))
+                hit = true;
 
             if (hit)
             {
@@ -510,6 +517,25 @@ namespace sc
             }
         }
 
+        // === JSON 碰撞体（colliders.json，如有） ===
+        for (const auto& obs : colliders)
+        {
+            Vec3 push;
+            bool hit = false;
+            if (obs.type == CollisionShape::Cylinder)
+                hit = CollisionShape::collidePlayerCylinder(
+                    player->worldPos, playerRadius, obs, push);
+            else if (obs.type == CollisionShape::Box)
+                hit = CollisionShape::collidePlayerBox(
+                    player->worldPos, playerRadius, obs, push);
+            if (hit)
+            {
+                player->worldPos.x += push.x;
+                player->worldPos.y += push.y;
+            }
+        }
+
+        // 地面高度
         player->worldPos.z = heightField.sampleHeight(
             player->worldPos.x, player->worldPos.y);
     }

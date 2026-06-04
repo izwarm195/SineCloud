@@ -105,6 +105,7 @@ namespace sc
         std::unique_ptr<Player>                  player;
         std::vector<std::unique_ptr<KnobEntity>> knobs;
         std::vector<CollisionShape> propColliders;
+        std::vector<CollisionTri> collisionTris;
 
         // 物理
         HeightField                 heightField;
@@ -112,7 +113,7 @@ namespace sc
 
         // 调参
         float interactReach{ 1.6f };
-        float playerRadius{ 0.4f };
+        float playerRadius{ 0.35f };
         float maxSlopeCos{ 0.5f };
 
         // 交互状态

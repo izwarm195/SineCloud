@@ -31,6 +31,17 @@ namespace sc
         static bool collidePlayerBox(
             const Vec3& playerPos, float playerRadius,
             const CollisionShape& obs, Vec3& pushOut);
+        // CollisionTypes.h 新增声明
+        static bool collidePlayerTriEdge(
+            const Vec3& playerPos, float playerRadius,
+            const Vec3& edgeA, const Vec3& edgeB,
+            Vec3& pushOut);
     };
+    struct CollisionTri {
+        Vec3 a, b, c;    // 三角形三个顶点（世界坐标）    
+        Vec3 normal;     // 面法线
+    };
+    
+
 
 } // namespace sc

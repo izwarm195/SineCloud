@@ -131,5 +131,7 @@ namespace sc
     private:
         const Camera* camera{ nullptr };
         bool shouldDraw{ false };
+        
+
     };
 }
