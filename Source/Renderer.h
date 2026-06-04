@@ -77,16 +77,30 @@ namespace sc
         }
 
         /** ±ê×¼ÊµÐÄ mesh »æÖÆ¡£ */
-        void drawMesh(Mesh& mesh, const Mat4& model,
-            const Vec3& baseColor,
-            const Vec3& emissive = { 0, 0, 0 }) noexcept
+        // 增加一个帮助函数把设计色的 sRGB 值转换为线性值：
+        static Vec3 srgbToLinear(const Vec3& c) noexcept
         {
+            auto toLin = [](float v) {
+                return v <= 0.04045f ? v / 12.92f
+                    : std::pow((v + 0.055f) / 1.055f, 2.4f);
+                };
+            return { toLin(c.x), toLin(c.y), toLin(c.z) };
+        }
+
+        void drawMesh(Mesh& mesh, const Mat4& model,
+            const Vec3& baseColorSRGB,
+            const Vec3& emissiveSRGB = { 0,0,0 }) noexcept
+        {
+            const Vec3 baseLin = srgbToLinear(baseColorSRGB);
+            const Vec3 emissiveLin = srgbToLinear(emissiveSRGB);
+
             material.setLineMode(false);
             material.setModel(model);
-            material.setBaseColor(baseColor);
-            material.setEmissive(emissive);
+            material.setBaseColor(baseLin);
+            material.setEmissive(emissiveLin);
             mesh.draw(context);
         }
+
 
         /** Íø¸ñÏß£¨GL_LINES£©»æÖÆ£ºÌø¹ý¹âÕÕ¡£ */
         void drawLines(Mesh& mesh, const Mat4& model, const Vec3& color) noexcept
@@ -108,6 +122,8 @@ namespace sc
         //----------------------------------------------------------------------
         /** É«½×Á¿»¯µµÊý¡£1 = ¹Ø±Õ£¬3~6 ÏñËØ¸Ð×îÇ¿¡£ */
         void setShadeLevels(float levels) noexcept { shadeLevels = juce::jmax(1.0f, levels); }
+
+
 
     private:
         juce::OpenGLContext& context;

@@ -79,17 +79,18 @@ void main()
     if (uShadeLevels > 1.5)
         lambert = floor(lambert * uShadeLevels) / uShadeLevels;
 
-     // 半球环境光：顶面偏天空色，底面偏地色，侧面渐变
-     float hemi = N.z * 0.5 + 0.5; // 0=朝下, 1=朝上
-     vec3 hemiAmbient = mix(uGroundColor, uSkyColor, hemi);
+    
+    float hemi = N.z * 0.5 + 0.5; 
+    vec3 hemiAmbient = mix(uGroundColor, uSkyColor, hemi);
  
-     vec3 lit = uAmbient + hemiAmbient + uLightColor * uLightIntensity * lambert;
+    vec3 lit = uAmbient + hemiAmbient + uLightColor * uLightIntensity * lambert;
     vec3 col = uBaseColor * lit + uEmissive;
-
-    if (uShadeLevels > 1.5)
-        col = floor(col * uShadeLevels) / uShadeLevels;
+    col = col / (col + vec3(1.0));            // Reinhard tonemap
+    col = pow(col, vec3(1.0 / 2.2));          // Linear to sRGB
 
     fragColor = vec4(col, 1.0);
+    
+    
 }
 )";
 

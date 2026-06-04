@@ -441,13 +441,13 @@ namespace sc
 
     void World::draw(Renderer& r, const Camera& cam)
     {
-        // 场景 OBJ 模型
-        if (groundVisMesh && groundVisMesh->isUploaded())
-        {
-            r.drawMesh(*groundVisMesh, identity(),
-                { 0.25f, 0.30f, 0.28f },
-                { 0.02f, 0.02f, 0.02f });
-        }
+         // 场景 OBJ 模型
+         if (groundVisMesh && groundVisMesh->isUploaded())
+         {
+             r.drawMesh(*groundVisMesh, identity(),
+                 { 0.50f, 0.48f, 0.44f },    
+                 { 1.00f, 0.00f, 0.00f });
+         }
 
         
          if (propRockMesh && propRockMesh->isUploaded())
@@ -456,6 +456,7 @@ namespace sc
                 { 0.50f, 0.48f, 0.44f },    // 石头：灰褐
                 { 0.02f, 0.01f, 0.01f });
             }
+
          if (propBouquetMesh && propBouquetMesh->isUploaded())
              {
             r.drawMesh(*propBouquetMesh, identity(),
