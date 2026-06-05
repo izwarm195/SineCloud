@@ -95,6 +95,12 @@ namespace sc
 
     void main()
     {
+            
+
+        vec3 col = pow(uBaseColor, vec3(1.0/2.2));
+    fragColor = vec4(col, 1.0);
+    return;
+
         if (uIsLine == 1)
         {
             fragColor = vec4(uBaseColor + uEmissive * uEmissiveStrength, 1.0);
@@ -150,6 +156,11 @@ namespace sc
         col = col / (col + vec3(1.0));
         // Linear to sRGB gamma
         col = pow(col, vec3(1.0 / 2.2));
+
+        if (uShadeLevels > 1.5)
+            {
+                col = floor(col * uShadeLevels) / uShadeLevels;
+            }
 
         fragColor = vec4(col, 1.0);
     }
