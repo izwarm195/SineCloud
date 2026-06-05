@@ -501,6 +501,8 @@ namespace sc
             r.drawMesh(*propRockMesh, identity(),
                 { 0.50f, 0.48f, 0.44f },    // 石头：灰褐
                 { 0.02f, 0.01f, 0.01f });
+
+
             }
 
          if (propBouquetMesh && propBouquetMesh->isUploaded())

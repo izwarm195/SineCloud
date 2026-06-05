@@ -1,19 +1,17 @@
-/*
-  ==============================================================================
-    Renderer.h
-    Layer 2: Scene & Renderer
-    Ã¿Ö¡äÖÈ¾Èë¿Ú¡£³ÖÓÐ PixelMaterial£¬¶ÔÍâ±©Â¶ beginFrame / drawMesh / endFrame¡£
-    ÉÏ²ãÖ»Ðè´« camera + Ò»×é (mesh, model, color)£¬²»ÓÃ¹ØÐÄ GL ×´Ì¬¡£
-  ==============================================================================
-*/
+/* ==============================================================================
+   Renderer.h
+   Layer 2: Scene & Renderer
+   每帧渲染入口。持有 PixelMaterial，对外暴露 beginFrame / drawMesh / endFrame。
+   上层只需传 camera + 一组 (mesh, model, color)，不用关心 GL 状态。
+   ============================================================================== */
 #pragma once
-
-#include <JuceHeader.h>
+#include <JuceHeader.h >
 #include "GLUtils.h"
 #include "Mesh.h"
 #include "Camera.h"
 #include "Lighting.h"
 #include "PixelMaterial.h"
+#include "Material.h"
 
 namespace sc
 {
@@ -25,7 +23,7 @@ namespace sc
         }
 
         //----------------------------------------------------------------------
-        // ÉúÃüÖÜÆÚ£ºÓë OpenGLRenderer µÄ newOpenGLContextCreated/openGLContextClosing ¶ÔÆë
+        // 生命周期：与 OpenGLRenderer 的 newOpenGLContextCreated/openGLContextClosing 对齐
         //----------------------------------------------------------------------
         bool initialise()
         {
@@ -34,22 +32,18 @@ namespace sc
                 DBG("Renderer: PixelMaterial build failed");
                 return false;
             }
-
             return true;
-
         }
 
         void shutdown() {}
 
         //----------------------------------------------------------------------
-        // Ö¡
+        // 帧
         //----------------------------------------------------------------------
         void beginFrame(const Camera& camera, const Lighting& light,
             const Vec3& clearColor = { 0.06f, 0.07f, 0.09f }) noexcept
         {
-
             using namespace sc::gl;
-
             if (juce::gl::glDebugMessageControl != nullptr)
                 juce::gl::glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE,
                     GL_DEBUG_SEVERITY_NOTIFICATION,
@@ -59,25 +53,21 @@ namespace sc
             const int wPx = (int)(camera.getViewportWidth() * scale);
             const int hPx = (int)(camera.getViewportHeight() * scale);
             glViewport(0, 0, wPx, hPx);
-
             glEnable(GL_DEPTH_TEST);
             glDepthFunc(GL_LESS);
-            glDisable(GL_CULL_FACE); // ÏñËØ·çÔÝ²»ÌÞ±³Ãæ£¬±ãÓÚµ÷ÊÔ
+            glDisable(GL_CULL_FACE); // 像素风暂不剔除背面，便于调试
             glClearColor(clearColor.x, clearColor.y, clearColor.z, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             material.use();
             material.setCameraMatrices(camera.view(), camera.proj());
+            material.setCameraPos(camera.getEyeWorld());          // ★ 新增：PBR 需要视线方向
             material.setLighting(light);
             material.setShadeLevels(shadeLevels);
             material.setLineMode(false);
-
-            
-
         }
 
-        /** ±ê×¼ÊµÐÄ mesh »æÖÆ¡£ */
-        // 增加一个帮助函数把设计色的 sRGB 值转换为线性值：
+        /** 帮助函数：把设计色的 sRGB 值转换为线性值。 */
         static Vec3 srgbToLinear(const Vec3& c) noexcept
         {
             auto toLin = [](float v) {
@@ -87,28 +77,39 @@ namespace sc
             return { toLin(c.x), toLin(c.y), toLin(c.z) };
         }
 
+        // ==================== 绘制接口 ====================
+
+        /** 新主路径：使用完整材质（颜色为 sRGB 设计色）。 */
+        void drawMesh(Mesh& mesh, const Mat4& model,
+            const Material& mat) noexcept
+        {
+            const Vec3 baseLin = srgbToLinear(mat.baseColorSRGB);
+            const Vec3 emissiveLin = srgbToLinear(mat.emissiveSRGB);
+            material.setLineMode(false);
+            material.setModel(model);
+            material.setMaterial(mat, baseLin, emissiveLin);
+            mesh.draw(context);
+        }
+
+        /** 兼容旧调用：颜色 + 自发光（sRGB 设计色），内部转为默认 stone 材质属性。 */
         void drawMesh(Mesh& mesh, const Mat4& model,
             const Vec3& baseColorSRGB,
             const Vec3& emissiveSRGB = { 0,0,0 }) noexcept
         {
             const Vec3 baseLin = srgbToLinear(baseColorSRGB);
             const Vec3 emissiveLin = srgbToLinear(emissiveSRGB);
-
             material.setLineMode(false);
             material.setModel(model);
-            material.setBaseColor(baseLin);
-            material.setEmissive(emissiveLin);
+            material.setBaseColorLegacy(baseLin, emissiveLin);
             mesh.draw(context);
         }
 
-
-        /** Íø¸ñÏß£¨GL_LINES£©»æÖÆ£ºÌø¹ý¹âÕÕ¡£ */
+        /** 网格线（GL_LINES）绘制：跳过光照。 */
         void drawLines(Mesh& mesh, const Mat4& model, const Vec3& color) noexcept
         {
             material.setLineMode(true);
             material.setModel(model);
-            material.setBaseColor(color);
-            material.setEmissive({ 0, 0, 0 });
+            material.setBaseColorLegacy(color, { 0, 0, 0 });
             mesh.draw(context);
         }
 
@@ -118,18 +119,15 @@ namespace sc
         }
 
         //----------------------------------------------------------------------
-        // ·ç¸ñ¿ØÖÆ
+        // 风格控制
         //----------------------------------------------------------------------
-        /** É«½×Á¿»¯µµÊý¡£1 = ¹Ø±Õ£¬3~6 ÏñËØ¸Ð×îÇ¿¡£ */
+        /** 色阶量化档数。1 = 关闭，3~6 像素感最强。 */
         void setShadeLevels(float levels) noexcept { shadeLevels = juce::jmax(1.0f, levels); }
-
-
 
     private:
         juce::OpenGLContext& context;
         PixelMaterial material;
         float shadeLevels{ 4.0f };
-
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Renderer)
     };
 }
