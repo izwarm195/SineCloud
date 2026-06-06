@@ -117,7 +117,11 @@ void main() {
         fragColor = vec4(0.06, 0.07, 0.09, 1.0);
         return;
     }
-vec3 worldPos = texture(gWorldPos, vUV).rgb;
+
+    vec4 ar = texture(gAlbedoRough, vUV);
+    vec4 nm = texture(gNormalMetal, vUV);
+    vec4 es = texture(gEmissiveSSS, vUV);
+    vec3 worldPos = texture(gWorldPos, vUV).rgb;
 
     vec3 baseColor = ar.rgb;
     float roughness = ar.a;
@@ -126,9 +130,6 @@ vec3 worldPos = texture(gWorldPos, vUV).rgb;
     vec3 emissive = es.rgb;
     float sss = es.a;
 
-    vec4 ndc = vec4(vUV * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
-    vec4 wp = uInvViewProj * ndc;
-    vec3 worldPos = wp.xyz / max(wp.w, 1e-6);
     vec3 V = normalize(uCamPos - worldPos);
     vec3 F0 = mix(vec3(0.04), baseColor, metallic);
     float NoV = max(dot(N, V), 1e-4);
@@ -188,6 +189,7 @@ vec3 worldPos = texture(gWorldPos, vUV).rgb;
     col = pow(col, vec3(1.0 / 2.2));
     fragColor = vec4(col, 1.0);
 }
+
 )";
 
 
@@ -240,7 +242,6 @@ vec3 worldPos = texture(gWorldPos, vUV).rgb;
             gbuffer.bindTexturesForLighting(deferredShader);
 
             // 重建世界坐标所需
-            deferredShader.setMat4("uInvViewProj", camera.invViewProj());
             deferredShader.setVec3("uCamPos", camera.getEyeWorld());
 
             // ---- 方向光 ----
