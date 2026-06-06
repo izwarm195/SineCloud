@@ -19,7 +19,7 @@ namespace sc
 
         bool build()
         {
-            // ==================== 顶点着色器 (Vertex Shader) ====================
+            // ==================== 顶点着色器 ====================
             const juce::String vs = R"(#version 330 core
 layout(location = 0) in vec3 aPos;
 layout(location = 1) in vec3 aNormal;
@@ -41,66 +41,58 @@ void main()
     vUV = aUV;
     gl_Position = uProj * uView * wp;
 }
-
 )";
 
-            // ==================== 片段着色器 (Fragment Shader) ====================
+            // ==================== 片段着色器 ====================
             const juce::String fs = R"(#version 330 core
+
 in vec3 vNormalWS;
 in vec3 vPosWS;
 in vec2 vUV;
 
-// ---- Main directional light ----
-uniform vec3  uLightDir;
-uniform vec3  uLightColor;
-uniform vec3  uAmbient;
-uniform vec3  uSkyColor;
-uniform vec3  uGroundColor;
+uniform vec3 uLightDir;
+uniform vec3 uLightColor;
+uniform vec3 uAmbient;
+uniform vec3 uSkyColor;
+uniform vec3 uGroundColor;
 uniform float uLightIntensity;
 uniform vec3 uPlayerPos;
+uniform vec3 uCamPos;
 
-
-// ---- Camera ----
-uniform vec3  uCamPos;
-
-// ---- Material ----
-uniform vec3  uBaseColor;
+uniform vec3 uBaseColor;
 uniform float uRoughness;
 uniform float uMetallic;
-uniform vec3  uEmissive;
+uniform vec3 uEmissive;
 uniform float uEmissiveStrength;
 uniform float uSSS;
 uniform float uSpecTint;
 
-
-// ---- Stylization ----
 uniform float uShadeLevels;
-uniform int   uIsLine;
+uniform int uIsLine;
 
-// ---- Point lights ----
 const int MAX_POINT_LIGHTS = 16;
-uniform int   uNumPointLights;
-uniform vec3  uPointLightPos      [MAX_POINT_LIGHTS];
-uniform vec3  uPointLightColor    [MAX_POINT_LIGHTS];   // linear color * intensity
+uniform int uNumPointLights;
+uniform vec3 uPointLightPos[MAX_POINT_LIGHTS];
+uniform vec3 uPointLightColor[MAX_POINT_LIGHTS];
 uniform float uPointLightQuadratic[MAX_POINT_LIGHTS];
-uniform float uPointLightRange    [MAX_POINT_LIGHTS];
+uniform float uPointLightRange[MAX_POINT_LIGHTS];
 
-// ---- Fog ----
-uniform vec3  uFogColor;            // linear
+uniform vec3 uFogColor;
 uniform float uFogDensity;
 uniform float uFogHeightFalloff;
 uniform float uFogStart;
 
 out vec4 fragColor;
+
 const float PI = 3.14159265359;
 
-// ---- GGX / Schlick ----
 float D_GGX(float NoH, float a)
 {
     float a2 = a * a;
-    float d  = (NoH * NoH) * (a2 - 1.0) + 1.0;
+    float d = (NoH * NoH) * (a2 - 1.0) + 1.0;
     return a2 / max(PI * d * d, 1e-5);
 }
+
 float G_Smith(float NoV, float NoL, float a)
 {
     float k = (a + 1.0); k = (k * k) * 0.125;
@@ -108,14 +100,13 @@ float G_Smith(float NoV, float NoL, float a)
     float gl = NoL / (NoL * (1.0 - k) + k);
     return gv * gl;
 }
+
 vec3 F_Schlick(float VoH, vec3 F0)
 {
     float f = pow(1.0 - VoH, 5.0);
     return F0 + (1.0 - F0) * f;
 }
 
-/** 单光源 BRDF 求值，返回该光源对像素的贡献。
-    radiance 已经折算了 cos 和衰减。 */
 vec3 evalBRDF(vec3 N, vec3 V, vec3 L, vec3 baseColor,
               float roughness, float metallic, vec3 F0,
               vec3 radiance)
@@ -123,25 +114,22 @@ vec3 evalBRDF(vec3 N, vec3 V, vec3 L, vec3 baseColor,
     vec3 H = normalize(V + L);
     float NoL = max(dot(N, L), 0.0);
     if (NoL <= 0.0) return vec3(0.0);
-
     float NoV = max(dot(N, V), 1e-4);
     float NoH = max(dot(N, H), 0.0);
     float VoH = max(dot(V, H), 0.0);
-
     float a = max(roughness * roughness, 0.002);
     float D = D_GGX(NoH, a);
     float G = G_Smith(NoV, NoL, a);
-    vec3  F = F_Schlick(VoH, F0);
-
+    vec3 F = F_Schlick(VoH, F0);
     vec3 spec = (D * G * F) / max(4.0 * NoL * NoV, 1e-4);
-    vec3 kd   = (1.0 - F) * (1.0 - metallic);
+    vec3 kd = (1.0 - F) * (1.0 - metallic);
     vec3 diffuse = kd * baseColor / PI;
-
     return (diffuse + spec) * radiance * NoL;
 }
 
 void main()
 {
+    // ---- 线模式 ----
     if (uIsLine == 1)
     {
         fragColor = vec4(uBaseColor + uEmissive * uEmissiveStrength, 1.0);
@@ -150,50 +138,50 @@ void main()
 
     vec3 N = normalize(vNormalWS);
     vec3 V = normalize(uCamPos - vPosWS);
-
-    vec3  F0  = mix(vec3(0.04), uBaseColor, uMetallic);
+    vec3 F0 = mix(vec3(0.04), uBaseColor, uMetallic);
     float NoV = max(dot(N, V), 1e-4);
 
-    // ===== 1. 主方向光 =====
-    vec3 Ldir   = -normalize(uLightDir);
+    // ---- 1. 主方向光 ----
+    vec3 Ldir = -normalize(uLightDir);
     vec3 dirRad = uLightColor * uLightIntensity;
     vec3 direct = evalBRDF(N, V, Ldir, uBaseColor, uRoughness, uMetallic, F0, dirRad);
 
-    // SSS（仅主方向光）
+    // ---- SSS（仅主方向光） ----
     float backLight = max(dot(-N, Ldir), 0.0);
-    vec3  sssTerm   = uSSS * backLight * uBaseColor * uLightColor * uLightIntensity * 0.5;
+    vec3 sssTerm = uSSS * backLight * uBaseColor * uLightColor * uLightIntensity * 0.5;
 
-    // ===== 2. 点光源累加 =====
+    // ---- 2. 点光源 ----
     vec3 pointSum = vec3(0.0);
     for (int i = 0; i < uNumPointLights; ++i)
     {
         vec3 toLight = uPointLightPos[i] - vPosWS;
-        float dist   = length(toLight);
+        float dist = length(toLight);
         if (dist > uPointLightRange[i]) continue;
-        vec3  L = toLight / max(dist, 1e-4);
+        vec3 L = toLight / max(dist, 1e-4);
 
         float atten = 1.0 / (1.0 + uPointLightQuadratic[i] * dist * dist);
-        float edge  = 1.0 - smoothstep(uPointLightRange[i] * 0.85,
-                                       uPointLightRange[i], dist);
+        float edge = 1.0 - smoothstep(uPointLightRange[i] * 0.85,
+                                      uPointLightRange[i], dist);
         vec3 radiance = uPointLightColor[i] * atten * edge;
 
         pointSum += evalBRDF(N, V, L, uBaseColor, uRoughness, uMetallic, F0, radiance);
     }
 
-    // ===== 3. 半球环境光 =====
+    // ---- 3. 半球环境光 ----
     float upDot = clamp(N.z * 0.5 + 0.5, 0.0, 1.0);
     vec3 hemi = mix(uGroundColor, uSkyColor, upDot);
     vec3 envIrradiance = uAmbient + hemi;
     vec3 ambientDiffuse = (1.0 - uMetallic) * uBaseColor * envIrradiance;
-    vec3 F_env = F0 + (max(vec3(1.0 - uRoughness), F0) - F0) * pow(1.0 - NoV, 5.0);
+    vec3 F_env = F0 + (max(vec3(1.0 - uRoughness), F0) - F0)
+                       * pow(1.0 - NoV, 5.0);
     vec3 ambientSpec = F_env * envIrradiance;
     vec3 ambientTerm = ambientDiffuse + ambientSpec;
 
-    // ===== 4. 合并 =====
+    // ---- 4. 合并 ----
     vec3 col = direct + pointSum + sssTerm + ambientTerm
              + uEmissive * uEmissiveStrength;
 
-    // ===== 5. 雾（以玩家为中心，XY 距离） =====
+    // ---- 5. 雾 ----
     if (uFogDensity > 0.0)
     {
         float dPl  = length(uPlayerPos.xy - vPosWS.xy);
@@ -203,20 +191,25 @@ void main()
         col = mix(col, uFogColor, clamp(fogAmt, 0.0, 1.0));
     }
 
-    // Tonemap + gamma
+    // ---- 6. Tonemap + Gamma ----
     col = col / (col + vec3(1.0));
     col = pow(col, vec3(1.0 / 2.2));
 
+    // ---- 7. 色阶量化 ----
     if (uShadeLevels > 1.5)
         col = floor(col * uShadeLevels) / uShadeLevels;
 
     fragColor = vec4(col, 1.0);
 }
+)";   // ← ✅ raw string 在此正确关闭
 
-)";
+            // ==================== 编译链接 ====================
+            if (!shader.build(vs, fs))
+                return false;
 
-            return shader.build(vs, fs);
+            return true;
         }
+
 
 
 
