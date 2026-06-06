@@ -94,76 +94,59 @@ namespace sc
     }
 
     void main()
+{
+    if (uIsLine == 1)
     {
-            
-
-        vec3 col = pow(uBaseColor, vec3(1.0/2.2));
-    fragColor = vec4(col, 1.0);
-    return;
-
-        if (uIsLine == 1)
-        {
-            fragColor = vec4(uBaseColor + uEmissive * uEmissiveStrength, 1.0);
-            return;
-        }
-
-        vec3 N = normalize(vNormalWS);
-        vec3 V = normalize(uCamPos - vPosWS);
-        vec3 L = -normalize(uLightDir);
-        vec3 H = normalize(V + L);
-
-        float NoL = max(dot(N, L), 0.0);
-        float NoV = max(dot(N, V), 1e-4);
-        float NoH = max(dot(N, H), 0.0);
-        float VoH = max(dot(V, H), 0.0);
-
-        // F0: metals use baseColor, dielectrics use 0.04 (can be tinted by specTint)
-        vec3 F0_dielectric = mix(vec3(0.04), uBaseColor, uSpecTint);
-        vec3 F0 = mix(F0_dielectric, uBaseColor, uMetallic);
-
-        float a = max(uRoughness * uRoughness, 0.002);
-        float D = D_GGX(NoH, a);
-        float G = G_Smith(NoV, NoL, a);
-        vec3  F = F_Schlick(VoH, F0);
-
-        vec3 spec = (D * G) * F / max(4.0 * NoL * NoV, 1e-4);
-
-        // Diffuse: metals have no diffuse; energy conservation controlled by (1-F)
-        vec3 kd = (1.0 - F) * (1.0 - uMetallic);
-        vec3 diffuse = kd * uBaseColor / PI;
-
-        vec3 direct = (diffuse + spec) * uLightColor * uLightIntensity * NoL;
-
-        // Simplified subsurface scattering: let some baseColor bleed through on the backlit side
-        float backLight = max(dot(-N, L), 0.0);
-        vec3 sssTerm = uSSS * backLight * uBaseColor * uLightColor * uLightIntensity;
-
-        // Hemisphere ambient light: sky bias upwards, ground bias downwards
-        float upDot = clamp(N.z * 0.5 + 0.5, 0.0, 1.0); // Z-up coordinate system, N.z is positive upwards
-        vec3 hemi = mix(uGroundColor, uSkyColor, upDot);
-        vec3 ambientTerm = (uAmbient + hemi) * uBaseColor * (1.0 - uMetallic * 0.5);
-
-        vec3 col = direct + sssTerm + ambientTerm
-                 + uEmissive * uEmissiveStrength;
-
-        // Pixel-art style step quantization (done in linear space to avoid excessive banding)
-        if (uShadeLevels > 1.5)
-        {
-            col = floor(col * uShadeLevels) / uShadeLevels;
-        }
-
-        // Reinhard tonemap (preserve original style)
-        col = col / (col + vec3(1.0));
-        // Linear to sRGB gamma
-        col = pow(col, vec3(1.0 / 2.2));
-
-        if (uShadeLevels > 1.5)
-            {
-                col = floor(col * uShadeLevels) / uShadeLevels;
-            }
-
-        fragColor = vec4(col, 1.0);
+        fragColor = vec4(uBaseColor + uEmissive * uEmissiveStrength, 1.0);
+        return;
     }
+
+    vec3 N = normalize(vNormalWS);
+    vec3 V = normalize(uCamPos - vPosWS);
+    vec3 L = -normalize(uLightDir);
+    vec3 H = normalize(V + L);
+
+    float NoL = max(dot(N, L), 0.0);
+    float NoV = max(dot(N, V), 1e-4);
+    float NoH = max(dot(N, H), 0.0);
+    float VoH = max(dot(V, H), 0.0);
+
+    vec3 F0_dielectric = mix(vec3(0.04), uBaseColor, uSpecTint);
+    vec3 F0 = mix(F0_dielectric, uBaseColor, uMetallic);
+
+    float a = max(uRoughness * uRoughness, 0.002);
+    float D = D_GGX(NoH, a);
+    float G = G_Smith(NoV, NoL, a);
+    vec3  F = F_Schlick(VoH, F0);
+
+    vec3 spec = (D * G) * F / max(4.0 * NoL * NoV, 1e-4);
+    vec3 kd = (1.0 - F) * (1.0 - uMetallic);
+    vec3 diffuse = kd * uBaseColor / PI;
+    vec3 direct = (diffuse + spec) * uLightColor * uLightIntensity * NoL;
+
+    float backLight = max(dot(-N, L), 0.0);
+    vec3 sssTerm = uSSS * backLight * uBaseColor * uLightColor * uLightIntensity;
+
+    float upDot = clamp(N.z * 0.5 + 0.5, 0.0, 1.0);
+    vec3 hemi = mix(uGroundColor, uSkyColor, upDot);
+    vec3 ambientTerm = (uAmbient + hemi) * uBaseColor * (1.0 - uMetallic * 0.5);
+
+    vec3 col = direct + sssTerm + ambientTerm + uEmissive * uEmissiveStrength;
+
+    // Reinhard tonemap
+    col = col / (col + vec3(1.0));
+    // Linear to sRGB gamma
+    col = pow(col, vec3(1.0 / 2.2));
+
+    //
+    if (uShadeLevels > 1.5)
+    {
+        col = floor(col * uShadeLevels) / uShadeLevels;
+    }
+
+    fragColor = vec4(col, 1.0);
+}
+
 )";
             return shader.build(vs, fs);
         }
