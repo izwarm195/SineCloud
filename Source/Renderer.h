@@ -174,28 +174,22 @@ namespace sc {
         // ----------------------------------------------------------------
         // Phase 2: 延迟光照
         // ----------------------------------------------------------------
-        void endFrame(const Camera& camera,
-            const Lighting& light,
-            const Vec3& playerPos) noexcept
+        void endFrame(const Camera& camera, const Lighting& light, const Vec3& playerPos) noexcept
         {
             using namespace sc::gl;
-
             gbuffer.unbind();
 
             const float scale = (float)context.getRenderingScale();
             const int wPx = (int)(camera.getViewportWidth() * scale);
             const int hPx = (int)(camera.getViewportHeight() * scale);
 
-            glViewport(0, 0, wPx, hPx);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
             postPipeline.doLighting(gbuffer, camera, light, playerPos, shadeLevels);
 
-            // 缓存本帧 VP 供下帧 velocity
             prevViewProj = camera.proj() * camera.view();
-
             checkError("endFrame");
         }
+
 
         // ----------------------------------------------------------------
         // 风格控制
@@ -210,7 +204,7 @@ namespace sc {
         GBuffer      gbuffer;
         PostPipeline postPipeline;
 
-        float shadeLevels{ 64.0f };
+        float shadeLevels{ 4.0f };
         Mat4 prevViewProj;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Renderer)
