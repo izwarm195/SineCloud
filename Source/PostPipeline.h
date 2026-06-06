@@ -104,9 +104,9 @@ vec3 evalBRDF(vec3 N, vec3 V, vec3 L, vec3 baseColor,
     float G = G_Smith(NoV, NoL, a);
     vec3  F = F_Schlick(VoH, F0);
 
-    vec3 spec = (D * G) * F / max(4.0 * NoL * NoV, 1e-4);
+    vec3 spec = (D * G * F) / max(4.0 * NoL * NoV, 1e-4);
     vec3 kd = (1.0 - F) * (1.0 - metallic);
-    vec3 diffuse = kd * baseColor / PI;
+    vec3 diffuse = kd * baseColor;
     return (diffuse + spec) * radiance * NoL;
 }
 
@@ -134,14 +134,18 @@ void main() {
     vec3 worldPos = wp.xyz / max(wp.w, 1e-6);
     vec3 V = normalize(uCamPos - worldPos);
     vec3 F0 = mix(vec3(0.04), baseColor, metallic);
+    float NoV = max(dot(N, V), 1e-4);
 
+    // Directional light
     vec3 Ldir = -normalize(uLightDir);
     vec3 dirRad = uLightColor * uLightIntensity;
     vec3 direct = evalBRDF(N, V, Ldir, baseColor, roughness, metallic, F0, dirRad);
 
+    // SSS (directional only)
     float backLight = max(dot(-N, Ldir), 0.0);
-    vec3 sssTerm = sss * backLight * baseColor * uLightColor * uLightIntensity;
+    vec3 sssTerm = sss * backLight * baseColor * uLightColor * uLightIntensity * 0.5;
 
+    // Point lights
     vec3 pointSum = vec3(0.0);
     for (int i = 0; i < uNumPointLights; ++i) {
         vec3 toLight = uPointLightPos[i] - worldPos;
@@ -154,12 +158,19 @@ void main() {
         pointSum += evalBRDF(N, V, Lp, baseColor, roughness, metallic, F0, radiance);
     }
 
+    // Ambient (matches 55a0f17 PixelMaterial)
     float upDot = clamp(N.z * 0.5 + 0.5, 0.0, 1.0);
     vec3 hemi = mix(uGroundColor, uSkyColor, upDot);
-    vec3 ambientTerm = (uAmbient + hemi) * baseColor * (1.0 - metallic * 0.5);
+    vec3 envIrradiance = uAmbient + hemi;
+    vec3 ambientDiffuse = (1.0 - metallic) * baseColor * envIrradiance;
+    vec3 F_env = F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - NoV, 5.0);
+    vec3 ambientSpec = F_env * envIrradiance;
+    vec3 ambientTerm = ambientDiffuse + ambientSpec;
 
+    // Combine
     vec3 col = direct + pointSum + sssTerm + ambientTerm + emissive;
 
+    // Fog
     if (uFogDensity > 0.0) {
         float dPl = length(uPlayerPos.xy - worldPos.xy);
         float dFog = max(dPl - uFogStart, 0.0);
@@ -168,15 +179,20 @@ void main() {
         col = mix(col, uFogColor, clamp(fogAmt, 0.0, 1.0));
     }
 
+    // Shade levels (luminance-preserving, matches 55a0f17)
     if (uShadeLevels > 1.5) {
-        col = floor(col * uShadeLevels) / uShadeLevels;
+        float Y = max(dot(col, vec3(0.2126, 0.7152, 0.0722)), 1e-5);
+        float Yq = (floor(Y * uShadeLevels) + 0.5) / uShadeLevels;
+        col = col * (Yq / Y);
     }
 
+    // Reinhard tonemap + Gamma
     col = col / (col + vec3(1.0));
     col = pow(col, vec3(1.0 / 2.2));
     fragColor = vec4(col, 1.0);
 }
 )";
+
 
 
             if (!deferredShader.build(vs, fs))
