@@ -443,7 +443,7 @@ namespace sc
 
         // 玩家：暖色辉光跟随
         {
-            PointLight p = PointLight::warm(player->worldPos, 5.0f, 7.0f);
+            PointLight p = PointLight::player(player->worldPos, 5.0f, 7.0f);
             // 头顶上方一点更自然
             p.position.z += 0.6f;
             lights.push_back(p);

@@ -1,39 +1,36 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-//==============================================================================
 SineCloudAudioProcessorEditor::SineCloudAudioProcessorEditor(SineCloudAudioProcessor& p)
     : AudioProcessorEditor(&p), audioProcessor(p)
 {
     setOpaque(true);
     setResizable(true, true);
     setResizeLimits(640, 360, 1920, 1080);
-    setSize(800, 450);
-    setWantsKeyboardFocus(false); // 键盘焦点交给 SceneView
+    setSize(1600, 900);
+    setWantsKeyboardFocus(false);
 
-    // World 先构造（不依赖 GL，只创建 KnobEntity / Player 对象）
-    world = std::make_unique<sc::World>(audioProcessor, lighting);
-
-    // SceneView 后构造，注入 World
+    // ★ 先建 SceneView（因为 World 需要它的 lighting 引用）
     sceneView = std::make_unique<sc::SceneView>();
+
+    // ★ World 引用 SceneView 里唯一的 Lighting 实例
+    world = std::make_unique<sc::World>(audioProcessor, sceneView->getLighting());
+
     sceneView->setWorld(world.get());
-
-
     addAndMakeVisible(*sceneView);
 
     repaint();
     setSize(getWidth() + 1, getHeight());
-    setSize(getWidth() - 1, getHeight());//偷偷改一下窗口大小
+    setSize(getWidth() - 1, getHeight());
 }
 
 SineCloudAudioProcessorEditor::~SineCloudAudioProcessorEditor()
 {
-    // 先让 SceneView 脱离 GL context（触发 openGLContextClosing -> releaseMeshes）
-    // 再让 world 析构，顺序由成员声明顺序保证（sceneView 先析构，world 后析构）
-    // 但为了绝对安全，在析构体里显式断开 World 引用
     if (sceneView != nullptr)
         sceneView->setWorld(nullptr);
 }
+// ... paint / resized 不变
+
 
 //==============================================================================
 void SineCloudAudioProcessorEditor::paint(juce::Graphics& g)

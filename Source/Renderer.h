@@ -56,7 +56,7 @@ namespace sc
             glViewport(0, 0, wPx, hPx);
             glEnable(GL_DEPTH_TEST);
             glDepthFunc(GL_LESS);
-            glDisable(GL_CULL_FACE); // 像素风暂不剔除背面，便于调试
+            //glDisable(GL_CULL_FACE); // 像素风暂不剔除背面，便于调试
             glClearColor(clearColor.x, clearColor.y, clearColor.z, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
