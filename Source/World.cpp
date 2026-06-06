@@ -512,8 +512,7 @@ namespace sc
          if (propBouquetPillarMesh && propBouquetPillarMesh->isUploaded())
              {
             r.drawMesh(*propBouquetPillarMesh, identity(),
-                { 0.28f, 0.28f, 0.30f },    // 花束柱：暖砂岩
-                { 0.02f, 0.01f, 0.01f });
+                sc::Material::metal({ 0.9f, 0.9f, 0.9f }, 0.05f));
             }
          if (propKnobPillarMesh && propKnobPillarMesh->isUploaded())
              {
@@ -526,6 +525,7 @@ namespace sc
             r.drawMesh(*propMainPillarMesh, identity(),
                 { 0.26f, 0.26f, 0.28f },    // 主柱：深砂岩
                 { 0.01f, 0.01f, 0.01f });
+
             }
          if (propSurroundPillarMesh && propSurroundPillarMesh->isUploaded())
              {

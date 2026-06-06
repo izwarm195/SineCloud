@@ -103,7 +103,7 @@ namespace sc
 
     vec3 N = normalize(vNormalWS);
     vec3 V = normalize(uCamPos - vPosWS);
-    vec3 L = -normalize(uLightDir);
+    vec3 L = -normalize(uLightDir);   // direction = 光线传播方向
     vec3 H = normalize(V + L);
 
     float NoL = max(dot(N, L), 0.0);
@@ -111,7 +111,8 @@ namespace sc
     float NoH = max(dot(N, H), 0.0);
     float VoH = max(dot(V, H), 0.0);
 
-    vec3 F0_dielectric = mix(vec3(0.04), uBaseColor, uSpecTint);
+    // ★ F0：介电用 0.04（白），金属用 baseColor
+    vec3 F0_dielectric = vec3(0.04);
     vec3 F0 = mix(F0_dielectric, uBaseColor, uMetallic);
 
     float a = max(uRoughness * uRoughness, 0.002);
@@ -119,26 +120,45 @@ namespace sc
     float G = G_Smith(NoV, NoL, a);
     vec3  F = F_Schlick(VoH, F0);
 
-    vec3 spec = (D * G) * F / max(4.0 * NoL * NoV, 1e-4);
+    // 高光项（GGX BRDF）
+    vec3 spec = (D * G * F) / max(4.0 * NoL * NoV, 1e-4);
+
+    // 漫反射：金属无漫反射；能量守恒用 (1-F) 控制；除以 PI
     vec3 kd = (1.0 - F) * (1.0 - uMetallic);
     vec3 diffuse = kd * uBaseColor / PI;
-    vec3 direct = (diffuse + spec) * uLightColor * uLightIntensity * NoL;
 
+    // ★ 直接光：辐照度 = lightColor * intensity * NoL
+    vec3 radiance = uLightColor * uLightIntensity * NoL;
+    vec3 direct = (diffuse + spec) * radiance;
+
+    // SSS：背光透出
     float backLight = max(dot(-N, L), 0.0);
-    vec3 sssTerm = uSSS * backLight * uBaseColor * uLightColor * uLightIntensity;
+    vec3 sssTerm = uSSS * backLight * uBaseColor * uLightColor * uLightIntensity * 0.5;
 
+    // ★ 环境光：分成 diffuse + spec 两部分，各自能量守恒
     float upDot = clamp(N.z * 0.5 + 0.5, 0.0, 1.0);
     vec3 hemi = mix(uGroundColor, uSkyColor, upDot);
-    vec3 ambientTerm = (uAmbient + hemi) * uBaseColor * (1.0 - uMetallic * 0.5);
+    vec3 envIrradiance = uAmbient + hemi;
+
+    // 环境漫反射（被金属抑制）
+    vec3 ambientDiffuse = (1.0 - uMetallic) * uBaseColor * envIrradiance;
+
+    // ★ 环境高光：用 grazing-angle Fresnel + roughness 衰减给金属/光滑面一个"周围环境的亮度"
+    vec3 F_env = F0 + (max(vec3(1.0 - uRoughness), F0) - F0) * pow(1.0 - NoV, 5.0);
+    vec3 ambientSpec = F_env * envIrradiance;   // 简化：用同一个 envIrradiance 当反射环境
+
+    vec3 ambientTerm = ambientDiffuse + ambientSpec;
 
     vec3 col = direct + sssTerm + ambientTerm + uEmissive * uEmissiveStrength;
+
+    // ★ 提一点曝光，避免 Reinhard 过早压暗
+    col *= 1.5;
 
     // Reinhard tonemap
     col = col / (col + vec3(1.0));
     // Linear to sRGB gamma
     col = pow(col, vec3(1.0 / 2.2));
 
-    //
     if (uShadeLevels > 1.5)
     {
         col = floor(col * uShadeLevels) / uShadeLevels;
@@ -146,6 +166,8 @@ namespace sc
 
     fragColor = vec4(col, 1.0);
 }
+
+
 
 )";
             return shader.build(vs, fs);
