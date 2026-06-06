@@ -43,8 +43,8 @@ in vec2 vUV;
 uniform sampler2D gAlbedoRough;
 uniform sampler2D gNormalMetal;
 uniform sampler2D gEmissiveSSS;
-uniform sampler2D gDepth;
-uniform mat4 uInvViewProj;
+uniform sampler2D gDepth; 
+uniform sampler2D gWorldPos;
 uniform vec3 uCamPos;
 
 uniform vec3 uLightDir;
@@ -117,10 +117,7 @@ void main() {
         fragColor = vec4(0.06, 0.07, 0.09, 1.0);
         return;
     }
-
-    vec4 ar = texture(gAlbedoRough, vUV);
-    vec4 nm = texture(gNormalMetal, vUV);
-    vec4 es = texture(gEmissiveSSS, vUV);
+vec3 worldPos = texture(gWorldPos, vUV).rgb;
 
     vec3 baseColor = ar.rgb;
     float roughness = ar.a;

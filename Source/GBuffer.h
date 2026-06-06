@@ -34,6 +34,7 @@ namespace sc {
         layout(location = 1) in vec3 aNormal;
         layout(location = 2) in vec2 aUV;
 
+
         uniform mat4 uModel;
         uniform mat4 uView;
         uniform mat4 uProj;
@@ -75,6 +76,8 @@ namespace sc {
         layout(location = 1) out vec4 outNormalMetal;   // RT1
         layout(location = 2) out vec4 outEmissiveSSS;   // RT2
         layout(location = 3) out vec2 outVelocity;      // RT3
+        layout(location = 4) out vec3 outWorldPos;   // RT4
+
 
         void main()
         {
@@ -86,6 +89,8 @@ namespace sc {
                 outNormalMetal  = vec4(0.5, 0.5, 1.0, 0.0); // (0,0,1) 平面上法线, metallic=0
                 outEmissiveSSS  = vec4(col, 0.0);
                 outVelocity     = vec2(0.0);
+                outWorldPos = vPosWS;
+
                 return;
             }
 
@@ -99,6 +104,8 @@ namespace sc {
             vec3 currNDC = vCurrClip.xyz / max(vCurrClip.w, 1e-6);
             vec3 prevNDC = vPrevClip.xyz / max(vPrevClip.w, 1e-6);
             outVelocity  = (currNDC.xy - prevNDC.xy) * 0.5;
+            outWorldPos = vPosWS;
+
         })";
 
             if (!geomShader.build(vs, fs))
@@ -144,6 +151,11 @@ namespace sc {
             gVelocity = makeTex2D(w, h, GL_RG16F, GL_RG, GL_FLOAT);
             glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, GL_TEXTURE_2D, gVelocity, 0);
 
+            // RT4: worldPos.xyz  需要高精度
+            gWorldPos = makeTex2D(w, h, GL_RGBA16F, GL_RGBA, GL_FLOAT);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT4, GL_TEXTURE_2D, gWorldPos, 0);
+
+
             // Depth 纹理（必须用纹理以在 lighting pass 中采样）
             glGenTextures(1, &gDepth);
             glBindTexture(GL_TEXTURE_2D, gDepth);
@@ -156,11 +168,10 @@ namespace sc {
             glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, gDepth, 0);
 
             // 设置 MRT 绘制缓冲
-            const GLenum bufs[4] = {
-                GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1,
-                GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3
-            };
-            glDrawBuffers(4, bufs);
+            const GLenum bufs[5] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1,
+    GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4 };
+            glDrawBuffers(5, bufs);
+
 
             checkComplete();
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -194,6 +205,8 @@ namespace sc {
             bindTex(gEmissiveSSS, 2, "gEmissiveSSS");
             bindTex(gVelocity, 3, "gVelocity");
             bindTex(gDepth, 4, "gDepth");
+            bindTex(gWorldPos, 5, "gWorldPos");
+
         }
 
         Shader& getGeometryShader() noexcept { return geomShader; }
@@ -209,6 +222,8 @@ namespace sc {
             if (gEmissiveSSS != 0) { sc::gl::glDeleteTextures(1, &gEmissiveSSS);  gEmissiveSSS = 0; }
             if (gVelocity != 0) { sc::gl::glDeleteTextures(1, &gVelocity);     gVelocity = 0; }
             if (gDepth != 0) { sc::gl::glDeleteTextures(1, &gDepth);        gDepth = 0; }
+            if (gWorldPos != 0) { sc::gl::glDeleteTextures(1, &gWorldPos); gWorldPos = 0; }
+
         }
 
         static GLuint makeTex2D(int w, int h, GLint internalFormat, GLenum format, GLenum type)
@@ -242,6 +257,8 @@ namespace sc {
         GLuint gEmissiveSSS = 0;
         GLuint gVelocity = 0;
         GLuint gDepth = 0;
+        GLuint gWorldPos = 0;
+
 
         int w = 0, h = 0;
 
