@@ -210,7 +210,7 @@ namespace sc {
         GBuffer      gbuffer;
         PostPipeline postPipeline;
 
-        float shadeLevels{ 1.0f };
+        float shadeLevels{ 64.0f };
         Mat4 prevViewProj;
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Renderer)

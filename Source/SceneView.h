@@ -129,6 +129,8 @@ namespace sc
             if (world != nullptr && !paused)
                 world->update(dt, in, camera);
 
+            camera.tick(dt);
+
             renderer->beginFrame(camera, lighting, world->getPlayer().worldPos);
             if (world != nullptr)
                 world->draw(*renderer, camera);
@@ -249,21 +251,16 @@ namespace sc
 
 
 
-        void mouseWheelMove(const juce::MouseEvent&,
-            const juce::MouseWheelDetails& w) override
-        {
+        void mouseWheelMove(const juce::MouseEvent&, const juce::MouseWheelDetails& w) override {
             if (paused) return;
-
-            // ★ 有聚焦旋钮 → 滚轮调参数；否则 → 缩放相机
-            if (world != nullptr && world->getFocusedKnob() != nullptr)
-            {
+            if (world != nullptr && world->getFocusedKnob() != nullptr) {
                 world->onMouseWheel(w.deltaY);
                 return;
             }
-
             const float factor = std::pow(0.9f, w.deltaY * 4.0f);
-            camera.setDistance(camera.getDistance() * factor);
+            camera.setDistance(camera.getDistance() * factor);   // ★ 加 lastDt
         }
+
 
 
         bool keyPressed(const juce::KeyPress& key) override

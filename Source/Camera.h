@@ -24,7 +24,7 @@ namespace sc
     class Camera
     {
     public:
-        Camera() = default;
+        Camera(){ targetDistance = distance; }
 
         //----------------------------------------------------------------------
         // 设置
@@ -62,10 +62,13 @@ namespace sc
         }
 
         void setPitch(float r, float dt) noexcept { pitch = easing::damp(pitch, juce::jlimit(minPitch, maxPitch, r), DampRate, dt); }
-        void setDistance(float d) noexcept
-        {
-            distance = juce::jlimit(minDistance, maxDistance, d);
+        
+        float targetDistance{ 12.0f };
+        void setDistance(float d) noexcept {
+
+            targetDistance = juce::jlimit(minDistance, maxDistance, d);
         }
+        void tick(float dt) noexcept { distance = easing::damp(distance, targetDistance, DampRate, dt); }
 
         void setPitchLimits(float minR, float maxR) noexcept
         {
@@ -204,6 +207,7 @@ namespace sc
         float maxDistance{ 25.0f };  // 新增
 
 
+
         float minPitch{ juce::MathConstants<float>::pi * 0.20f };
         float maxPitch{ juce::MathConstants<float>::pi * 0.48f };
 
@@ -213,7 +217,7 @@ namespace sc
         float zNear{ 0.1f };
         float zFar{ 500.0f };
 
-        float DampRate{ 20.0f };
+        float DampRate{ 10.0f };
 
 
         int vpW{ 1 }, vpH{ 1 };
