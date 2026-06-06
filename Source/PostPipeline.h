@@ -126,9 +126,17 @@ namespace sc {
         {
             // ---- 1. 采样 G-Buffer ----
             vec4 ar = texture(gAlbedoRough, vUV);
-            vec4 nm = texture(gNormalMetal,  vUV);
-            vec4 es = texture(gEmissiveSSS,  vUV);
+            vec4 nm = texture(gNormalMetal,    vUV);
+            vec4 es = texture(gEmissiveSSS,    vUV);
             float depth = texture(gDepth, vUV).r;
+
+            // ★ 新增: 非几何像素直接输出背景色,不参与光照/雾合成
+            if (depth >= 0.9999)
+            {
+                fragColor = vec4(uFogColor, 1.0);
+                return;
+            }
+
 
             vec3  baseColor = ar.rgb;
             float roughness = ar.a;
@@ -188,12 +196,15 @@ namespace sc {
             // ---- 8. 雾（线性域） ----
             if (uFogDensity > 0.0)
             {
-                float dPl  = length(uPlayerPos.xy - worldPos.xy);
-                float dFog = max(dPl - uFogStart, 0.0);
-                float heightK = exp(-max(worldPos.z - uPlayerPos.z, 0.0) * uFogHeightFalloff);
-                float fogAmt  = 1.0 - exp(-dFog * uFogDensity * heightK);
+                float viewDist = length(uCamPos - worldPos);
+                float dFog = max(viewDist - uFogStart, 0.0);
+                float heightK = 1.0;
+                if (uFogHeightFalloff > 0.0)
+                    heightK = exp(-max(worldPos.z - uPlayerPos.z, 0.0) * uFogHeightFalloff);
+                float fogAmt = 1.0 - exp(-dFog * uFogDensity * heightK);
                 col = mix(col, uFogColor, clamp(fogAmt, 0.0, 1.0));
             }
+
 
             // ---- 9. 亮度色阶量化 ----
             if (uShadeLevels > 1.5)
@@ -338,15 +349,15 @@ namespace sc {
             }
 
             for (int i = n; i < MAX_POINT_LIGHTS; ++i)
-            {
-                const auto nameCol = juce::String("uPointLightColor[") + juce::String(i) + "]";
-                const auto nameRange = juce::String("uPointLightRange[") + juce::String(i) + "]";
-                const auto nameQuad = juce::String("uPointLightQuadratic[") + juce::String(i) + "]";
+{
+    const auto nameCol  = juce::String("uPointLightColor[")     + juce::String(i) + "]";
+    const auto nameRange = juce::String("uPointLightRange[")    + juce::String(i) + "]";
+    const auto nameQuad = juce::String("uPointLightQuadratic[") + juce::String(i) + "]";
 
-                deferredShader.setVec3(nameCol.toRawUTF8(), Vec3{ 0,0,0 });
-                deferredShader.setFloat(nameRange.toRawUTF8(), 0.0f);
-                deferredShader.setFloat(nameQuad.toRawUTF8(), 1.0f);
-            }
+    deferredShader.setVec3(nameCol.toRawUTF8(),  Vec3{0,0,0});
+    deferredShader.setFloat(nameRange.toRawUTF8(), 0.0f);
+    deferredShader.setFloat(nameQuad.toRawUTF8(), 1.0f);
+}
 
         }
 
