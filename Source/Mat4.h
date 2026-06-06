@@ -202,10 +202,13 @@ namespace sc
 
         // 伴随矩阵转置 / 行列式 → 逆矩阵，列主序输出
         float inv[16];
-        for (int i = 0; i < 16; ++i)
-            inv[i] = cof[i] * invDet;
+        for (int r = 0; r < 4; ++r)
+            for (int c = 0; c < 4; ++c)
+                inv[c * 4 + r] = cof[r * 4 + c] * invDet;
 
         return Mat4(inv);
+
+
     }
 
 }

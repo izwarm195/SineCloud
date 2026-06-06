@@ -253,9 +253,9 @@ namespace sc {
         {
             using namespace sc::gl;
 
-            gbuffer.bindTexturesForLighting(deferredShader);
-
             deferredShader.use();
+
+            gbuffer.bindTexturesForLighting(deferredShader);
 
             // 重建世界坐标所需
             deferredShader.setMat4("uInvViewProj", camera.invViewProj());
@@ -325,31 +325,29 @@ namespace sc {
             {
                 const auto& pl = *tmps[(size_t)i].p;
                 const Vec3 colorLin = srgbToLin(pl.colorSRGB) * pl.intensity;
-                const juce::String si = juce::String(i);
-                deferredShader.setVec3(
-                    (juce::String("uPointLightPos[") + si + "]").toRawUTF8(),
-                    pl.position);
-                deferredShader.setVec3(
-                    (juce::String("uPointLightColor[") + si + "]").toRawUTF8(),
-                    colorLin);
-                deferredShader.setFloat(
-                    (juce::String("uPointLightRange[") + si + "]").toRawUTF8(),
-                    pl.range);
-                deferredShader.setFloat(
-                    (juce::String("uPointLightQuadratic[") + si + "]").toRawUTF8(),
-                    pl.quadratic());
+
+                const auto namePos = juce::String("uPointLightPos[") + juce::String(i) + "]";
+                const auto nameCol = juce::String("uPointLightColor[") + juce::String(i) + "]";
+                const auto nameRange = juce::String("uPointLightRange[") + juce::String(i) + "]";
+                const auto nameQuad = juce::String("uPointLightQuadratic[") + juce::String(i) + "]";
+
+                deferredShader.setVec3(namePos.toRawUTF8(), pl.position);
+                deferredShader.setVec3(nameCol.toRawUTF8(), colorLin);
+                deferredShader.setFloat(nameRange.toRawUTF8(), pl.range);
+                deferredShader.setFloat(nameQuad.toRawUTF8(), pl.quadratic());
             }
+
             for (int i = n; i < MAX_POINT_LIGHTS; ++i)
             {
-                const juce::String si = juce::String(i);
-                deferredShader.setVec3(
-                    (juce::String("uPointLightColor[") + si + "]").toRawUTF8(),
-                    Vec3{ 0,0,0 });
-                deferredShader.setFloat(
-                    (juce::String("uPointLightRange[") + si + "]").toRawUTF8(), 0.0f);
-                deferredShader.setFloat(
-                    (juce::String("uPointLightQuadratic[") + si + "]").toRawUTF8(), 1.0f);
+                const auto nameCol = juce::String("uPointLightColor[") + juce::String(i) + "]";
+                const auto nameRange = juce::String("uPointLightRange[") + juce::String(i) + "]";
+                const auto nameQuad = juce::String("uPointLightQuadratic[") + juce::String(i) + "]";
+
+                deferredShader.setVec3(nameCol.toRawUTF8(), Vec3{ 0,0,0 });
+                deferredShader.setFloat(nameRange.toRawUTF8(), 0.0f);
+                deferredShader.setFloat(nameQuad.toRawUTF8(), 1.0f);
             }
+
         }
 
         void setFog(const Lighting& l) noexcept
