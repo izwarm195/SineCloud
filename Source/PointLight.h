@@ -33,7 +33,7 @@ namespace sc
             p.colorSRGB = { 1.0f, 0.78f, 0.42f };
             p.intensity = intensity; p.range = range; return p;
         }
-        static PointLight player(Vec3 pos, float intensity = 10.0f, float range = 8.0f) noexcept
+        static PointLight player(Vec3 pos, float intensity = 10.0f, float range = 10.0f) noexcept
         {
             PointLight p; p.position = pos;
             p.colorSRGB = { 0.00f, 0.85f, 1.00f };

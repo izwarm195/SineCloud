@@ -138,7 +138,7 @@ namespace sc
     private:
         juce::OpenGLContext& context;
         PixelMaterial material;
-        float shadeLevels{ 1.0f };
+        float shadeLevels{ 64.0f };
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Renderer)
     };
 }

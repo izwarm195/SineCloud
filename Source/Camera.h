@@ -198,7 +198,7 @@ namespace sc
         float pitch{ juce::MathConstants<float>::pi * 0.35f };
         float distance{ 12.0f };
         float minDistance{ 3.0f };   // 新增
-        float maxDistance{ 50.0f };  // 新增
+        float maxDistance{ 25.0f };  // 新增
 
 
         float minPitch{ juce::MathConstants<float>::pi * 0.20f };

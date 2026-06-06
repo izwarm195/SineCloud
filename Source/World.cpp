@@ -514,41 +514,40 @@ namespace sc
          if (groundVisMesh && groundVisMesh->isUploaded())
          {
              r.drawMesh(*groundVisMesh, identity(),
-                 { 0.20f, 0.21f, 0.22f },
-                 { 0,0,0 });
+                 Material::stone({ 0.20f, 0.21f, 0.22f }));
          }
 
         
          if (propRockMesh && propRockMesh->isUploaded())
              {
             r.drawMesh(*propRockMesh, identity(),
-                { 0.40f, 0.38f, 0.34f },    // 石头：灰褐
-                { 0,0,0 });
+                Material::stone({ 0.40f, 0.38f, 0.34f }));    // 石头：灰褐
+                
             }
 
          if (propBouquetMesh && propBouquetMesh->isUploaded())
              {
             r.drawMesh(*propBouquetMesh, identity(),
-                { 0.32f, 0.32f, 0.34f },    // 花坛
-                { 0,0,0 });
+                 Material::stone({ 0.12f, 0.12f, 0.14f }));   // 花坛
+                
             }
          if (propBouquetPillarMesh && propBouquetPillarMesh->isUploaded())
              {
              r.drawMesh(*propBouquetPillarMesh, identity(),
-                 { 0.30f, 0.28f, 0.24f },   // 花坛柱
-                 { 0,0,0 });
+                 Material::stone({ 0.10f, 0.12f, 0.14f }));    // 花坛柱
+                
             }
          if (propKnobPillarMesh && propKnobPillarMesh->isUploaded())
              {
-            r.drawMesh(*propKnobPillarMesh, identity(),
-                { 0.16f, 0.15f, 0.20f },    // 旋钮柱：暗紫灰
-                { 0,0,0 });
+             r.drawMesh(*propKnobPillarMesh, identity(),
+                 Material::stone({ 0.16f, 0.15f, 0.20f }));    // 旋钮柱：暗紫灰
+                
             }
          if (propMainPillarMesh && propMainPillarMesh->isUploaded())
              {
-            r.drawMesh(*propMainPillarMesh, identity(),
-                { 0.40f, 0.38f, 0.34f },    // 主柱：深砂岩
-                { 0,0,0 });
+             r.drawMesh(*propMainPillarMesh, identity(),
+                 Material::stone({ 0.05f, 0.08f, 0.11f }));   // 主柱：深砂岩
+                
 
             }
          if (propSurroundPillarMesh && propSurroundPillarMesh->isUploaded())
