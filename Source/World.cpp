@@ -514,7 +514,7 @@ namespace sc
          if (groundVisMesh && groundVisMesh->isUploaded())
          {
              r.drawMesh(*groundVisMesh, identity(),
-                 { 0.30f, 0.31f, 0.32f },
+                 { 0.20f, 0.21f, 0.22f },
                  { 0,0,0 });
          }
 
@@ -522,7 +522,7 @@ namespace sc
          if (propRockMesh && propRockMesh->isUploaded())
              {
             r.drawMesh(*propRockMesh, identity(),
-                { 0.30f, 0.28f, 0.24f },    // 石头：灰褐
+                { 0.40f, 0.38f, 0.34f },    // 石头：灰褐
                 { 0,0,0 });
             }
 
@@ -547,7 +547,7 @@ namespace sc
          if (propMainPillarMesh && propMainPillarMesh->isUploaded())
              {
             r.drawMesh(*propMainPillarMesh, identity(),
-                { 0.26f, 0.26f, 0.28f },    // 主柱：深砂岩
+                { 0.40f, 0.38f, 0.34f },    // 主柱：深砂岩
                 { 0,0,0 });
 
             }
