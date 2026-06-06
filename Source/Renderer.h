@@ -72,6 +72,9 @@ namespace sc {
             glViewport(0, 0, wPx, hPx);
             glEnable(GL_DEPTH_TEST);
             glDepthFunc(GL_LESS);
+            glDisable(GL_BLEND);
+            glDepthMask(GL_TRUE);
+
 
             // RT2 (emissive + sss): 必须清零,否则背景凭空发光
             glClearColor(clearColor.x, clearColor.y, clearColor.z, 1.0f);
