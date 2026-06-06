@@ -177,7 +177,6 @@ namespace sc
         buildKnobs();
     }
 
-
     void World::buildKnobs()
     {
         struct Init {
@@ -560,7 +559,7 @@ namespace sc
 
 
         // 实体
-        for (auto& k : knobs) //k->draw(r, cam);
+        for (auto& k : knobs) k->draw(r, cam);
         player->draw(r, cam);
 
 

@@ -1,11 +1,10 @@
 #pragma once
-
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
 #include "SceneView.h"
 #include "World.h"
+#include "Lighting.h"   // [!code ++]
 
-//==============================================================================
 class SineCloudAudioProcessorEditor : public juce::AudioProcessorEditor
 {
 public:
@@ -18,8 +17,8 @@ public:
 private:
     SineCloudAudioProcessor& audioProcessor;
 
-    // 构造顺序：world 先于 sceneView；析构顺序相反（成员声明顺序决定）
-    // sceneView 析构时会调 context.detach()，此时 world 还活着 -> 安全
+    // 声明顺序很重要：lighting 先于 world，world 先于 sceneView
+    sc::Lighting lighting;                       // [!code ++]
     std::unique_ptr<sc::World>     world;
     std::unique_ptr<sc::SceneView> sceneView;
 

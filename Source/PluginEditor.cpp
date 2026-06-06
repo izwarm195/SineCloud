@@ -8,15 +8,17 @@ SineCloudAudioProcessorEditor::SineCloudAudioProcessorEditor(SineCloudAudioProce
     setOpaque(true);
     setResizable(true, true);
     setResizeLimits(640, 360, 1920, 1080);
-    setSize(1600, 900);
+    setSize(800, 450);
     setWantsKeyboardFocus(false); // 键盘焦点交给 SceneView
 
     // World 先构造（不依赖 GL，只创建 KnobEntity / Player 对象）
-    world = std::make_unique<sc::World>(audioProcessor);
+    world = std::make_unique<sc::World>(audioProcessor, lighting);
 
     // SceneView 后构造，注入 World
     sceneView = std::make_unique<sc::SceneView>();
     sceneView->setWorld(world.get());
+
+
     addAndMakeVisible(*sceneView);
 
     repaint();
