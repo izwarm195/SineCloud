@@ -16,7 +16,7 @@ struct Lighting
 {
     // ---- 主方向光 ----
     Vec3  direction { -0.577f, 0.277f, -0.577f };
-    Vec3  color     { 1.00f, 0.94f, 0.82f };
+    Vec3  color     { 1.00f, 1.00f, 1.00f };
     Vec3  ambient   { 0.12f, 0.12f, 0.12f };
 
     // ---- 半球环境光 ----
