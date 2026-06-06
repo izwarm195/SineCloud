@@ -28,6 +28,7 @@ layout(location = 2) in vec2 aUV;
 uniform mat4 uModel;
 uniform mat4 uView;
 uniform mat4 uProj;
+uniform mat3 uNormalMatrix;
 
 out vec3 vNormalWS;
 out vec3 vPosWS;
@@ -38,7 +39,7 @@ void main()
     vec4 wp = uModel * vec4(aPos, 1.0);
     vPosWS = wp.xyz;
     // NOTE: assumes uniform scale; non-uniform scale needs normal matrix
-    vNormalWS = mat3(uModel) * aNormal;
+    vNormalWS = normalize(uNormalMatrix * aNormal);
     vUV = aUV;
     gl_Position = uProj * uView * wp;
 }
@@ -144,8 +145,10 @@ void main()
 {
     if (uIsLine == 1)
     {
-        fragColor = vec4(uBaseColor + uEmissive * uEmissiveStrength, 1.0);
+        vec3 N = normalize(vNormalWS);
+        fragColor = vec4(N * 0.5 + 0.5, 1.0);
         return;
+
     }
 
     vec3 N = normalize(vNormalWS);
@@ -201,12 +204,13 @@ for (int i = 0; i < uNumPointLights; ++i)
     // ===== 5. 距离雾（在 tonemap 之前的线性空间做） =====
     if (uFogDensity > 0.0)
 {
-    float dPl  = length(uPlayerPos.xy - vPosWS.xy); // 只看水平距离更稳
+    float dPl  = length(uPlayerPos.xy - vPosWS.xy);
     float dFog = max(dPl - uFogStart, 0.0);
     float heightK = exp(-max(vPosWS.z - uPlayerPos.z, 0.0) * uFogHeightFalloff);
-    float fogAmt = 0.8 - exp(-dFog * uFogDensity * heightK);
+    float fogAmt  = 1.0 - exp(-dFog * uFogDensity * heightK);
     col = mix(col, uFogColor, clamp(fogAmt, 0.0, 1.0));
 }
+
 
 
     // 曝光
@@ -348,10 +352,11 @@ for (int i = 0; i < uNumPointLights; ++i)
             shader.setFloat("uRoughness", 0.9f);
             shader.setFloat("uMetallic", 0.0f);
             shader.setVec3("uEmissive", emissiveLin);
-            shader.setFloat("uEmissiveStrength", (emissiveLin.x + emissiveLin.y + emissiveLin.z) > 0 ? 1.0f : 0.0f);
+            shader.setFloat("uEmissiveStrength", 0.0f);   // ← 关掉
             shader.setFloat("uSSS", 0.0f);
             shader.setFloat("uSpecTint", 0.0f);
         }
+
 
         /** 切换“线模式”：网格线不参与光照。 */
         void setLineMode(bool on) noexcept { shader.setInt("uIsLine", on ? 1 : 0); }

@@ -86,6 +86,46 @@ namespace sc
                 indices.push_back(newIndex);
             }
         }
+        // ============== 强制按面重算法线 ==============
+// 先清零累加器
+        for (auto& v : vertices)
+        {
+            v.nx = v.ny = v.nz = 0.0f;
+        }
+
+        // 累加面法线到每个顶点
+        for (size_t i = 0; i + 2 < indices.size(); i += 3)
+        {
+            auto& a = vertices[indices[i + 0]];
+            auto& b = vertices[indices[i + 1]];
+            auto& c = vertices[indices[i + 2]];
+
+            const float ex = b.px - a.px, ey = b.py - a.py, ez = b.pz - a.pz;
+            const float fx = c.px - a.px, fy = c.py - a.py, fz = c.pz - a.pz;
+            const float nx = ey * fz - ez * fy;
+            const float ny = ez * fx - ex * fz;
+            const float nz = ex * fy - ey * fx;
+
+            a.nx += nx; a.ny += ny; a.nz += nz;
+            b.nx += nx; b.ny += ny; b.nz += nz;
+            c.nx += nx; c.ny += ny; c.nz += nz;
+        }
+
+        // 归一化
+        for (auto& v : vertices)
+        {
+            const float l2 = v.nx * v.nx + v.ny * v.ny + v.nz * v.nz;
+            if (l2 > 1e-12f)
+            {
+                const float inv = 1.0f / std::sqrt(l2);
+                v.nx *= inv; v.ny *= inv; v.nz *= inv;
+            }
+            else
+            {
+                v.nx = 0.0f; v.ny = 0.0f; v.nz = 1.0f;
+            }
+        }
+
 
         return true;
     }

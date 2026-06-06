@@ -514,47 +514,48 @@ namespace sc
          if (groundVisMesh && groundVisMesh->isUploaded())
          {
              r.drawMesh(*groundVisMesh, identity(),
-                 { 0.20f, 0.21f, 0.22f },    
-                 { 0.00f, 0.00f, 0.00f });
+                 { 0.50f, 0.51f, 0.52f },
+                 { 0,0,0 });
          }
 
         
          if (propRockMesh && propRockMesh->isUploaded())
              {
             r.drawMesh(*propRockMesh, identity(),
-                { 0.50f, 0.48f, 0.44f },    // 石头：灰褐
-                { 0.02f, 0.01f, 0.01f });
+                { 0.30f, 0.28f, 0.24f },    // 石头：灰褐
+                { 0,0,0 });
             }
 
          if (propBouquetMesh && propBouquetMesh->isUploaded())
              {
             r.drawMesh(*propBouquetMesh, identity(),
                 { 0.32f, 0.32f, 0.34f },    // 花坛
-                { 0.01f, 0.01f, 0.01f });
+                { 0,0,0 });
             }
          if (propBouquetPillarMesh && propBouquetPillarMesh->isUploaded())
              {
-            r.drawMesh(*propBouquetPillarMesh, identity(),
-                sc::Material::metal({ 0.9f, 0.9f, 0.9f }, 0.05f));
+             r.drawMesh(*propRockMesh, identity(),
+                 { 0.30f, 0.28f, 0.24f },   // 花坛柱
+                 { 0,0,0 });
             }
          if (propKnobPillarMesh && propKnobPillarMesh->isUploaded())
              {
             r.drawMesh(*propKnobPillarMesh, identity(),
                 { 0.16f, 0.15f, 0.20f },    // 旋钮柱：暗紫灰
-                { 0.01f, 0.01f, 0.13f });
+                { 0,0,0 });
             }
          if (propMainPillarMesh && propMainPillarMesh->isUploaded())
              {
             r.drawMesh(*propMainPillarMesh, identity(),
                 { 0.26f, 0.26f, 0.28f },    // 主柱：深砂岩
-                { 0.01f, 0.01f, 0.01f });
+                { 0,0,0 });
 
             }
          if (propSurroundPillarMesh && propSurroundPillarMesh->isUploaded())
              {
             r.drawMesh(*propSurroundPillarMesh, identity(),
                 { 0.40f, 0.38f, 0.36f },    // 环绕柱：稍暗
-                { 0.01f, 0.01f, 0.01f });
+                { 0,0,0 });
             }
 
 
