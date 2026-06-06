@@ -130,11 +130,9 @@ namespace sc
                 world->update(dt, in, camera);
 
             renderer->beginFrame(camera, lighting, world->getPlayer().worldPos);
-
             if (world != nullptr)
                 world->draw(*renderer, camera);
-
-            renderer->endFrame();
+            renderer->endFrame(camera, lighting, world->getPlayer().worldPos);
         }
 
         void openGLContextClosing() override

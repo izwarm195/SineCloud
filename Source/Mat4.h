@@ -142,4 +142,70 @@ namespace sc
         if (loc >= 0)
             juce::gl::glUniformMatrix4fv(loc, 1, juce::gl::GL_FALSE, m.mat);
     }
+
+    //--------------------------------------------------------------------------
+// 矩阵求逆（伴随矩阵 / 行列式法）
+// 适用于摄像机 VP 矩阵等典型非奇异矩阵
+//--------------------------------------------------------------------------
+    inline Mat4 inverse(const Mat4& m) noexcept
+    {
+        const float* a = m.mat; // juce::Matrix3D 列主序 float[16]
+
+        // 3x3 子式辅助
+        auto det3 = [](float a00, float a01, float a02,
+            float a10, float a11, float a12,
+            float a20, float a21, float a22) -> float
+            {
+                return a00 * (a11 * a22 - a12 * a21)
+                    - a01 * (a10 * a22 - a12 * a20)
+                    + a02 * (a10 * a21 - a11 * a20);
+            };
+
+        // 余子式矩阵（代数余子式 = cofactor，符号考虑在内）
+        float cof[16];
+
+        // 第 0 列 (col 0)
+        cof[0] = det3(a[5], a[6], a[7], a[9], a[10], a[11], a[13], a[14], a[15]);
+        cof[1] = -det3(a[1], a[2], a[3], a[9], a[10], a[11], a[13], a[14], a[15]);
+        cof[2] = det3(a[1], a[2], a[3], a[5], a[6], a[7], a[13], a[14], a[15]);
+        cof[3] = -det3(a[1], a[2], a[3], a[5], a[6], a[7], a[9], a[10], a[11]);
+
+        // 第 1 列 (col 1)
+        cof[4] = -det3(a[4], a[6], a[7], a[8], a[10], a[11], a[12], a[14], a[15]);
+        cof[5] = det3(a[0], a[2], a[3], a[8], a[10], a[11], a[12], a[14], a[15]);
+        cof[6] = -det3(a[0], a[2], a[3], a[4], a[6], a[7], a[12], a[14], a[15]);
+        cof[7] = det3(a[0], a[2], a[3], a[4], a[6], a[7], a[8], a[10], a[11]);
+
+        // 第 2 列 (col 2)
+        cof[8] = det3(a[4], a[5], a[7], a[8], a[9], a[11], a[12], a[13], a[15]);
+        cof[9] = -det3(a[0], a[1], a[3], a[8], a[9], a[11], a[12], a[13], a[15]);
+        cof[10] = det3(a[0], a[1], a[3], a[4], a[5], a[7], a[12], a[13], a[15]);
+        cof[11] = -det3(a[0], a[1], a[3], a[4], a[5], a[7], a[8], a[9], a[11]);
+
+        // 第 3 列 (col 3)
+        cof[12] = -det3(a[4], a[5], a[6], a[8], a[9], a[10], a[12], a[13], a[14]);
+        cof[13] = det3(a[0], a[1], a[2], a[8], a[9], a[10], a[12], a[13], a[14]);
+        cof[14] = -det3(a[0], a[1], a[2], a[4], a[5], a[6], a[12], a[13], a[14]);
+        cof[15] = det3(a[0], a[1], a[2], a[4], a[5], a[6], a[8], a[9], a[10]);
+
+        // 行列式 = 第 0 行点乘第 0 列余子式
+        const float det = a[0] * cof[0] + a[4] * cof[4] + a[8] * cof[8] + a[12] * cof[12];
+
+        // 退化检查
+        if (std::abs(det) < 1e-12f)
+        {
+            // 返回单位矩阵兜底
+            return Mat4();
+        }
+
+        const float invDet = 1.0f / det;
+
+        // 伴随矩阵转置 / 行列式 → 逆矩阵，列主序输出
+        float inv[16];
+        for (int i = 0; i < 16; ++i)
+            inv[i] = cof[i] * invDet;
+
+        return Mat4(inv);
+    }
+
 }

@@ -39,10 +39,6 @@ namespace sc
             this->distance = juce::jlimit(minDistance, maxDistance, distance);
         }
 
-        
-
-
-       
         // 归一化setYaw
         void setYaw(float r, float dt) noexcept
         {
@@ -93,7 +89,7 @@ namespace sc
             zFar = zFar_;
         }
 
-        /** 由 SceneView 在 resized() 和 newOpenGLContextCreated() 末尾调用。 */
+        /* 由 SceneView 在 resized() 和 newOpenGLContextCreated() 末尾调用。 */
         void setViewport(int widthPx, int heightPx) noexcept
         {
             vpW = juce::jmax(1, widthPx);
@@ -127,13 +123,13 @@ namespace sc
                      pivot.z + distance * sp };
         }
 
-        /** 水平面前向，yaw=0 时指向 +Y（屏幕上方）。 */
+        /* 水平面前向，yaw=0 时指向 +Y（屏幕上方）。 */
         Vec3 getForwardOnGround() const noexcept
         {
             return { +std::sin(yaw), +std::cos(yaw), 0.0f };
         }
 
-        /** 水平面右向，yaw=0 时指向 +X（屏幕右方）。★修正方向 */
+        /* 水平面右向，yaw=0 时指向 +X（屏幕右方）。★修正方向 */
         Vec3 getRightOnGround() const noexcept
         {
             return { +std::cos(yaw), -std::sin(yaw), 0.0f };
@@ -151,6 +147,13 @@ namespace sc
         {
             return perspective(fovYRad, getAspect(), zNear, zFar);
         }
+
+        Mat4 invViewProj() const noexcept
+        {
+            return inverse(proj() * view());
+        }
+
+
 
         //----------------------------------------------------------------------
         // 屏幕坐标 → 世界射线

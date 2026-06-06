@@ -1,82 +1,92 @@
-/* ==============================================================================
-   Renderer.h
-   Layer 2: Scene & Renderer
-   每帧渲染入口。持有 PixelMaterial，对外暴露 beginFrame / drawMesh / endFrame。
-   上层只需传 camera + 一组 (mesh, model, color)，不用关心 GL 状态。
-   ============================================================================== */
+// ==============================================================================
+//   Renderer.h
+//   Layer 3: Deferred Rendering
+//   每帧渲染入口。持有 GBuffer + PostPipeline。
+//   beginFrame 绑 G-Buffer MRT，所有几何写入；endFrame 跑延迟光照。
+// ==============================================================================
 #pragma once
-#include <JuceHeader.h >
 #include "GLUtils.h"
 #include "Mesh.h"
 #include "Camera.h"
 #include "Lighting.h"
-#include "PixelMaterial.h"
 #include "Material.h"
+#include "GBuffer.h"
+#include "PostPipeline.h"
 
-namespace sc
-{
+namespace sc {
+
     class Renderer
     {
     public:
         explicit Renderer(juce::OpenGLContext& ctx)
-            : context(ctx), material(ctx) {
+            : context(ctx), gbuffer(ctx), postPipeline(ctx) {
         }
 
-        //----------------------------------------------------------------------
-        // 生命周期：与 OpenGLRenderer 的 newOpenGLContextCreated/openGLContextClosing 对齐
-        //----------------------------------------------------------------------
+        // ----------------------------------------------------------------
+        // 生命周期
+        // ----------------------------------------------------------------
         bool initialise()
         {
-            if (!material.build())
+            if (!gbuffer.build())
             {
-                DBG("Renderer: PixelMaterial build failed");
+                DBG("Renderer: GBuffer build failed");
+                return false;
+            }
+            if (!postPipeline.build())
+            {
+                DBG("Renderer: PostPipeline build failed");
                 return false;
             }
             return true;
         }
 
-        void shutdown() {}
+        void shutdown()
+        {
+            gbuffer.shutdown();
+            postPipeline.shutdown();
+        }
 
-        //----------------------------------------------------------------------
-        // 帧
-        //----------------------------------------------------------------------
-        void beginFrame(const Camera& camera, const Lighting& light, const Vec3& playerPos,
+        // ----------------------------------------------------------------
+        // Phase 1: 绑 G-Buffer，清屏，准备几何写入
+        // ----------------------------------------------------------------
+        void beginFrame(const Camera& camera,
+            const Lighting& light,
+            const Vec3& playerPos,
             const Vec3& clearColor = { 0.06f, 0.07f, 0.09f }) noexcept
         {
             using namespace sc::gl;
+
             if (juce::gl::glDebugMessageControl != nullptr)
-                juce::gl::glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE,
-                    GL_DEBUG_SEVERITY_NOTIFICATION,
-                    0, nullptr, GL_FALSE);
+                juce::gl::glDebugMessageControl(
+                    GL_DONT_CARE, GL_DONT_CARE,
+                    GL_DEBUG_SEVERITY_NOTIFICATION, 0, nullptr, GL_FALSE);
 
             const float scale = (float)context.getRenderingScale();
             const int wPx = (int)(camera.getViewportWidth() * scale);
             const int hPx = (int)(camera.getViewportHeight() * scale);
-            
+
+            gbuffer.ensureSize(wPx, hPx);
+
+            gbuffer.bindForGeometry();
+
             glViewport(0, 0, wPx, hPx);
             glEnable(GL_DEPTH_TEST);
             glDepthFunc(GL_LESS);
-            //glDisable(GL_CULL_FACE); // 像素风暂不剔除背面，便于调试
+
             glClearColor(clearColor.x, clearColor.y, clearColor.z, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-            material.use();
-            material.setCameraMatrices(camera.view(), camera.proj());
-            const Vec3 eye = camera.getEyeWorld();
-            material.setCameraPos(eye);
-            material.setPlayerPos(playerPos);
-            material.setLighting(light);
-            material.setPointLights(light.pointLights, eye);   // ★ 新增
-            material.setFog(light);                            // ★ 新增
-            material.setShadeLevels(shadeLevels);
-            material.setLineMode(false);
-
-
+            Shader& geom = gbuffer.getGeometryShader();
+            geom.use();
+            geom.setMat4("uView", camera.view());
+            geom.setMat4("uProj", camera.proj());
+            geom.setMat4("uPrevModelViewProj", prevViewProj);
+            geom.setInt("uIsLine", 0);
         }
-       
 
-
-        /** 帮助函数：把设计色的 sRGB 值转换为线性值。 */
+        // ----------------------------------------------------------------
+        // sRGB -> linear
+        // ----------------------------------------------------------------
         static Vec3 srgbToLinear(const Vec3& c) noexcept
         {
             auto toLin = [](float v) {
@@ -86,59 +96,113 @@ namespace sc
             return { toLin(c.x), toLin(c.y), toLin(c.z) };
         }
 
-        // ==================== 绘制接口 ====================
-
-        /** 新主路径：使用完整材质（颜色为 sRGB 设计色）。 */
-        void drawMesh(Mesh& mesh, const Mat4& model,
-            const Material& mat) noexcept
+        // ----------------------------------------------------------------
+        // 绘制接口 (Phase 1: 写入 G-Buffer)
+        // ----------------------------------------------------------------
+        void drawMesh(Mesh& mesh, const Mat4& model, const Material& mat) noexcept
         {
+            Shader& geom = gbuffer.getGeometryShader();
+            geom.setInt("uIsLine", 0);
+            geom.setMat4("uModel", model);
+
             const Vec3 baseLin = srgbToLinear(mat.baseColorSRGB);
             const Vec3 emissiveLin = srgbToLinear(mat.emissiveSRGB);
-            material.setLineMode(false);
-            material.setModel(model);
-            material.setMaterial(mat, baseLin, emissiveLin);
+
+            geom.setVec3("uBaseColor", baseLin);
+            geom.setFloat("uRoughness", mat.roughness);
+            geom.setFloat("uMetallic", mat.metallic);
+            geom.setVec3("uEmissive", emissiveLin);
+            geom.setFloat("uEmissiveStrength", mat.emissiveStrength);
+            geom.setFloat("uSSS", mat.sss);
+
             mesh.draw(context);
         }
 
-        /** 兼容旧调用：颜色 + 自发光（sRGB 设计色），内部转为默认 stone 材质属性。 */
+        // 兼容旧调用: 颜色 + 自发光 (sRGB)
         void drawMesh(Mesh& mesh, const Mat4& model,
             const Vec3& baseColorSRGB,
             const Vec3& emissiveSRGB = { 0,0,0 }) noexcept
         {
+            Shader& geom = gbuffer.getGeometryShader();
+            geom.setInt("uIsLine", 0);
+            geom.setMat4("uModel", model);
+
             const Vec3 baseLin = srgbToLinear(baseColorSRGB);
             const Vec3 emissiveLin = srgbToLinear(emissiveSRGB);
-            material.setLineMode(false);
-            material.setModel(model);
-            material.setBaseColorLegacy(baseLin, emissiveLin);
+
+            geom.setVec3("uBaseColor", baseLin);
+            geom.setFloat("uRoughness", 0.9f);
+            geom.setFloat("uMetallic", 0.0f);
+            geom.setVec3("uEmissive", emissiveLin);
+            geom.setFloat("uEmissiveStrength", 0.0f);
+            geom.setFloat("uSSS", 0.0f);
+
             mesh.draw(context);
         }
 
-        /** 网格线（GL_LINES）绘制：跳过光照。 */
+        // 网格线: 线模式写入 G-Buffer
         void drawLines(Mesh& mesh, const Mat4& model, const Vec3& color) noexcept
         {
-            material.setLineMode(true);
-            material.setModel(model);
-            material.setBaseColorLegacy(color, { 0, 0, 0 });
+            Shader& geom = gbuffer.getGeometryShader();
+            geom.setInt("uIsLine", 1);
+            geom.setMat4("uModel", model);
+
+            const Vec3 colLin = srgbToLinear(color);
+            geom.setVec3("uBaseColor", colLin);
+            geom.setFloat("uRoughness", 1.0f);
+            geom.setFloat("uMetallic", 0.0f);
+            geom.setVec3("uEmissive", { 0,0,0 });
+            geom.setFloat("uEmissiveStrength", 0.0f);
+            geom.setFloat("uSSS", 0.0f);
+
             mesh.draw(context);
-            material.setLineMode(false);   // ★ 加上这一行
+
+            geom.setInt("uIsLine", 0);
         }
 
-
-        void endFrame() noexcept
+        // ----------------------------------------------------------------
+        // Phase 2: 延迟光照
+        // ----------------------------------------------------------------
+        void endFrame(const Camera& camera,
+            const Lighting& light,
+            const Vec3& playerPos) noexcept
         {
-            sc::gl::checkError("endFrame");
+            using namespace sc::gl;
+
+            gbuffer.unbind();
+
+            const float scale = (float)context.getRenderingScale();
+            const int wPx = (int)(camera.getViewportWidth() * scale);
+            const int hPx = (int)(camera.getViewportHeight() * scale);
+
+            glViewport(0, 0, wPx, hPx);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            postPipeline.doLighting(gbuffer, camera, light, playerPos, shadeLevels);
+
+            // 缓存本帧 VP 供下帧 velocity
+            prevViewProj = camera.proj() * camera.view();
+
+            checkError("endFrame");
         }
 
-        //----------------------------------------------------------------------
+        // ----------------------------------------------------------------
         // 风格控制
-        //----------------------------------------------------------------------
-        /** 色阶量化档数。1 = 关闭，3~6 像素感最强。 */
-        void setShadeLevels(float levels) noexcept { shadeLevels = juce::jmax(1.0f, levels); }
+        // ----------------------------------------------------------------
+        void setShadeLevels(float levels) noexcept
+        {
+            shadeLevels = juce::jmax(1.0f, levels);
+        }
 
     private:
         juce::OpenGLContext& context;
-        PixelMaterial material;
+        GBuffer      gbuffer;
+        PostPipeline postPipeline;
+
         float shadeLevels{ 64.0f };
+        Mat4 prevViewProj;
+
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Renderer)
     };
-}
+
+} // namespace sc
