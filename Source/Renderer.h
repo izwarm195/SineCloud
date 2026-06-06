@@ -84,10 +84,13 @@ namespace sc {
             glClearBufferfv(GL_COLOR, 1, clrNormal);
             glClearBufferfv(GL_COLOR, 2, clrEmiss);
             glClearBufferfv(GL_COLOR, 3, clrVel);
-            glClear(GL_DEPTH_BUFFER_BIT);   // ← 这行是关键
-
+            glClear(GL_DEPTH_BUFFER_BIT);
+            // ★ 加这两行
+            const GLfloat clrWorldPos[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+            glClearBufferfv(GL_COLOR, 4, clrWorldPos);
 
             Shader& geom = gbuffer.getGeometryShader();
+
             geom.use();
             geom.setMat4("uView", camera.view());
             geom.setMat4("uProj", camera.proj());
