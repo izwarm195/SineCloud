@@ -123,7 +123,7 @@ vec3 evalBRDF(vec3 N, vec3 V, vec3 L, vec3 baseColor,
     vec3 F = F_Schlick(VoH, F0);
     vec3 spec = (D * G * F) / max(4.0 * NoL * NoV, 1e-4);
     vec3 kd = (1.0 - F) * (1.0 - metallic);
-    vec3 diffuse = kd * baseColor / PI;
+    vec3 diffuse = kd * baseColor;
     return (diffuse + spec) * radiance * NoL;
 }
 
