@@ -120,7 +120,9 @@ namespace sc
             material.setModel(model);
             material.setBaseColorLegacy(color, { 0, 0, 0 });
             mesh.draw(context);
+            material.setLineMode(false);   // ★ 加上这一行
         }
+
 
         void endFrame() noexcept
         {

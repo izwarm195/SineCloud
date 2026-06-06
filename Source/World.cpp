@@ -534,7 +534,7 @@ namespace sc
             }
          if (propBouquetPillarMesh && propBouquetPillarMesh->isUploaded())
              {
-             r.drawMesh(*propRockMesh, identity(),
+             r.drawMesh(*propBouquetPillarMesh, identity(),
                  { 0.30f, 0.28f, 0.24f },   // 花坛柱
                  { 0,0,0 });
             }

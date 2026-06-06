@@ -204,10 +204,7 @@ void main()
 )";   // ← ✅ raw string 在此正确关闭
 
             // ==================== 编译链接 ====================
-            if (!shader.build(vs, fs))
-                return false;
-
-            return true;
+          return shader.build(vs, fs);
         }
 
 
@@ -275,6 +272,22 @@ void main()
 
             const int n = juce::jmin((int)tmps.size(), MAX_POINT_LIGHTS);
             shader.setInt("uNumPointLights", n);
+
+            // ★ 新增：上传 enabled 的点光数据
+            for (int i = 0; i < n; ++i)
+            {
+                const auto& pl = *tmps[(size_t)i].p;
+                const Vec3 colorLin = srgbToLin(pl.colorSRGB) * pl.intensity;
+                const juce::String si = juce::String(i);
+                shader.setVec3((juce::String("uPointLightPos[") + si + "]").toRawUTF8(), pl.position);
+                shader.setVec3((juce::String("uPointLightColor[") + si + "]").toRawUTF8(), colorLin);
+                shader.setFloat((juce::String("uPointLightRange[") + si + "]").toRawUTF8(), pl.range);
+                shader.setFloat((juce::String("uPointLightQuadratic[") + si + "]").toRawUTF8(), pl.quadratic());
+            }
+
+
+            // 清理 unused slot（原有代码保留）
+            
 
             for (int i = n; i < MAX_POINT_LIGHTS; ++i)
             {

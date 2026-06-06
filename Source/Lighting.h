@@ -22,7 +22,7 @@ struct Lighting
     // ---- 半球环境光 ----
     Vec3  skyColor  { 0.18f, 0.20f, 0.26f };
     Vec3  groundColor { 0.06f, 0.05f, 0.04f };
-    float intensity { 1.2f };
+    float intensity { 5.0f };
 
     // ---- 距离雾（俯视专用） ----
     Vec3 fogColorSRGB{ 0.40f, 0.42f, 0.44f }; // 默认与 clearColor 同色
