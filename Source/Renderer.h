@@ -73,10 +73,18 @@ namespace sc {
             glEnable(GL_DEPTH_TEST);
             glDepthFunc(GL_LESS);
 
-            glClearColor(clearColor.x, clearColor.y, clearColor.z, 1.0f);
             // RT2 (emissive + sss): 必须清零,否则背景凭空发光
+            glClearColor(clearColor.x, clearColor.y, clearColor.z, 1.0f);
+
+            const GLfloat clrAlbedo[4] = { clearColor.x, clearColor.y, clearColor.z, 1.0f };
+            const GLfloat clrNormal[4] = { 0.5f, 0.5f, 1.0f, 0.0f };
             const GLfloat clrEmiss[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+            const GLfloat clrVel[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+            glClearBufferfv(GL_COLOR, 0, clrAlbedo);
+            glClearBufferfv(GL_COLOR, 1, clrNormal);
             glClearBufferfv(GL_COLOR, 2, clrEmiss);
+            glClearBufferfv(GL_COLOR, 3, clrVel);
+            glClear(GL_DEPTH_BUFFER_BIT);   // ← 这行是关键
 
 
             Shader& geom = gbuffer.getGeometryShader();
