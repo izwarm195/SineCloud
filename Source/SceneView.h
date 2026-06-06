@@ -104,10 +104,10 @@ namespace sc
             debugOverlay.setVisible(false);
             grabKeyboardFocus();
 
-            lighting.fogDensity = 0.125f;
-            lighting.fogHeightFalloff = 0.10f;
-            lighting.fogStart = 5.0f;
-            lighting.fogColorSRGB = { 0.1f, 0.1f, 0.1f };  // 与 clearColor 同色
+            //lighting.fogDensity = 0.125f;
+            //lighting.fogHeightFalloff = 0.10f;
+            //lighting.fogStart = 5.0f;
+            //lighting.fogColorSRGB = { 0.1f, 0.1f, 0.1f };  // 与 clearColor 同色
 
         }
 
@@ -129,7 +129,7 @@ namespace sc
             if (world != nullptr && !paused)
                 world->update(dt, in, camera);
 
-            renderer->beginFrame(camera, lighting);
+            renderer->beginFrame(camera, lighting, world->getPlayer().worldPos);
 
             if (world != nullptr)
                 world->draw(*renderer, camera);

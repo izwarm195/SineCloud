@@ -40,7 +40,7 @@ namespace sc
         //----------------------------------------------------------------------
         // 帧
         //----------------------------------------------------------------------
-        void beginFrame(const Camera& camera, const Lighting& light,
+        void beginFrame(const Camera& camera, const Lighting& light, const Vec3& playerPos,
             const Vec3& clearColor = { 0.06f, 0.07f, 0.09f }) noexcept
         {
             using namespace sc::gl;
@@ -52,6 +52,7 @@ namespace sc
             const float scale = (float)context.getRenderingScale();
             const int wPx = (int)(camera.getViewportWidth() * scale);
             const int hPx = (int)(camera.getViewportHeight() * scale);
+            
             glViewport(0, 0, wPx, hPx);
             glEnable(GL_DEPTH_TEST);
             glDepthFunc(GL_LESS);
@@ -63,11 +64,14 @@ namespace sc
             material.setCameraMatrices(camera.view(), camera.proj());
             const Vec3 eye = camera.getEyeWorld();
             material.setCameraPos(eye);
+            material.setPlayerPos(playerPos);
             material.setLighting(light);
             material.setPointLights(light.pointLights, eye);   // ★ 新增
             material.setFog(light);                            // ★ 新增
             material.setShadeLevels(shadeLevels);
             material.setLineMode(false);
+
+
         }
        
 

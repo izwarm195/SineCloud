@@ -514,7 +514,7 @@ namespace sc
          if (groundVisMesh && groundVisMesh->isUploaded())
          {
              r.drawMesh(*groundVisMesh, identity(),
-                 { 0.50f, 0.51f, 0.52f },    
+                 { 0.20f, 0.21f, 0.22f },    
                  { 0.00f, 0.00f, 0.00f });
          }
 

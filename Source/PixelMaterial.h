@@ -57,6 +57,8 @@ uniform vec3  uAmbient;
 uniform vec3  uSkyColor;
 uniform vec3  uGroundColor;
 uniform float uLightIntensity;
+uniform vec3 uPlayerPos;
+
 
 // ---- Camera ----
 uniform vec3  uCamPos;
@@ -69,6 +71,7 @@ uniform vec3  uEmissive;
 uniform float uEmissiveStrength;
 uniform float uSSS;
 uniform float uSpecTint;
+
 
 // ---- Stylization ----
 uniform float uShadeLevels;
@@ -162,23 +165,23 @@ void main()
     vec3 sssTerm = uSSS * backLight * uBaseColor * uLightColor * uLightIntensity * 0.5;
 
     // ===== 2. 点光源累加 =====
-    vec3 pointSum = vec3(0.0);
-    for (int i = 0; i < uNumPointLights; ++i)
-    {
-        vec3 toLight = uPointLightPos[i] - vPosWS;
-        float dist   = length(toLight);
-        if (dist > uPointLightRange[i]) continue;        // 硬截断
-        vec3  L      = toLight / max(dist, 1e-4);
+vec3 pointSum = vec3(0.0);
+for (int i = 0; i < uNumPointLights; ++i)
+{
+    vec3 toLight = uPointLightPos[i] - vPosWS;
+    float dist   = length(toLight);
+    if (dist > uPointLightRange[i]) continue;
+    vec3 L = toLight / max(dist, 1e-4);
 
-        // 物理衰减 + 软截断
-        float atten  = 1.0 / (1.0 + uPointLightQuadratic[i] * dist * dist);
-        float edge   = 1.0 - smoothstep(uPointLightRange[i] * 0.85,
-                                        uPointLightRange[i],
-                                        dist);
-        vec3 radiance = uPointLightColor[i] * atten * edge;
+    float atten = 1.0 / (1.0 + uPointLightQuadratic[i] * dist * dist);
+    float edge  = 1.0 - smoothstep(uPointLightRange[i] * 0.85,
+                                   uPointLightRange[i], dist);
+    vec3 radiance = uPointLightColor[i] * atten * edge;
 
-        pointSum += evalBRDF(N, V, L, uBaseColor, uRoughness, uMetallic, F0, radiance);
-    }
+    pointSum += evalBRDF(N, V, L, uBaseColor,
+                         uRoughness, uMetallic, F0, radiance);
+}
+
 
     // ===== 3. 环境光（半球 + 环境高光） =====
     float upDot = clamp(N.z * 0.5 + 0.5, 0.0, 1.0);
@@ -192,18 +195,19 @@ void main()
 
     // ===== 4. 合并 =====
     vec3 col = direct + pointSum + sssTerm + ambientTerm
-             + uEmissive * uEmissiveStrength;
+         + uEmissive * uEmissiveStrength;
+
 
     // ===== 5. 距离雾（在 tonemap 之前的线性空间做） =====
     if (uFogDensity > 0.0)
-    {
-        float dCam = length(uCamPos - vPosWS);
-        float dFog = max(dCam - uFogStart, 0.0);
-        // 高度衰减：物体越高雾越稀
-        float heightK = exp(-max(vPosWS.z, 0.0) * uFogHeightFalloff);
-        float fogAmt  = 1.0 - exp(-dFog * uFogDensity * heightK);
-        col = mix(col, uFogColor, clamp(fogAmt, 0.0, 1.0));
-    }
+{
+    float dPl  = length(uPlayerPos.xy - vPosWS.xy); // 只看水平距离更稳
+    float dFog = max(dPl - uFogStart, 0.0);
+    float heightK = exp(-max(vPosWS.z - uPlayerPos.z, 0.0) * uFogHeightFalloff);
+    float fogAmt = 0.8 - exp(-dFog * uFogDensity * heightK);
+    col = mix(col, uFogColor, clamp(fogAmt, 0.0, 1.0));
+}
+
 
     // 曝光
     col *= 1.5;
@@ -237,7 +241,17 @@ void main()
             shader.setMat4("uView", view);
             shader.setMat4("uProj", proj);
         }
-        void setCameraPos(const Vec3& p) noexcept { shader.setVec3("uCamPos", p); }
+        void setCameraPos(const Vec3& p) noexcept
+        {
+            shader.setVec3("uCamPos", p);
+        }
+
+        // 新增 ↓
+        void setPlayerPos(const Vec3& p) noexcept
+        {
+            shader.setVec3("uPlayerPos", p);
+        }
+
 
         void setLighting(const Lighting& l) noexcept
         {
@@ -280,19 +294,15 @@ void main()
             const int n = juce::jmin((int)tmps.size(), MAX_POINT_LIGHTS);
             shader.setInt("uNumPointLights", n);
 
-            for (int i = 0; i < n; ++i)
+            for (int i = n; i < MAX_POINT_LIGHTS; ++i)
             {
-                const auto& pl = *tmps[(size_t)i].p;
-                const Vec3 cLin = srgbToLin(pl.colorSRGB);
-                const Vec3 radiance{ cLin.x * pl.intensity,
-                                     cLin.y * pl.intensity,
-                                     cLin.z * pl.intensity };
                 const juce::String si = juce::String(i);
-                shader.setVec3(("uPointLightPos[" + si + "]").toRawUTF8(), pl.position);
-                shader.setVec3(("uPointLightColor[" + si + "]").toRawUTF8(), radiance);
-                shader.setFloat(("uPointLightQuadratic[" + si + "]").toRawUTF8(), pl.quadratic());
-                shader.setFloat(("uPointLightRange[" + si + "]").toRawUTF8(), pl.range);
+                shader.setVec3((juce::String("uPointLightColor[") + si + "]").toRawUTF8(), Vec3{ 0,0,0 });
+                shader.setFloat((juce::String("uPointLightRange[") + si + "]").toRawUTF8(), 0.0f);
+                shader.setFloat((juce::String("uPointLightQuadratic[") + si + "]").toRawUTF8(), 1.0f);
             }
+
+
         }
 
         /** 上传雾参数（fogColor 由 sRGB 转线性）。 */
