@@ -177,29 +177,38 @@ void main()
     vec3 ambientSpec = F_env * envIrradiance;
     vec3 ambientTerm = ambientDiffuse + ambientSpec;
 
-    // ---- 4. 合并 ----
-    vec3 col = direct + pointSum + sssTerm + ambientTerm
-             + uEmissive * uEmissiveStrength;
+   // ---- 4. 合并 ----
+vec3 col = direct + pointSum + sssTerm + ambientTerm
+         + uEmissive * uEmissiveStrength;
 
-    // ---- 5. 雾 ----
-    if (uFogDensity > 0.0)
-    {
-        float dPl  = length(uPlayerPos.xy - vPosWS.xy);
-        float dFog = max(dPl - uFogStart, 0.0);
-        float heightK = exp(-max(vPosWS.z - uPlayerPos.z, 0.0) * uFogHeightFalloff);
-        float fogAmt  = 1.0 - exp(-dFog * uFogDensity * heightK);
-        col = mix(col, uFogColor, clamp(fogAmt, 0.0, 1.0));
-    }
+// ---- 5. 雾（仍在线性域）----
+if (uFogDensity > 0.0)
+{
+    float dPl     = length(uPlayerPos.xy - vPosWS.xy);
+    float dFog    = max(dPl - uFogStart, 0.0);
+    float heightK = exp(-max(vPosWS.z - uPlayerPos.z, 0.0) * uFogHeightFalloff);
+    float fogAmt  = 1.0 - exp(-dFog * uFogDensity * heightK);
+    col = mix(col, uFogColor, clamp(fogAmt, 0.0, 1.0));
+}
 
-    // ---- 6. Tonemap + Gamma ----
-    col = col / (col + vec3(1.0));
-    col = pow(col, vec3(1.0 / 2.2));
+// ---- 6. ★ 新：只对"亮度"做色阶量化，颜色保留 ----
+if (uShadeLevels > 1.5)
+{
+    // Rec.709 亮度
+    float Y = max(dot(col, vec3(0.2126, 0.7152, 0.0722)), 1e-5);
+    // 量化到 N 档，但保留颜色比 col/Y
+    float Yq = floor(Y * uShadeLevels) / uShadeLevels;
+    // 加 0.5 / N 让档心而非档底，避免最暗档塌成 0
+    Yq = (floor(Y * uShadeLevels) + 0.5) / uShadeLevels;
+    col = col * (Yq / Y);
+}
 
-    // ---- 7. 色阶量化 ----
-    if (uShadeLevels > 1.5)
-        col = floor(col * uShadeLevels) / uShadeLevels;
+// ---- 7. Tonemap + Gamma （量化之后做）----
+col = col / (col + vec3(1.0));
+col = pow(col, vec3(1.0 / 2.2));
 
-    fragColor = vec4(col, 1.0);
+fragColor = vec4(col, 1.0);
+
 }
 )";   // ← ✅ raw string 在此正确关闭
 
