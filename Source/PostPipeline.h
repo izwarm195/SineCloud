@@ -130,13 +130,6 @@ namespace sc {
             vec4 es = texture(gEmissiveSSS,    vUV);
             float depth = texture(gDepth, vUV).r;
 
-            // ★ 新增: 非几何像素直接输出背景色,不参与光照/雾合成
-            if (depth >= 0.9999)
-            {
-                fragColor = vec4(uFogColor, 1.0);
-                return;
-            }
-
 
             vec3  baseColor = ar.rgb;
             float roughness = ar.a;

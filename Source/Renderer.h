@@ -74,17 +74,9 @@ namespace sc {
             glDepthFunc(GL_LESS);
 
             glClearColor(clearColor.x, clearColor.y, clearColor.z, 1.0f);
-            // 逐个 RT 清,RT1 法线默认值设为 (0,0,1) 朝上
-            const GLfloat clrAlbedo[4] = { clearColor.x, clearColor.y, clearColor.z, 1.0f };
-            const GLfloat clrNormal[4] = { 0.5f, 0.5f, 1.0f, 0.0f };  // 解码 → (0,0,1)
+            // RT2 (emissive + sss): 必须清零,否则背景凭空发光
             const GLfloat clrEmiss[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-            const GLfloat clrVel[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-
-            glClearBufferfv(GL_COLOR, 0, clrAlbedo);
-            glClearBufferfv(GL_COLOR, 1, clrNormal);
             glClearBufferfv(GL_COLOR, 2, clrEmiss);
-            glClearBufferfv(GL_COLOR, 3, clrVel);
-            glClear(GL_DEPTH_BUFFER_BIT);
 
 
             Shader& geom = gbuffer.getGeometryShader();
