@@ -61,11 +61,16 @@ namespace sc
 
             material.use();
             material.setCameraMatrices(camera.view(), camera.proj());
-            material.setCameraPos(camera.getEyeWorld());          // ★ 新增：PBR 需要视线方向
+            const Vec3 eye = camera.getEyeWorld();
+            material.setCameraPos(eye);
             material.setLighting(light);
+            material.setPointLights(light.pointLights, eye);   // ★ 新增
+            material.setFog(light);                            // ★ 新增
             material.setShadeLevels(shadeLevels);
             material.setLineMode(false);
         }
+       
+
 
         /** 帮助函数：把设计色的 sRGB 值转换为线性值。 */
         static Vec3 srgbToLinear(const Vec3& c) noexcept

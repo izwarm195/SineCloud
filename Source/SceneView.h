@@ -103,6 +103,12 @@ namespace sc
             //----
             debugOverlay.setVisible(false);
             grabKeyboardFocus();
+
+            lighting.fogDensity = 0.025f;
+            lighting.fogHeightFalloff = 0.10f;
+            lighting.fogStart = 5.0f;
+            lighting.fogColorSRGB = { 0.06f, 0.07f, 0.09f };  // 与 clearColor 同色
+
         }
 
         void renderOpenGL() override

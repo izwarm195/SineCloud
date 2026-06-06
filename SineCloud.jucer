@@ -5,6 +5,7 @@
               pluginCode="Sct1">
   <MAINGROUP id="MWtifI" name="SineCloud">
     <GROUP id="{9D89155D-745F-44F4-4A89-1045E4DDABEF}" name="Source">
+      <FILE id="bBJpE0" name="PointLight.h" compile="0" resource="0" file="Source/PointLight.h"/>
       <FILE id="Mdyhvu" name="Material.h" compile="0" resource="0" file="Source/Material.h"/>
       <FILE id="gyRHok" name="CollisionTypes.cpp" compile="1" resource="0"
             file="Source/CollisionTypes.cpp"/>

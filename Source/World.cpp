@@ -170,12 +170,13 @@ namespace sc
     // World
     //==========================================================================
 
-    World::World(SineCloudAudioProcessor& p)
-        : processor(p)
+    World::World(SineCloudAudioProcessor& p, Lighting& l)
+        : processor(p), lighting(l)
     {
         player = std::make_unique<Player>();
         buildKnobs();
     }
+
 
     void World::buildKnobs()
     {
@@ -437,6 +438,29 @@ namespace sc
         pivot.x = easing::damp(pivot.x, player->worldPos.x, 20.0f, dt);
         pivot.y = easing::damp(pivot.y, player->worldPos.y, 20.0f, dt);
         cam.setPivot(pivot);
+
+        auto& lights = lighting.pointLights;          // 见下方说明：你需要把 lighting 传进来
+        lights.clear();
+
+        // 玩家：暖色辉光跟随
+        {
+            PointLight p = PointLight::warm(player->worldPos, 5.0f, 7.0f);
+            // 头顶上方一点更自然
+            p.position.z += 0.6f;
+            lights.push_back(p);
+        }
+
+        // 旋钮：根据 focus 状态调强度
+        for (auto& k : knobs)
+        {
+            PointLight p = PointLight::cool(k->worldPos, 2.0f, 3.5f);
+            p.position.z += 0.5f;
+            if (focusedKnob == k.get()) p.intensity = 4.5f;  // 聚焦时变亮
+            lights.push_back(p);
+        }
+
+        
+
     }
 
     void World::resolvePlayerCollisions()

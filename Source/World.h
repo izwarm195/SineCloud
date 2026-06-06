@@ -19,6 +19,7 @@
 #include "Easing.h"
 #include "PluginProcessor.h"
 #include "CollisionTypes.h"
+#include "Lighting.h"
 
 
 namespace sc
@@ -57,7 +58,8 @@ namespace sc
     class World
     {
     public:
-        explicit World(SineCloudAudioProcessor& p);
+        explicit World(SineCloudAudioProcessor& p, Lighting& l);
+
 
         // GL 资源生命周期
         void uploadMeshes(juce::OpenGLContext& ctx);
@@ -84,6 +86,8 @@ namespace sc
         void resolvePlayerCollisions();
 
         SineCloudAudioProcessor& processor;
+
+        Lighting& lighting;
 
         // 共享 mesh
         std::unique_ptr<Mesh> boxMesh;
