@@ -134,38 +134,56 @@ namespace sc
             void renderOpenGL() override
             {
                 if (renderer == nullptr) return;
-                // ... (现有 dt / InputState / world->update / camera.tick 代码不变) ...
 
-                // ====== ★ Shadow Passes（在 G-Buffer 几何阶段之前） ======
+                const double now = juce::Time::getMillisecondCounterHiRes() * 0.001;
+                const float dt = (lastRenderSec > 0.0)
+                    ? (float)juce::jlimit(0.001, 0.1, now - lastRenderSec)
+                    : 1.0f / 60.0f;
+                lastDt = dt;
+                lastRenderSec = now;
+
+                InputState in = pollInput();
+                in.viewportW = camera.getViewportWidth();
+                in.viewportH = camera.getViewportHeight();
+
+                if (world != nullptr && !paused)
+                    world->update(dt, in, camera);
+
+                camera.tick(dt);
+
+                // ====== ★ Shadow Passes ======
                 if (world != nullptr)
                 {
                     auto& sm = renderer->getShadowMap();
-                    const auto& light = lighting;
                     const Vec3 playerPos = world->getPlayer().worldPos;
 
-                    // --- 方向光 Shadow Map ---
-                    sm.beginDirectionalPass(light.direction, playerPos, light.sceneRadius);
-                    world->drawShadowDepth(sm);
+                    // --- 方向光 ---
+                    sm.beginDirectionalPass(lighting.direction, playerPos, lighting.sceneRadius);
+                    world->drawShadowDepth(sm, context);
                     sm.endDirectionalPass();
 
-                    // --- 点光源 Cube Shadow Map（取第一个 PointLight = Player Light）---
-                    if (!light.pointLights.empty())
+                    // --- 点光源 Cube (Player Light) ---
+                    if (!lighting.pointLights.empty())
                     {
-                        const auto& pl = light.pointLights[0];
+                        const auto& pl = lighting.pointLights[0];
                         for (int face = 0; face < 6; ++face)
                         {
                             sm.beginCubeFace(face, pl.position, pl.range);
-                            world->drawShadowDepth(sm);
+                            world->drawShadowDepth(sm, context);
                             sm.endCubeFace();
                         }
                     }
                 }
 
-                // ====== 原有渲染 ======
-                renderer->beginFrame(camera, lighting, world->getPlayer().worldPos);
-                if (world != nullptr) world->draw(*renderer, camera);
-                renderer->endFrame(camera, lighting, world->getPlayer().worldPos);
+                // ====== G-Buffer 几何 + 延迟光照 ======
+                if (world != nullptr)
+                {
+                    renderer->beginFrame(camera, lighting, world->getPlayer().worldPos);
+                    world->draw(*renderer, camera);
+                    renderer->endFrame(camera, lighting, world->getPlayer().worldPos);
+                }
             }
+
 
 
             renderer->beginFrame(camera, lighting, world->getPlayer().worldPos);

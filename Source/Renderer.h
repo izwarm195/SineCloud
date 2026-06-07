@@ -23,9 +23,6 @@ namespace sc {
             : context(ctx), gbuffer(ctx), postPipeline(ctx), shadowMap(ctx) {
         }
         
-
-
-
         // ----------------------------------------------------------------
         // 生命周期
         // ----------------------------------------------------------------
@@ -37,16 +34,12 @@ namespace sc {
             return true;
         }
 
-
-
         void shutdown()
         {
             gbuffer.shutdown();
             postPipeline.shutdown();
             shadowMap.shutdown();
         }
-
-
 
         // ----------------------------------------------------------------
         // Phase 1: 绑 G-Buffer，清屏，准备几何写入
@@ -229,32 +222,7 @@ namespace sc {
             shadeLevels = juce::jmax(1.0f, levels);
         }
 
-
-        
-    // ★ 新增方法：渲染所有 Shadow Map
-    void renderShadowMaps(const Camera& camera, const Lighting& light,
-                           const Vec3& playerPos, World* world)
-    {
-        using namespace sc::gl;
-
-        // ====== Pass A: 方向光 Shadow Map ======
-        shadowMap.beginDirectionalPass(light.direction, playerPos, light.sceneRadius);
-        // 重绘所有场景几何（仅深度）
-        if (world) world->drawShadowDepth(shadowMap);
-        shadowMap.endDirectionalPass();
-
-        // ====== Pass B: 点光源 Cube Shadow Map ======
-        if (!light.pointLights.empty())
-        {
-            const auto& pl = light.pointLights[0]; // Player Light
-            for (int face = 0; face < 6; ++face)
-            {
-                shadowMap.beginCubeFace(face, pl.position, pl.range);
-                if (world) world->drawShadowDepth(shadowMap);
-                shadowMap.endCubeFace();
-            }
-        }
-    }
+        ShadowMap& getShadowMap() noexcept { return shadowMap; }
 
     private:
         juce::OpenGLContext& context;
