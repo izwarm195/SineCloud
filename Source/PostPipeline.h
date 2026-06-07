@@ -397,6 +397,14 @@ void main() {
 
     inscatter *= uVolumetricIntensity * uLightIntensity;
 
+    // ★ 摄像头距离衰减：当表面离摄像头很近时，降低体积光贡献，
+    //    避免摄像头进入光束区域时全屏模糊
+    float distCamToSurface = distance(worldPos, uCamPos);
+    float volFadeNear = 60.0;   // 距离 <= 此值时 volumetric → 0
+    float volFadeFar  = 100.0;   // 距离 >= 此值时 volumetric 完全保留
+    volumetric *= smoothstep(volFadeNear, volFadeFar, distCamToSurface);
+
+
 
     // Combine — ★ 注意这里用的是 inscatter
     vec3 col = direct + pointSum + sssTerm + ambientTerm + emissive + inscatter;
