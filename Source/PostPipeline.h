@@ -305,10 +305,42 @@ void main() {
     vec3 ambientSpec = F_env * envIrradiance;
     vec3 ambientTerm = ambientDiffuse + ambientSpec;
 
-    // ★ 内散射项：空气中介质本身发亮 (可见光束，纯加法)
-    vec3 inscatterColor = uLightColor * vec3(1.0, 0.92, 0.82);
-    float beamGlow = pow(volumetric, 2.5);
-    vec3 inscatter = inscatterColor * beamGlow * uVolumetricIntensity * uLightIntensity * 0.2;
+    // ============================================================
+    // ★ 金光闪闪的体积光
+    // ============================================================
+
+    // ---- 1. 纯金色调 (去掉冷白，往暖金方向偏移) ----
+    vec3 goldCore  = vec3(1.00, 0.82, 0.35);   // 中心：浓金
+    vec3 goldHalo  = vec3(1.00, 0.62, 0.18);   // 边缘：橙金 — 更暖、更暗
+    vec3 goldSpark = vec3(1.00, 0.92, 0.60);   // 高亮闪烁色：浅金
+
+    // ---- 2. 非线性辉光曲线：让光束"凝聚"成金色光柱 ----
+    // pow(x, 1.2) 让弱光区域更多金色渐变
+    // pow(x, 4.0) 让强光部分收窄成锐利光柱
+    float beamSoft  = pow(volumetric, 1.2);   // 软光晕
+    float beamTight = pow(volumetric, 4.0);   // 紧致光柱
+
+    // ---- 3. 空间闪烁噪声：模拟"金粉飞舞" ----
+    float sparkleNoise = fract(
+        sin(dot(worldPos.xy * 17.0, vec2(12.9898, 78.233)))
+      + sin(dot(worldPos.yz * 23.0, vec2(45.164, 93.497)))
+      + uCloudTime * 3.7                                    // 随时间流动
+    );
+    // 只在强光区域出现闪烁（避免暗处也有金粉）
+    float sparkleMask = smoothstep(0.25, 0.65, volumetric);
+    float sparkle = sparkleNoise * sparkleMask;
+
+    // ---- 4. 组合三层 ----
+    //   A. 金色软光晕（大面积暖色氛围）
+    //   B. 紧致光柱（光束中心的高亮金线）
+    //   C. 闪烁金粉（高频亮点）
+    vec3 inscatter =
+          goldHalo  * beamSoft  * 0.15   // 软光晕：低强度，大面积
+        + goldCore  * beamTight * 0.30   // 光柱中心：中高强度
+        + goldSpark * sparkle   * 0.12;  // 闪烁：纯加法
+
+    inscatter *= uVolumetricIntensity * uLightIntensity;
+
 
     // Combine — ★ 注意这里用的是 inscatter
     vec3 col = direct + pointSum + sssTerm + ambientTerm + emissive + inscatter;

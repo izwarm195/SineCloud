@@ -524,20 +524,20 @@ namespace sc
          if (propRockMesh && propRockMesh->isUploaded())
              {
             r.drawMesh(*propRockMesh, identity(),
-                Material::stone({ 0.40f, 0.38f, 0.34f }));    // 石头：灰褐
+                Material::stone({ 0.40f, 0.35f, 0.34f }));    // 石头：灰褐
                 
             }
 
          if (propBouquetMesh && propBouquetMesh->isUploaded())
              {
             r.drawMesh(*propBouquetMesh, identity(),
-                 Material::stone({ 0.12f, 0.12f, 0.14f }));   // 花坛
+                 Material::stone({ 0.12f, 0.14f, 0.14f }));   // 花坛
                 
             }
          if (propBouquetPillarMesh && propBouquetPillarMesh->isUploaded())
              {
              r.drawMesh(*propBouquetPillarMesh, identity(),
-                 Material::stone({ 0.10f, 0.12f, 0.14f }));    // 花坛柱
+                 Material::stone({ 0.10f, 0.15f, 0.14f }));    // 花坛柱
                 
             }
          if (propKnobPillarMesh && propKnobPillarMesh->isUploaded())
@@ -549,7 +549,7 @@ namespace sc
          if (propMainPillarMesh && propMainPillarMesh->isUploaded())
              {
              r.drawMesh(*propMainPillarMesh, identity(),
-                 Material::stone({ 0.05f, 0.08f, 0.11f }));   // 主柱：深砂岩
+                 Material::stone({ 0.05f, 0.12f, 0.11f }));   // 主柱：深砂岩
                 
 
             }
