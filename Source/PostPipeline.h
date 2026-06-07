@@ -38,117 +38,104 @@ namespace sc {
             gl_Position = vec4(aPos, 0.0, 1.0);
         })";
 
-            const juce::String fs = R"(#version 330 core
+            const juce::String fs_part1 = R"(#version 330 core
 in vec2 vUV;
 uniform sampler2D gAlbedoRough;
 uniform sampler2D gNormalMetal;
 uniform sampler2D gEmissiveSSS;
-uniform sampler2D gDepth; 
+uniform sampler2D gDepth;
 uniform sampler2D gWorldPos;
 uniform vec3 uCamPos;
-
 uniform vec3 uLightDir;
 uniform vec3 uLightColor;
 uniform vec3 uAmbient;
 uniform vec3 uSkyColor;
 uniform vec3 uGroundColor;
 uniform float uLightIntensity;
-
 const int MAX_POINT_LIGHTS = 16;
 uniform int uNumPointLights;
 uniform vec3 uPointLightPos[MAX_POINT_LIGHTS];
 uniform vec3 uPointLightColor[MAX_POINT_LIGHTS];
 uniform float uPointLightQuadratic[MAX_POINT_LIGHTS];
 uniform float uPointLightRange[MAX_POINT_LIGHTS];
-
 uniform vec3 uFogColor;
 uniform float uFogDensity;
 uniform float uFogHeightFalloff;
 uniform float uFogStart;
 uniform vec3 uPlayerPos;
-
 uniform float uShadeLevels;
 
-// ---- 云层 / 体积光 ----
-uniform float uCloudScale;        // Perlin 缩放（如 0.03）
-uniform float uCloudThreshold;    // 云/晴 阈值（如 0.45）
-uniform float uCloudSpeed;        // 云滚动速度
-uniform float uCloudPlaneHeight;  // 虚拟天花板高度（世界空间 Z）
-uniform float uCloudTime;         // 当前时间（秒）
-uniform float uVolumetricSteps;   // Ray March 步数（如 8.0）
-uniform float uVolumetricIntensity; // 体积光强度（如 0.6）
-uniform float uCloudBandLevels;   // 阶梯量化级数（如 3.0，用于像素风 banding）
+// ---- Cloud / Volumetric ----
+uniform float uCloudScale;
+uniform float uCloudThreshold;
+uniform float uCloudSpeed;
+uniform float uCloudPlaneHeight;
+uniform float uCloudTime;
+uniform float uVolumetricSteps;
+uniform float uVolumetricIntensity;
+uniform float uCloudBandLevels;
 
-// ★★★ Shadow Map uniforms ★★★
-uniform sampler2D   uDirShadowMap;
+// Shadow Map uniforms
+uniform sampler2D uDirShadowMap;
 uniform samplerCube uCubeShadowMap;
-uniform mat4        uLightViewProj;
-uniform vec3        uPtShadowPos;
-uniform float       uPtShadowRange;
-uniform float       uShadowBias;
-uniform float       uShadowStrength;
+uniform mat4 uLightViewProj;
+uniform vec3 uPtShadowPos;
+uniform float uPtShadowRange;
+uniform float uShadowBias;
+uniform float uShadowStrength;
 
 out vec4 fragColor;
-
 const float PI = 3.14159265359;
 
 // ============================================================
-// Perlin Noise (2D) — 用于生成云纹理
+// Perlin Noise (2D)
 // ============================================================
 float hash21(vec2 p) {
     float h = dot(p, vec2(127.1, 311.7));
     return fract(sin(h) * 43758.5453);
 }
-
 float noise2D(vec2 p) {
     vec2 i = floor(p);
     vec2 f = fract(p);
-    f = f * f * (3.0 - 2.0 * f);  // smoothstep
-
+    f = f * f * (3.0 - 2.0 * f);
     float a = hash21(i);
     float b = hash21(i + vec2(1.0, 0.0));
     float c = hash21(i + vec2(0.0, 1.0));
     float d = hash21(i + vec2(1.0, 1.0));
-
     return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }
-
 float perlin2D(vec2 p) {
     float total = 0.0;
-    float amp   = 0.5;
-    float freq  = 1.0;
+    float amp = 0.5;
+    float freq = 1.0;
     for (int i = 0; i < 4; ++i) {
         total += amp * noise2D(p * freq);
-        freq  *= 2.0;
-        amp   *= 0.5;
+        freq *= 2.0;
+        amp *= 0.5;
     }
-    return total;  // 范围约 [0, 1]
+    return total;
 }
 
-// ---- 方向光 PCF (4x4) ----
-float sampleDirShadow(vec3 worldPos, vec3 N, vec3 L)
-{
+// ---- Directional Shadow PCF (4x4) ----
+float sampleDirShadow(vec3 worldPos, vec3 N, vec3 L) {
     vec4 ls = uLightViewProj * vec4(worldPos, 1.0);
     vec3 proj = ls.xyz / max(ls.w, 1e-6);
-    vec2 uv  = proj.xy * 0.5 + 0.5;
+    vec2 uv = proj.xy * 0.5 + 0.5;
     float depth = proj.z * 0.5 + 0.5;
-    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0)
-        return 1.0;
+    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return 1.0;
     float bias = max(uShadowBias * (1.0 - dot(N, L)), uShadowBias * 0.25);
     vec2 ts = 1.0 / vec2(textureSize(uDirShadowMap, 0));
     float shadow = 0.0;
     for (int x = -2; x <= 1; ++x)
-        for (int y = -2; y <= 1; ++y)
-        {
+        for (int y = -2; y <= 1; ++y) {
             float sm = texture(uDirShadowMap, uv + vec2(float(x)+0.5, float(y)+0.5) * ts).r;
             shadow += (depth - bias <= sm) ? 1.0 : 0.0;
         }
     return shadow / 16.0;
 }
 
-// ---- 点光源 Cube Shadow PCF (3x3) ----
-float samplePointShadow(vec3 worldPos, vec3 lightPos, float farPlane, vec3 N, vec3 L)
-{
+// ---- Point Cube Shadow PCF (3x3) ----
+float samplePointShadow(vec3 worldPos, vec3 lightPos, float farPlane, vec3 N, vec3 L) {
     vec3 fragToLight = worldPos - lightPos;
     float currentDepth = length(fragToLight) / farPlane;
     float bias = max(uShadowBias * 3.0 * (1.0 - dot(N, L)), uShadowBias * 0.75);
@@ -156,8 +143,7 @@ float samplePointShadow(vec3 worldPos, vec3 lightPos, float farPlane, vec3 N, ve
     float diskRadius = 0.008;
     for (int i = -1; i <= 1; ++i)
         for (int j = -1; j <= 1; ++j)
-            for (int k = -1; k <= 1; ++k)
-            {
+            for (int k = -1; k <= 1; ++k) {
                 vec3 offset = vec3(float(i), float(j), float(k)) * diskRadius;
                 float sm = texture(uCubeShadowMap, fragToLight + offset).r;
                 shadow += (currentDepth - bias <= sm) ? 1.0 : 0.0;
@@ -165,15 +151,14 @@ float samplePointShadow(vec3 worldPos, vec3 lightPos, float farPlane, vec3 N, ve
     return shadow / 27.0;
 }
 
-
-
 float D_GGX(float NoH, float a) {
     float a2 = a * a;
     float d = (NoH * NoH) * (a2 - 1.0) + 1.0;
     return a2 / max(PI * d * d, 1e-5);
 }
 float G_Smith(float NoV, float NoL, float a) {
-    float k = (a + 1.0); k = (k * k) * 0.125;
+    float k = (a + 1.0);
+    k = (k * k) * 0.125;
     float gv = NoV / (NoV * (1.0 - k) + k);
     float gl = NoL / (NoL * (1.0 - k) + k);
     return gv * gl;
@@ -182,22 +167,17 @@ vec3 F_Schlick(float VoH, vec3 F0) {
     float f = pow(1.0 - VoH, 5.0);
     return F0 + (1.0 - F0) * f;
 }
-
-vec3 evalBRDF(vec3 N, vec3 V, vec3 L, vec3 baseColor,
-              float roughness, float metallic, vec3 F0, vec3 radiance)
-{
+vec3 evalBRDF(vec3 N, vec3 V, vec3 L, vec3 baseColor, float roughness, float metallic, vec3 F0, vec3 radiance) {
     vec3 H = normalize(V + L);
     float NoL = max(dot(N, L), 0.0);
     if (NoL <= 0.0) return vec3(0.0);
     float NoV = max(dot(N, V), 1e-4);
     float NoH = max(dot(N, H), 0.0);
     float VoH = max(dot(V, H), 0.0);
-
     float a = max(roughness * roughness, 0.002);
     float D = D_GGX(NoH, a);
     float G = G_Smith(NoV, NoL, a);
-    vec3  F = F_Schlick(VoH, F0);
-
+    vec3 F = F_Schlick(VoH, F0);
     vec3 spec = (D * G * F) / max(4.0 * NoL * NoV, 1e-4);
     vec3 kd = (1.0 - F) * (1.0 - metallic);
     vec3 diffuse = kd * baseColor;
@@ -205,21 +185,16 @@ vec3 evalBRDF(vec3 N, vec3 V, vec3 L, vec3 baseColor,
 }
 
 // ============================================================
-// 真正的 3D 值噪声 + FBM（时间连续）
+// 3D Noise + FBM for Cloud
 // ============================================================
-
-// 3D hash — 每个格点一个固定随机值
 float hash3D(vec3 p) {
     float h = dot(p, vec3(127.1, 311.7, 74.7));
     return fract(sin(h) * 43758.5453);
 }
-
-// 3D 值噪声 — 三线性插值，保证时间连续
 float noise3D(vec3 p) {
     vec3 i = floor(p);
     vec3 f = fract(p);
-    f = f * f * (3.0 - 2.0 * f);  // smoothstep
-
+    f = f * f * (3.0 - 2.0 * f);
     float n000 = hash3D(i);
     float n100 = hash3D(i + vec3(1.0, 0.0, 0.0));
     float n010 = hash3D(i + vec3(0.0, 1.0, 0.0));
@@ -228,152 +203,101 @@ float noise3D(vec3 p) {
     float n101 = hash3D(i + vec3(1.0, 0.0, 1.0));
     float n011 = hash3D(i + vec3(0.0, 1.0, 1.0));
     float n111 = hash3D(i + vec3(1.0, 1.0, 1.0));
-
     return mix(mix(mix(n000, n100, f.x), mix(n010, n110, f.x), f.y),
                mix(mix(n001, n101, f.x), mix(n011, n111, f.x), f.y), f.z);
 }
-
-// FBM — 多个 octave 叠加，时间作为 Z 轴
 float fbm3D(vec3 p) {
     float total = 0.0;
-    float amp   = 0.5;
-    float freq  = 1.0;
-
+    float amp = 0.5;
+    float freq = 1.0;
     for (int i = 0; i < 4; ++i) {
         total += amp * noise3D(p * freq);
-        freq  *= 2.0;
-        amp   *= 0.5;
+        freq *= 2.0;
+        amp *= 0.5;
     }
-    return total;  // 约 [0, 1]
+    return total;
 }
-
-
-// ---- 采样云纹理：给定世界 XZ 坐标，返回 [0,1] 覆盖率 ----
 float sampleCloud(float wx, float wz, float time) {
     vec2 uv = vec2(wx, wz) * uCloudScale;
-
-    // ---- Domain Warp：微弱扭曲 ----
     float warpStrength = 0.08;
-    float warpX = fbm3D(vec3(uv * 2.7,              time * 0.04)) * 2.0 - 1.0;
-    float warpY = fbm3D(vec3(uv * 2.7 + 5.2,        time * 0.04)) * 2.0 - 1.0;
+    float warpX = fbm3D(vec3(uv * 2.7, time * 0.04)) * 2.0 - 1.0;
+    float warpY = fbm3D(vec3(uv * 2.7 + 5.2, time * 0.04)) * 2.0 - 1.0;
     uv += vec2(warpX, warpY) * warpStrength;
-
-    // ---- 全局漂移 ----
     uv.x += time * uCloudSpeed * 0.3;
     uv.y += time * uCloudSpeed * 0.15;
-
-    // ---- 主噪声：Z = time * 0.015，沿时间轴平滑滑动 ----
     float n = fbm3D(vec3(uv, time * 0.015));
-
     if (uCloudBandLevels > 1.5) {
         n = (floor(n * uCloudBandLevels) + 0.5) / uCloudBandLevels;
     }
     return n;
 }
-
-
-// ---- 云阴影查询：地面上一个点是否被云遮挡 ----
 float getCloudShadow(vec3 worldPos, vec3 sunDir, float time) {
-
-    if (abs(sunDir.z) < 1e-6) return 1.0;  // 光线平行于平面，无遮挡
-
+    if (abs(sunDir.z) < 1e-6) return 1.0;
     float t = (uCloudPlaneHeight - worldPos.z) / sunDir.z;
-    if (t <= 0.0) return 1.0;  // 云平面在下方，无遮挡
-
+    if (t <= 0.0) return 1.0;
     vec3 hitPoint = worldPos + t * sunDir;
     float cloud = sampleCloud(hitPoint.x, hitPoint.y, time);
-
-    // 阈值判定：cloud > threshold 表示被云覆盖 → 阴影
     float shadow = 1.0 - smoothstep(uCloudThreshold - 0.05, uCloudThreshold + 0.05, cloud);
-    // 映射到 [0.5, 1.0]，让阴影区域至少有 50% 的光照（避免完全黑）
     return mix(0.25, 1.0, shadow);
 }
-
-// ---- 体积光 Ray Marching (修正版) ----
-float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time,vec2 vUV) {
+float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time, vec2 vUV) {
     vec3 rayDir = worldPos - camPos;
     float rayLen = length(rayDir);
     if (rayLen < 0.01) return 0.0;
     rayDir /= rayLen;
-
     int steps = int(uVolumetricSteps);
-    steps = max(steps, 12);  // ★ 最低 12 步，消除大步长断层
-
+    steps = max(steps, 12);
     float stepSize = rayLen / float(steps);
-
-    // ★ 抖动：用像素世界坐标生成伪随机偏移，打破规则网格
     float jitter = hash21(worldPos.xy * 97.0 + worldPos.z * 53.0 + time * 13.0) * 0.8;
-
-    //
     float baseOffset = fract(sin(dot(vUV, vec2(127.1, 311.7)) + time * 0.37) * 43758.5453);
     float layerOffset = baseOffset * 0.6;
-
     float accum = 0.0;
     for (int i = 0; i < steps; ++i) {
-        float t = (float(i) + 0.5 + 1*jitter + layerOffset) * stepSize;
+        float t = (float(i) + 0.5 + jitter + layerOffset) * stepSize;
         t = clamp(t, 0.0, rayLen);
         vec3 samplePos = camPos + rayDir * t;
-
         float tSun = (uCloudPlaneHeight - samplePos.z) / max(abs(sunDir.z), 1e-6);
         if (tSun > 0.0) {
             vec3 hitPoint = samplePos + tSun * sunDir;
-            // ★ 关键：体积光累加使用 RAW Perlin 值，不做 banding 量化
-            //     banding 只对最终结果做一次，避免步间跳变
             vec2 uv = vec2(hitPoint.x, hitPoint.y) * uCloudScale;
             uv.x += time * uCloudSpeed * 0.3;
             uv.y += time * uCloudSpeed * 0.15;
             float cloud = fbm3D(vec3(uv, time * 0.005));
-            accum += 1.0 - smoothstep(uCloudThreshold - 0.001,
-                                      uCloudThreshold + 0.001, cloud);
-            // ★ 几何阴影：采样点被场景遮挡则不计入散射
+            accum += 1.0 - smoothstep(uCloudThreshold - 0.001, uCloudThreshold + 0.001, cloud);
             float geomShadow = sampleDirShadow(samplePos, vec3(0,0,1), sunDir);
             accum *= geomShadow;
-
         } else {
             accum += 1.0;
         }
     }
-
-
-    float result = accum / float(steps); // [0, 1]
-
-    // ★ 对比度拉伸：把中间值推向两极，制造清晰光束边界
-    float beamEdge = 0.6;  // 阈值：低于此算"无光"，高于算"有光"
-    float sharpness  = 1000.0; // 越大边界越锐利
+    float result = accum / float(steps);
+    float beamEdge = 0.6;
+    float sharpness = 1000.0;
     result = smoothstep(beamEdge - 0.15, beamEdge + 0.15, result);
-    // 现在 result 约等于: 暗区→0.0, 亮区→1.0, 过渡带极窄
-
-    // Banding 照旧
     if (uCloudBandLevels > 1.5) {
         result = (floor(result * uCloudBandLevels) + 0.5) / uCloudBandLevels;
     }
     return result;
 }
+)";
 
-
-
+            const juce::String fs_part2 = R"(
 void main() {
     float depth = texture(gDepth, vUV).r;
-    
-
-
     if (depth >= 0.99999) {
         fragColor = vec4(0.06, 0.07, 0.09, 1.0);
         return;
     }
-
     vec4 ar = texture(gAlbedoRough, vUV);
     vec4 nm = texture(gNormalMetal, vUV);
     vec4 es = texture(gEmissiveSSS, vUV);
     vec3 worldPos = texture(gWorldPos, vUV).rgb;
-
     vec3 baseColor = ar.rgb;
     float roughness = ar.a;
     vec3 N = normalize(nm.rgb * 2.0 - 1.0);
     float metallic = nm.a;
     vec3 emissive = es.rgb;
     float sss = es.a;
-
     vec3 V = normalize(uCamPos - worldPos);
     vec3 F0 = mix(vec3(0.04), baseColor, metallic);
     float NoV = max(dot(N, V), 1e-4);
@@ -381,30 +305,28 @@ void main() {
     // Directional light
     vec3 Ldir = -normalize(uLightDir);
 
-    // ---- 云阴影 (头顶直接遮挡) ----
+    // Cloud shadow (ground)
     float cloudShadow = getCloudShadow(worldPos, Ldir, uCloudTime);
 
-    // ---- 体积光 (大气透射率) ----
+    // Volumetric (beam)
     float volumetric = getVolumetricLight(worldPos, uCamPos, Ldir, uCloudTime, vUV);
 
-    // ★ 组合：云阴影 × 体积光 = 真正到达该表面点的阳光比例
+    // Geometry shadow
     float geomShadow = sampleDirShadow(worldPos, N, Ldir);
     float shadowFactor = mix(1.0, geomShadow, uShadowStrength);
     float atmosphereLight = cloudShadow * shadowFactor * (0.15 + 20.0 * volumetric);
 
-    // ★ 方向光被 atmosphereLight 调制 → 体积光真正参与 BRDF 照明
     vec3 dirRad = uLightColor * uLightIntensity * atmosphereLight;
     vec3 direct = evalBRDF(N, V, Ldir, baseColor, roughness, metallic, F0, dirRad);
 
-    // SSS 同样受大气透射影响
+    // SSS
     float backLight = max(dot(-N, Ldir), 0.0);
     vec3 sssRadiance = uLightColor * uLightIntensity * atmosphereLight * 0.5;
     vec3 sssTerm = sss * backLight * baseColor * sssRadiance;
 
     // Point lights
     vec3 pointSum = vec3(0.0);
-    for (int i = 0; i < uNumPointLights; ++i)
-    {
+    for (int i = 0; i < uNumPointLights; ++i) {
         vec3 toLight = uPointLightPos[i] - worldPos;
         float dist = length(toLight);
         if (dist > uPointLightRange[i]) continue;
@@ -412,19 +334,13 @@ void main() {
         float atten = 1.0 / (1.0 + uPointLightQuadratic[i] * dist * dist);
         float edge = 1.0 - smoothstep(uPointLightRange[i] * 0.85, uPointLightRange[i], dist);
         vec3 radiance = uPointLightColor[i] * atten * edge;
-
-        // ★新增：Player Light (i==0) 投射 Cube Shadow
         float ptShadow = 1.0;
-        if (i == 0)
-        {
+        if (i == 0) {
             ptShadow = samplePointShadow(worldPos, uPtShadowPos, uPtShadowRange, N, Lp);
             ptShadow = mix(1.0, ptShadow, uShadowStrength);
         }
-
-
         pointSum += evalBRDF(N, V, Lp, baseColor, roughness, metallic, F0, radiance * ptShadow);
     }
-
 
     // Ambient
     float upDot = clamp(N.z * 0.5 + 0.5, 0.0, 1.0);
@@ -436,66 +352,36 @@ void main() {
     vec3 ambientTerm = ambientDiffuse + ambientSpec;
 
     // ============================================================
-    // ★ 金光闪闪的体积光
+    // Inscatter coloring
     // ============================================================
-
-    // ---- 1. 纯金色调 (去掉冷白，往暖金方向偏移) ----
-    vec3 goldCore  = vec3(1.00, 0.82, 0.35);   // 中心：浓金
-    vec3 goldHalo  = vec3(1.00, 0.62, 0.18);   // 边缘：橙金 — 更暖、更暗
-    vec3 goldSpark = vec3(1.00, 0.92, 0.60);   // 高亮闪烁色：浅金
-
-    // ---- 2. 非线性辉光曲线：让光束"凝聚"成金色光柱 ----
-    // pow(x, 1.2) 让弱光区域更多金色渐变
-    // pow(x, 4.0) 让强光部分收窄成锐利光柱
-    float beamSoft  = pow(volumetric, 1.2);   // 软光晕
-    float beamTight = pow(volumetric, 4.0);   // 紧致光柱
-
-    // ---- 3. 空间闪烁噪声：模拟"金粉飞舞" ----
+    vec3 goldCore   = vec3(1.00, 0.82, 0.35);
+    vec3 goldHalo   = vec3(1.00, 0.62, 0.18);
+    vec3 goldSpark  = vec3(1.00, 0.92, 0.60);
+    float beamSoft  = pow(volumetric, 1.2);
+    float beamTight = pow(volumetric, 4.0);
     float sparkleNoise = fract(
-        sin(dot(worldPos.xy * 17.0, vec2(12.9898, 78.233)))
-      + sin(dot(worldPos.yz * 23.0, vec2(45.164, 93.497)))
-      + uCloudTime * 0.5                                    // 随时间流动
+        sin(dot(worldPos.xy * 17.0, vec2(12.9898, 78.233))) +
+        sin(dot(worldPos.yz * 23.0, vec2(45.164, 93.497))) +
+        uCloudTime * 0.5
     );
-    // 只在强光区域出现闪烁（避免暗处也有金粉）
     float sparkleMask = smoothstep(0.25, 0.65, volumetric);
     float sparkle = sparkleNoise * sparkleMask;
-
-    // ---- 4. 组合三层 ----
-    //   A. 金色软光晕（大面积暖色氛围）
-    //   B. 紧致光柱（光束中心的高亮金线）
-    //   C. 闪烁金粉（高频亮点）
-    vec3 inscatter =
-          goldHalo  * beamSoft  * 0.15   // 软光晕：低强度，大面积
-        + goldCore  * beamTight * 0.30   // 光柱中心：中高强度
-        + goldSpark * sparkle   * 0.12;  // 闪烁：纯加法
-
+    vec3 inscatter = goldHalo  * beamSoft  * 0.15
+                   + goldCore  * beamTight * 0.30
+                   + goldSpark * sparkle   * 0.12;
     inscatter *= uVolumetricIntensity * uLightIntensity;
 
-    // ★ 摄像头距离衰减（云平面投影法）
-    // 体积光束是斜射的 → 同一光束中所有点沿 Ldir 反投影到云平面
-    // Z=uCloudPlaneHeight 时落在相同 (X,Y)。两个点即使 3D 距离很近，
-    // 只要云平面投影不同，就属于不同光束，不应互相衰减。
-
-    // 摄像头沿阳光方向投影到云平面
+    // Volumetric fade with cloud-plane distance
     float tCam = (uCloudPlaneHeight - uCamPos.z) / max(abs(Ldir.z), 1e-6);
     vec2 camCloudXY = uCamPos.xy + tCam * Ldir.xy;
-
-    // 当前表面点沿阳光方向投影到云平面
     float tSurf = (uCloudPlaneHeight - worldPos.z) / max(abs(Ldir.z), 1e-6);
     vec2 surfCloudXY = worldPos.xy + tSurf * Ldir.xy;
-
-    // 云平面上两点距离 → 判断同一光束 vs 不同光束
     float distInCloudPlane = distance(surfCloudXY, camCloudXY);
-
-    float volFadeNear = 15.0;   // 云平面投影距离 ≤ 3 → 同一光束 → 衰减
-    float volFadeFar  = 25.0;  // 云平面投影距离 ≥ 15 → 不同光束 → 保留
+    float volFadeNear = 15.0;
+    float volFadeFar  = 25.0;
     volumetric *= smoothstep(volFadeNear, volFadeFar, distInCloudPlane);
 
-
-
-
-
-    // Combine — ★ 注意这里用的是 inscatter
+    // Combine
     vec3 col = direct + pointSum + sssTerm + ambientTerm + emissive + inscatter;
 
     // Fog
@@ -506,8 +392,6 @@ void main() {
         float fogAmt = 1.0 - exp(-dFog * uFogDensity * heightK);
         col = mix(col, uFogColor, clamp(fogAmt, 0.0, 1.0));
     }
-
-    
 
     // Reinhard tonemap + Gamma
     col = col / (col + vec3(1.0));
@@ -522,9 +406,10 @@ void main() {
 
     fragColor = vec4(col, 1.0);
 }
-
-
 )";
+
+            const juce::String fs = fs_part1 + fs_part2;
+
 
 
 

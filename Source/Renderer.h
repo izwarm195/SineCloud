@@ -229,7 +229,6 @@ namespace sc {
         GBuffer      gbuffer;
         PostPipeline postPipeline;
         ShadowMap   shadowMap;
-        ShadowMap& getShadowMap() noexcept { return shadowMap; }
 
         float shadeLevels{ 64.0f };
         Mat4 prevViewProj;

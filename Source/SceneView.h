@@ -131,66 +131,39 @@ namespace sc
 
             camera.tick(dt);
 
-            void renderOpenGL() override
+            // ====== Shadow Passes ======
+            if (world != nullptr)
             {
-                if (renderer == nullptr) return;
+                auto& sm = renderer->getShadowMap();
+                const Vec3 playerPos = world->getPlayer().worldPos;
 
-                const double now = juce::Time::getMillisecondCounterHiRes() * 0.001;
-                const float dt = (lastRenderSec > 0.0)
-                    ? (float)juce::jlimit(0.001, 0.1, now - lastRenderSec)
-                    : 1.0f / 60.0f;
-                lastDt = dt;
-                lastRenderSec = now;
+                // 方向光
+                sm.beginDirectionalPass(lighting.direction, playerPos, lighting.sceneRadius);
+                world->drawShadowDepth(sm, context);
+                sm.endDirectionalPass();
 
-                InputState in = pollInput();
-                in.viewportW = camera.getViewportWidth();
-                in.viewportH = camera.getViewportHeight();
-
-                if (world != nullptr && !paused)
-                    world->update(dt, in, camera);
-
-                camera.tick(dt);
-
-                // ====== ★ Shadow Passes ======
-                if (world != nullptr)
+                // 点光源 Cube (Player Light)
+                if (!lighting.pointLights.empty())
                 {
-                    auto& sm = renderer->getShadowMap();
-                    const Vec3 playerPos = world->getPlayer().worldPos;
-
-                    // --- 方向光 ---
-                    sm.beginDirectionalPass(lighting.direction, playerPos, lighting.sceneRadius);
-                    world->drawShadowDepth(sm, context);
-                    sm.endDirectionalPass();
-
-                    // --- 点光源 Cube (Player Light) ---
-                    if (!lighting.pointLights.empty())
+                    const auto& pl = lighting.pointLights[0];
+                    for (int face = 0; face < 6; ++face)
                     {
-                        const auto& pl = lighting.pointLights[0];
-                        for (int face = 0; face < 6; ++face)
-                        {
-                            sm.beginCubeFace(face, pl.position, pl.range);
-                            world->drawShadowDepth(sm, context);
-                            sm.endCubeFace();
-                        }
+                        sm.beginCubeFace(face, pl.position, pl.range);
+                        world->drawShadowDepth(sm, context);
+                        sm.endCubeFace();
                     }
-                }
-
-                // ====== G-Buffer 几何 + 延迟光照 ======
-                if (world != nullptr)
-                {
-                    renderer->beginFrame(camera, lighting, world->getPlayer().worldPos);
-                    world->draw(*renderer, camera);
-                    renderer->endFrame(camera, lighting, world->getPlayer().worldPos);
                 }
             }
 
-
-
-            renderer->beginFrame(camera, lighting, world->getPlayer().worldPos);
+            // ====== G-Buffer 几何 + 延迟光照 ======
             if (world != nullptr)
+            {
+                renderer->beginFrame(camera, lighting, world->getPlayer().worldPos);
                 world->draw(*renderer, camera);
-            renderer->endFrame(camera, lighting, world->getPlayer().worldPos);
+                renderer->endFrame(camera, lighting, world->getPlayer().worldPos);
+            }
         }
+
 
         void openGLContextClosing() override
         {

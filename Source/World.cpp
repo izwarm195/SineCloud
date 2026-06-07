@@ -601,10 +601,6 @@ namespace sc
             drawOne(cylMesh.get(), translation(k->worldPos));
     }
 
-    }
-
-
-
     void World::onMouseWheel(float deltaY)
     {
         if (focusedKnob != nullptr)
