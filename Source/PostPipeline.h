@@ -155,39 +155,47 @@ vec3 evalBRDF(vec3 N, vec3 V, vec3 L, vec3 baseColor,
     return (diffuse + spec) * radiance * NoL;
 }
 
-// ---- 3D hash（时间参与）----
-float hash31(vec3 p) {
+// ============================================================
+// 真正的 3D 值噪声 + FBM（时间连续）
+// ============================================================
+
+// 3D hash — 每个格点一个固定随机值
+float hash3D(vec3 p) {
     float h = dot(p, vec3(127.1, 311.7, 74.7));
     return fract(sin(h) * 43758.5453);
 }
 
-// ---- 带时间扰动的 2D 噪声 ----
-float noise2D_t(vec2 p, float t) {
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-    f = f * f * (3.0 - 2.0 * f);
+// 3D 值噪声 — 三线性插值，保证时间连续
+float noise3D(vec3 p) {
+    vec3 i = floor(p);
+    vec3 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);  // smoothstep
 
-    float a = hash31(vec3(i, t));
-    float b = hash31(vec3(i + vec2(1.0, 0.0), t));
-    float c = hash31(vec3(i + vec2(0.0, 1.0), t));
-    float d = hash31(vec3(i + vec2(1.0, 1.0), t));
+    float n000 = hash3D(i);
+    float n100 = hash3D(i + vec3(1.0, 0.0, 0.0));
+    float n010 = hash3D(i + vec3(0.0, 1.0, 0.0));
+    float n110 = hash3D(i + vec3(1.0, 1.0, 0.0));
+    float n001 = hash3D(i + vec3(0.0, 0.0, 1.0));
+    float n101 = hash3D(i + vec3(1.0, 0.0, 1.0));
+    float n011 = hash3D(i + vec3(0.0, 1.0, 1.0));
+    float n111 = hash3D(i + vec3(1.0, 1.0, 1.0));
 
-    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+    return mix(mix(mix(n000, n100, f.x), mix(n010, n110, f.x), f.y),
+               mix(mix(n001, n101, f.x), mix(n011, n111, f.x), f.y), f.z);
 }
 
-// ---- 随时间演化的 Perlin（每个 octave 不同速度）----
-float perlin2D_evolve(vec2 p, float time) {
+// FBM — 多个 octave 叠加，时间作为 Z 轴
+float fbm3D(vec3 p) {
     float total = 0.0;
-    float amp = 0.5;
-    float freq = 1.0;
+    float amp   = 0.5;
+    float freq  = 1.0;
 
     for (int i = 0; i < 4; ++i) {
-        float t_offset = time * (0.7 + float(i) * 0.3);
-        total += amp * noise2D_t(p * freq, t_offset);
-        freq *= 2.0;
-        amp *= 0.5;
+        total += amp * noise3D(p * freq);
+        freq  *= 2.0;
+        amp   *= 0.5;
     }
-    return total;
+    return total;  // 约 [0, 1]
 }
 
 
@@ -195,19 +203,18 @@ float perlin2D_evolve(vec2 p, float time) {
 float sampleCloud(float wx, float wz, float time) {
     vec2 uv = vec2(wx, wz) * uCloudScale;
 
-    // ---- Domain Warp：用噪声扭曲采样坐标 ----
-    float warpStrength = 0.25;
-    vec2 warpUV = uv * 2.7 + vec2(time * 0.08, time * 0.05);
-    float warpX = perlin2D_evolve(warpUV,                  time * 0.4) * 2.0 - 1.0;
-    float warpY = perlin2D_evolve(warpUV + vec2(5.2, 3.7), time * 0.4) * 2.0 - 1.0;
+    // ---- Domain Warp：微弱扭曲 ----
+    float warpStrength = 0.08;
+    float warpX = fbm3D(vec3(uv * 2.7,              time * 0.04)) * 2.0 - 1.0;
+    float warpY = fbm3D(vec3(uv * 2.7 + 5.2,        time * 0.04)) * 2.0 - 1.0;
     uv += vec2(warpX, warpY) * warpStrength;
 
-    // ---- 全局漂移（保留原来的平移）----
+    // ---- 全局漂移 ----
     uv.x += time * uCloudSpeed * 0.3;
     uv.y += time * uCloudSpeed * 0.15;
 
-    // ---- 主噪声（随时间演化）----
-    float n = perlin2D_evolve(uv, time * 0.15);
+    // ---- 主噪声：Z = time * 0.015，沿时间轴平滑滑动 ----
+    float n = fbm3D(vec3(uv, time * 0.015));
 
     if (uCloudBandLevels > 1.5) {
         n = (floor(n * uCloudBandLevels) + 0.5) / uCloudBandLevels;
@@ -249,7 +256,7 @@ float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time) {
     float stepSize = rayLen / float(steps);
 
     // ★ 抖动：用像素世界坐标生成伪随机偏移，打破规则网格
-    float jitter = hash21(worldPos.xy * 97.0 + worldPos.z * 53.0 ) * 0.8;
+    float jitter = hash21(worldPos.xy * 97.0 + worldPos.z * 53.0 + time * 13.0) * 0.8;
 
     float accum = 0.0;
     for (int i = 0; i < steps; ++i) {
@@ -265,7 +272,7 @@ float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time) {
             vec2 uv = vec2(hitPoint.x, hitPoint.y) * uCloudScale;
             uv.x += time * uCloudSpeed * 0.3;
             uv.y += time * uCloudSpeed * 0.15;
-            float cloud = perlin2D_evolve(uv, time * 0.05);
+            float cloud = fbm3D(vec3(uv, time * 0.005));
             accum += 1.0 - smoothstep(uCloudThreshold - 0.05,
                                       uCloudThreshold + 0.05, cloud);
         } else {
