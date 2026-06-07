@@ -225,9 +225,6 @@ float sampleCloud(float wx, float wz, float time) {
 
 // ---- 云阴影查询：地面上一个点是否被云遮挡 ----
 float getCloudShadow(vec3 worldPos, vec3 sunDir, float time) {
-    // 线性方程：worldPos + t * sunDir  与平面 Z = uCloudPlaneHeight 的交点
-    // Z 分量：worldPos.z + t * sunDir.z = uCloudPlaneHeight
-    // => t = (uCloudPlaneHeight - worldPos.z) / sunDir.z
 
     if (abs(sunDir.z) < 1e-6) return 1.0;  // 光线平行于平面，无遮挡
 
@@ -240,7 +237,7 @@ float getCloudShadow(vec3 worldPos, vec3 sunDir, float time) {
     // 阈值判定：cloud > threshold 表示被云覆盖 → 阴影
     float shadow = 1.0 - smoothstep(uCloudThreshold - 0.05, uCloudThreshold + 0.05, cloud);
     // 映射到 [0.5, 1.0]，让阴影区域至少有 50% 的光照（避免完全黑）
-    return mix(0.5, 1.0, shadow);
+    return mix(0.25, 1.0, shadow);
 }
 
 // ---- 体积光 Ray Marching (修正版) ----
@@ -273,20 +270,25 @@ float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time) {
             uv.x += time * uCloudSpeed * 0.3;
             uv.y += time * uCloudSpeed * 0.15;
             float cloud = fbm3D(vec3(uv, time * 0.005));
-            accum += 1.0 - smoothstep(uCloudThreshold - 0.05,
-                                      uCloudThreshold + 0.05, cloud);
+            accum += 1.0 - smoothstep(uCloudThreshold - 0.015,
+                                      uCloudThreshold + 0.015, cloud);
         } else {
             accum += 1.0;
         }
     }
 
-    float result = accum / float(steps);  // [0, 1]
+    float result = accum / float(steps); // [0, 1]
 
-    // ★ Banding 只在最终值上做一次，不在每步中间做
+    // ★ 对比度拉伸：把中间值推向两极，制造清晰光束边界
+    float beamEdge = 0.35;  // 阈值：低于此算"无光"，高于算"有光"
+    float sharpness  = 10.0; // 越大边界越锐利
+    result = smoothstep(beamEdge - 0.15, beamEdge + 0.15, result);
+    // 现在 result 约等于: 暗区→0.0, 亮区→1.0, 过渡带极窄
+
+    // Banding 照旧
     if (uCloudBandLevels > 1.5) {
         result = (floor(result * uCloudBandLevels) + 0.5) / uCloudBandLevels;
     }
-
     return result;
 }
 
@@ -326,7 +328,7 @@ void main() {
     float volumetric = getVolumetricLight(worldPos, uCamPos, Ldir, uCloudTime);
 
     // ★ 组合：云阴影 × 体积光 = 真正到达该表面点的阳光比例
-    float atmosphereLight = cloudShadow * (0.35 + 0.65 * volumetric);
+    float atmosphereLight = cloudShadow * (0.15 + 20 * volumetric);
 
     // ★ 方向光被 atmosphereLight 调制 → 体积光真正参与 BRDF 照明
     vec3 dirRad = uLightColor * uLightIntensity * atmosphereLight;
