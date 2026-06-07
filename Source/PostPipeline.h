@@ -189,7 +189,7 @@ float getCloudShadow(vec3 worldPos, vec3 sunDir, float time) {
     return mix(0.5, 1.0, shadow);
 }
 
-// ---- 体积光 Ray Marching ----
+// ---- 体积光 Ray Marching (修正版) ----
 float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time) {
     vec3 rayDir = worldPos - camPos;
     float rayLen = length(rayDir);
@@ -197,28 +197,45 @@ float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time) {
     rayDir /= rayLen;
 
     int steps = int(uVolumetricSteps);
+    steps = max(steps, 12);  // ★ 最低 12 步，消除大步长断层
+
     float stepSize = rayLen / float(steps);
 
-    float accum = 0.0;  // 累积未被遮挡的步数
+    // ★ 抖动：用像素世界坐标生成伪随机偏移，打破规则网格
+    float jitter = hash21(worldPos.xy * 97.0 + worldPos.z * 53.0 + time * 13.0) * 0.8;
 
+    float accum = 0.0;
     for (int i = 0; i < steps; ++i) {
-        float t = (float(i) + 0.5) * stepSize;
+        float t = (float(i) + 0.5 + jitter) * stepSize;
+        t = clamp(t, 0.0, rayLen);
         vec3 samplePos = camPos + rayDir * t;
 
-        // 同云阴影查询：该空间点是否能看到太阳
         float tSun = (uCloudPlaneHeight - samplePos.z) / max(abs(sunDir.z), 1e-6);
         if (tSun > 0.0) {
             vec3 hitPoint = samplePos + tSun * sunDir;
-            float cloud = sampleCloud(hitPoint.x, hitPoint.y, time);
-            // 未被云遮挡 → 该步贡献体积光
-            accum += 1.0 - smoothstep(uCloudThreshold - 0.05, uCloudThreshold + 0.05, cloud);
+            // ★ 关键：体积光累加使用 RAW Perlin 值，不做 banding 量化
+            //     banding 只对最终结果做一次，避免步间跳变
+            vec2 uv = vec2(hitPoint.x, hitPoint.y) * uCloudScale;
+            uv.x += time * uCloudSpeed * 0.3;
+            uv.y += time * uCloudSpeed * 0.15;
+            float cloud = perlin2D(uv);  // 原始 Perlin，不经 sampleCloud
+            accum += 1.0 - smoothstep(uCloudThreshold - 0.05,
+                                      uCloudThreshold + 0.05, cloud);
         } else {
-            accum += 1.0;  // 在云平面上方，始终可见
+            accum += 1.0;
         }
     }
 
-    return accum / float(steps);  // [0, 1]，可见比例
+    float result = accum / float(steps);  // [0, 1]
+
+    // ★ Banding 只在最终值上做一次，不在每步中间做
+    if (uCloudBandLevels > 1.5) {
+        result = (floor(result * uCloudBandLevels) + 0.5) / uCloudBandLevels;
+    }
+
+    return result;
 }
+
 
 
 void main() {
@@ -247,24 +264,24 @@ void main() {
 
     // Directional light
     vec3 Ldir = -normalize(uLightDir);
-    vec3 dirRad = uLightColor * uLightIntensity;
+
+    // ---- 云阴影 (头顶直接遮挡) ----
+    float cloudShadow = getCloudShadow(worldPos, Ldir, uCloudTime);
+
+    // ---- 体积光 (大气透射率) ----
+    float volumetric = getVolumetricLight(worldPos, uCamPos, Ldir, uCloudTime);
+
+    // ★ 组合：云阴影 × 体积光 = 真正到达该表面点的阳光比例
+    float atmosphereLight = cloudShadow * (0.35 + 0.65 * volumetric);
+
+    // ★ 方向光被 atmosphereLight 调制 → 体积光真正参与 BRDF 照明
+    vec3 dirRad = uLightColor * uLightIntensity * atmosphereLight;
     vec3 direct = evalBRDF(N, V, Ldir, baseColor, roughness, metallic, F0, dirRad);
 
-    // ★★★ 新增：云阴影遮罩 ★★★
-    float cloudShadow = getCloudShadow(worldPos, Ldir, uCloudTime);
-    direct *= cloudShadow;  // 方向光被云层减弱
-
-    // ★★★ 新增：体积光 (God Rays) ★★★
-    float volumetric = getVolumetricLight(worldPos, uCamPos, Ldir, uCloudTime);
-    // 体积光颜色：暖色调散射光
-    vec3 volumetricColor = uLightColor * vec3(1.0, 0.95, 0.85);
-    vec3 volumetricTerm = volumetricColor * volumetric * uVolumetricIntensity * uLightIntensity;
-
-    // SSS (directional only)
+    // SSS 同样受大气透射影响
     float backLight = max(dot(-N, Ldir), 0.0);
-    vec3 sssTerm = sss * backLight * baseColor * uLightColor * uLightIntensity * 0.5;
-
-
+    vec3 sssRadiance = uLightColor * uLightIntensity * atmosphereLight * 0.5;
+    vec3 sssTerm = sss * backLight * baseColor * sssRadiance;
 
     // Point lights
     vec3 pointSum = vec3(0.0);
@@ -279,7 +296,7 @@ void main() {
         pointSum += evalBRDF(N, V, Lp, baseColor, roughness, metallic, F0, radiance);
     }
 
-    // Ambient (matches 55a0f17 PixelMaterial)
+    // Ambient
     float upDot = clamp(N.z * 0.5 + 0.5, 0.0, 1.0);
     vec3 hemi = mix(uGroundColor, uSkyColor, upDot);
     vec3 envIrradiance = uAmbient + hemi;
@@ -288,8 +305,13 @@ void main() {
     vec3 ambientSpec = F_env * envIrradiance;
     vec3 ambientTerm = ambientDiffuse + ambientSpec;
 
-    // Combine
-    vec3 col = direct + pointSum + sssTerm + ambientTerm + emissive + volumetricTerm;
+    // ★ 内散射项：空气中介质本身发亮 (可见光束，纯加法)
+    vec3 inscatterColor = uLightColor * vec3(1.0, 0.92, 0.82);
+    float beamGlow = pow(volumetric, 2.5);
+    vec3 inscatter = inscatterColor * beamGlow * uVolumetricIntensity * uLightIntensity * 0.2;
+
+    // Combine — ★ 注意这里用的是 inscatter
+    vec3 col = direct + pointSum + sssTerm + ambientTerm + emissive + inscatter;
 
     // Fog
     if (uFogDensity > 0.0) {
@@ -300,18 +322,22 @@ void main() {
         col = mix(col, uFogColor, clamp(fogAmt, 0.0, 1.0));
     }
 
-    // Shade levels (luminance-preserving, matches 55a0f17)
+    
+
+    // Reinhard tonemap + Gamma
+    col = col / (col + vec3(1.0));
+    col = pow(col, vec3(1.0 / 2.2));
+
+    // Shade levels
     if (uShadeLevels > 1.5) {
         float Y = max(dot(col, vec3(0.2126, 0.7152, 0.0722)), 1e-5);
         float Yq = (floor(Y * uShadeLevels) + 0.5) / uShadeLevels;
         col = col * (Yq / Y);
     }
 
-    // Reinhard tonemap + Gamma
-    col = col / (col + vec3(1.0));
-    col = pow(col, vec3(1.0 / 2.2));
     fragColor = vec4(col, 1.0);
 }
+
 
 )";
 
