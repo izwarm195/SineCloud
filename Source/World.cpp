@@ -403,6 +403,9 @@ namespace sc
     {
         player->setBasis(cam.getForwardOnGround(), cam.getRightOnGround());
         player->update(dt, in);
+        // 云层滚动
+        lighting.cloudTime += dt;
+
         // 1. Player XY
         const Vec3 vel = player->getVelocity();
         player->worldPos.x += vel.x * dt;

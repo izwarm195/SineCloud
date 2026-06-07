@@ -69,9 +69,54 @@ uniform vec3 uPlayerPos;
 
 uniform float uShadeLevels;
 
+// ---- 云层 / 体积光 ----
+uniform float uCloudScale;        // Perlin 缩放（如 0.03）
+uniform float uCloudThreshold;    // 云/晴 阈值（如 0.45）
+uniform float uCloudSpeed;        // 云滚动速度
+uniform float uCloudPlaneHeight;  // 虚拟天花板高度（世界空间 Z）
+uniform float uCloudTime;         // 当前时间（秒）
+uniform float uVolumetricSteps;   // Ray March 步数（如 8.0）
+uniform float uVolumetricIntensity; // 体积光强度（如 0.6）
+uniform float uCloudBandLevels;   // 阶梯量化级数（如 3.0，用于像素风 banding）
+
+
 out vec4 fragColor;
 
 const float PI = 3.14159265359;
+
+// ============================================================
+// Perlin Noise (2D) — 用于生成云纹理
+// ============================================================
+float hash21(vec2 p) {
+    float h = dot(p, vec2(127.1, 311.7));
+    return fract(sin(h) * 43758.5453);
+}
+
+float noise2D(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);  // smoothstep
+
+    float a = hash21(i);
+    float b = hash21(i + vec2(1.0, 0.0));
+    float c = hash21(i + vec2(0.0, 1.0));
+    float d = hash21(i + vec2(1.0, 1.0));
+
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+float perlin2D(vec2 p) {
+    float total = 0.0;
+    float amp   = 0.5;
+    float freq  = 1.0;
+    for (int i = 0; i < 4; ++i) {
+        total += amp * noise2D(p * freq);
+        freq  *= 2.0;
+        amp   *= 0.5;
+    }
+    return total;  // 范围约 [0, 1]
+}
+
 
 float D_GGX(float NoH, float a) {
     float a2 = a * a;
@@ -110,6 +155,72 @@ vec3 evalBRDF(vec3 N, vec3 V, vec3 L, vec3 baseColor,
     return (diffuse + spec) * radiance * NoL;
 }
 
+// ---- 采样云纹理：给定世界 XZ 坐标，返回 [0,1] 覆盖率 ----
+float sampleCloud(float wx, float wz, float time) {
+    vec2 uv = vec2(wx, wz) * uCloudScale;
+    uv.x += time * uCloudSpeed * 0.3;   // X 方向滚动
+    uv.y += time * uCloudSpeed * 0.15;  // Y 方向滚动稍慢，产生交错感
+    float n = perlin2D(uv);
+
+    // ---- 像素风 banding：阶梯量化代替模糊 ----
+    if (uCloudBandLevels > 1.5) {
+        n = (floor(n * uCloudBandLevels) + 0.5) / uCloudBandLevels;
+    }
+    return n;
+}
+
+// ---- 云阴影查询：地面上一个点是否被云遮挡 ----
+float getCloudShadow(vec3 worldPos, vec3 sunDir, float time) {
+    // 线性方程：worldPos + t * sunDir  与平面 Z = uCloudPlaneHeight 的交点
+    // Z 分量：worldPos.z + t * sunDir.z = uCloudPlaneHeight
+    // => t = (uCloudPlaneHeight - worldPos.z) / sunDir.z
+
+    if (abs(sunDir.z) < 1e-6) return 1.0;  // 光线平行于平面，无遮挡
+
+    float t = (uCloudPlaneHeight - worldPos.z) / sunDir.z;
+    if (t <= 0.0) return 1.0;  // 云平面在下方，无遮挡
+
+    vec3 hitPoint = worldPos + t * sunDir;
+    float cloud = sampleCloud(hitPoint.x, hitPoint.y, time);
+
+    // 阈值判定：cloud > threshold 表示被云覆盖 → 阴影
+    float shadow = 1.0 - smoothstep(uCloudThreshold - 0.05, uCloudThreshold + 0.05, cloud);
+    // 映射到 [0.5, 1.0]，让阴影区域至少有 50% 的光照（避免完全黑）
+    return mix(0.5, 1.0, shadow);
+}
+
+// ---- 体积光 Ray Marching ----
+float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time) {
+    vec3 rayDir = worldPos - camPos;
+    float rayLen = length(rayDir);
+    if (rayLen < 0.01) return 0.0;
+    rayDir /= rayLen;
+
+    int steps = int(uVolumetricSteps);
+    float stepSize = rayLen / float(steps);
+
+    float accum = 0.0;  // 累积未被遮挡的步数
+
+    for (int i = 0; i < steps; ++i) {
+        float t = (float(i) + 0.5) * stepSize;
+        vec3 samplePos = camPos + rayDir * t;
+
+        // 同云阴影查询：该空间点是否能看到太阳
+        float tSun = (uCloudPlaneHeight - samplePos.z) / max(abs(sunDir.z), 1e-6);
+        if (tSun > 0.0) {
+            vec3 hitPoint = samplePos + tSun * sunDir;
+            float cloud = sampleCloud(hitPoint.x, hitPoint.y, time);
+            // 未被云遮挡 → 该步贡献体积光
+            accum += 1.0 - smoothstep(uCloudThreshold - 0.05, uCloudThreshold + 0.05, cloud);
+        } else {
+            accum += 1.0;  // 在云平面上方，始终可见
+        }
+    }
+
+    return accum / float(steps);  // [0, 1]，可见比例
+}
+
+
 void main() {
     float depth = texture(gDepth, vUV).r;
 
@@ -139,9 +250,21 @@ void main() {
     vec3 dirRad = uLightColor * uLightIntensity;
     vec3 direct = evalBRDF(N, V, Ldir, baseColor, roughness, metallic, F0, dirRad);
 
+    // ★★★ 新增：云阴影遮罩 ★★★
+    float cloudShadow = getCloudShadow(worldPos, Ldir, uCloudTime);
+    direct *= cloudShadow;  // 方向光被云层减弱
+
+    // ★★★ 新增：体积光 (God Rays) ★★★
+    float volumetric = getVolumetricLight(worldPos, uCamPos, Ldir, uCloudTime);
+    // 体积光颜色：暖色调散射光
+    vec3 volumetricColor = uLightColor * vec3(1.0, 0.95, 0.85);
+    vec3 volumetricTerm = volumetricColor * volumetric * uVolumetricIntensity * uLightIntensity;
+
     // SSS (directional only)
     float backLight = max(dot(-N, Ldir), 0.0);
     vec3 sssTerm = sss * backLight * baseColor * uLightColor * uLightIntensity * 0.5;
+
+
 
     // Point lights
     vec3 pointSum = vec3(0.0);
@@ -166,7 +289,7 @@ void main() {
     vec3 ambientTerm = ambientDiffuse + ambientSpec;
 
     // Combine
-    vec3 col = direct + pointSum + sssTerm + ambientTerm + emissive;
+    vec3 col = direct + pointSum + sssTerm + ambientTerm + emissive + volumetricTerm;
 
     // Fog
     if (uFogDensity > 0.0) {
@@ -260,6 +383,20 @@ void main() {
 
             deferredShader.setVec3("uPlayerPos", playerPos);
             deferredShader.setFloat("uShadeLevels", shadeLevels);
+
+            // ---- 云层 / 体积光 ----
+            auto setCF = [&](const char* name, float v) {
+                deferredShader.setFloat(name, v);
+                };
+            setCF("uCloudScale", lighting.cloudScale);
+            setCF("uCloudThreshold", lighting.cloudThreshold);
+            setCF("uCloudSpeed", lighting.cloudSpeed);
+            setCF("uCloudPlaneHeight", lighting.cloudPlaneHeight);
+            setCF("uCloudBandLevels", lighting.cloudBandLevels);
+            setCF("uVolumetricSteps", lighting.volumetricSteps);
+            setCF("uVolumetricIntensity", lighting.volumetricIntensity);
+            setCF("uCloudTime", lighting.cloudTime);
+
 
             // ---- 画全屏四边形 ----
             glDisable(GL_DEPTH_TEST);
