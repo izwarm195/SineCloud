@@ -208,7 +208,8 @@ namespace sc
 
     void World::uploadMeshes(juce::OpenGLContext& ctx)
     {
-        
+        glCtx = &ctx;
+
         boxMesh = Mesh::createBox(1.0f, 1.0f, 1.0f);
         cylMesh = Mesh::createCylinder(1.0f, 1.0f, 32);
         ptrMesh = Mesh::createBox(1.0f, 1.0f, 1.0f);
@@ -570,7 +571,7 @@ namespace sc
 
     }
 
-    void World::drawShadowDepth(ShadowMap& sm)
+    void World::drawShadowDepth(ShadowMap& sm, juce::OpenGLContext& ctx)
     {
         auto& shader = sm.getDepthShader();
         shader.use();
@@ -580,7 +581,7 @@ namespace sc
             if (m && m->isUploaded())
             {
                 sm.setModelForDepth(model);
-                m->draw(context);  // 仅绑 VAO + glDrawElements，depth shader 已绑好
+                m->draw(ctx);   // ★ 使用参数传入的 ctx
             }
             };
 
@@ -592,12 +593,14 @@ namespace sc
         drawOne(propMainPillarMesh.get(), I);
         drawOne(propSurroundPillarMesh.get(), I);
 
-        // 玩家
-        if (player) drawOne(boxMesh.get(), translation(player->worldPos));
-
-        // 旋钮
+        //Player
+        if (player && boxMesh)
+            drawOne(boxMesh.get(), translation(player->worldPos));
+        //Knob
         for (auto& k : knobs)
             drawOne(cylMesh.get(), translation(k->worldPos));
+    }
+
     }
 
 

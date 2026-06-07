@@ -33,8 +33,6 @@ namespace sc
         float sampleHeight(float x, float y) const;
         Vec3  sampleNormal(float x, float y) const;
         void  buildFromMesh(const class Mesh& mesh);
-        void drawShadowDepth(ShadowMap& sm);
-
         bool  isEmpty() const noexcept { return tris.empty(); }
 
     private:
@@ -69,8 +67,7 @@ namespace sc
         // 主循环
         void update(float dt, const InputState& in, Camera& cam);
         void draw(Renderer& r, const Camera& cam);
-        void drawShadowDepth(class ShadowMap& sm);
-
+        void drawShadowDepth(class ShadowMap& sm, juce::OpenGLContext& ctx);
 
         // 交互
         void onMouseWheel(float deltaY);
@@ -87,6 +84,8 @@ namespace sc
         void loadCollidersFromJSON(const juce::File& jsonFile);
         void buildCollidersFromObjFile(const juce::File& objFile);
         void resolvePlayerCollisions();
+
+        juce::OpenGLContext* glCtx = nullptr;
 
         SineCloudAudioProcessor& processor;
 

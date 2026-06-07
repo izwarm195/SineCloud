@@ -142,7 +142,6 @@ void main() {}
             glClear(GL_DEPTH_BUFFER_BIT);
 
             // 存储以便 restore
-            prevFBO = (GLuint)prevVP[0]; // 用 member 存 prevFBO 在 end 时恢复
             prevVPW = prevVP[2];
             prevVPH = prevVP[3];
 
@@ -275,7 +274,6 @@ void main() {}
 
         // 临时状态恢复
         int prevVPW = 1, prevVPH = 1;
-        GLuint prevFBO = 0;
 
     public:
         Mat4  lightViewProj;         // 方向光 VP（公开以便外部读取）
