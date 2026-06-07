@@ -241,7 +241,7 @@ float getCloudShadow(vec3 worldPos, vec3 sunDir, float time) {
 }
 
 // ---- 体积光 Ray Marching (修正版) ----
-float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time) {
+float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time,vec2 vUV) {
     vec3 rayDir = worldPos - camPos;
     float rayLen = length(rayDir);
     if (rayLen < 0.01) return 0.0;
@@ -255,9 +255,13 @@ float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time) {
     // ★ 抖动：用像素世界坐标生成伪随机偏移，打破规则网格
     float jitter = hash21(worldPos.xy * 97.0 + worldPos.z * 53.0 + time * 13.0) * 0.8;
 
+    //
+    float baseOffset = fract(sin(dot(vUV, vec2(127.1, 311.7)) + time * 0.37) * 43758.5453);
+    float layerOffset = baseOffset * 0.6;
+
     float accum = 0.0;
     for (int i = 0; i < steps; ++i) {
-        float t = (float(i) + 0.5 + jitter) * stepSize;
+        float t = (float(i) + 0.5 + 1*jitter + layerOffset) * stepSize;
         t = clamp(t, 0.0, rayLen);
         vec3 samplePos = camPos + rayDir * t;
 
@@ -270,8 +274,8 @@ float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time) {
             uv.x += time * uCloudSpeed * 0.3;
             uv.y += time * uCloudSpeed * 0.15;
             float cloud = fbm3D(vec3(uv, time * 0.005));
-            accum += 1.0 - smoothstep(uCloudThreshold - 0.015,
-                                      uCloudThreshold + 0.015, cloud);
+            accum += 1.0 - smoothstep(uCloudThreshold - 0.001,
+                                      uCloudThreshold + 0.001, cloud);
         } else {
             accum += 1.0;
         }
@@ -280,8 +284,8 @@ float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time) {
     float result = accum / float(steps); // [0, 1]
 
     // ★ 对比度拉伸：把中间值推向两极，制造清晰光束边界
-    float beamEdge = 0.35;  // 阈值：低于此算"无光"，高于算"有光"
-    float sharpness  = 10.0; // 越大边界越锐利
+    float beamEdge = 0.6;  // 阈值：低于此算"无光"，高于算"有光"
+    float sharpness  = 1000.0; // 越大边界越锐利
     result = smoothstep(beamEdge - 0.15, beamEdge + 0.15, result);
     // 现在 result 约等于: 暗区→0.0, 亮区→1.0, 过渡带极窄
 
@@ -296,6 +300,8 @@ float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time) {
 
 void main() {
     float depth = texture(gDepth, vUV).r;
+    
+
 
     if (depth >= 0.99999) {
         fragColor = vec4(0.06, 0.07, 0.09, 1.0);
@@ -325,7 +331,7 @@ void main() {
     float cloudShadow = getCloudShadow(worldPos, Ldir, uCloudTime);
 
     // ---- 体积光 (大气透射率) ----
-    float volumetric = getVolumetricLight(worldPos, uCamPos, Ldir, uCloudTime);
+    float volumetric = getVolumetricLight(worldPos, uCamPos, Ldir, uCloudTime, vUV);
 
     // ★ 组合：云阴影 × 体积光 = 真正到达该表面点的阳光比例
     float atmosphereLight = cloudShadow * (0.15 + 20 * volumetric);
@@ -397,12 +403,27 @@ void main() {
 
     inscatter *= uVolumetricIntensity * uLightIntensity;
 
-    // ★ 摄像头距离衰减：当表面离摄像头很近时，降低体积光贡献，
-    //    避免摄像头进入光束区域时全屏模糊
-    float distCamToSurface = distance(worldPos, uCamPos);
-    float volFadeNear = 60.0;   // 距离 <= 此值时 volumetric → 0
-    float volFadeFar  = 100.0;   // 距离 >= 此值时 volumetric 完全保留
-    volumetric *= smoothstep(volFadeNear, volFadeFar, distCamToSurface);
+    // ★ 摄像头距离衰减（云平面投影法）
+    // 体积光束是斜射的 → 同一光束中所有点沿 Ldir 反投影到云平面
+    // Z=uCloudPlaneHeight 时落在相同 (X,Y)。两个点即使 3D 距离很近，
+    // 只要云平面投影不同，就属于不同光束，不应互相衰减。
+
+    // 摄像头沿阳光方向投影到云平面
+    float tCam = (uCloudPlaneHeight - uCamPos.z) / max(abs(Ldir.z), 1e-6);
+    vec2 camCloudXY = uCamPos.xy + tCam * Ldir.xy;
+
+    // 当前表面点沿阳光方向投影到云平面
+    float tSurf = (uCloudPlaneHeight - worldPos.z) / max(abs(Ldir.z), 1e-6);
+    vec2 surfCloudXY = worldPos.xy + tSurf * Ldir.xy;
+
+    // 云平面上两点距离 → 判断同一光束 vs 不同光束
+    float distInCloudPlane = distance(surfCloudXY, camCloudXY);
+
+    float volFadeNear = 15.0;   // 云平面投影距离 ≤ 3 → 同一光束 → 衰减
+    float volFadeFar  = 25.0;  // 云平面投影距离 ≥ 15 → 不同光束 → 保留
+    volumetric *= smoothstep(volFadeNear, volFadeFar, distInCloudPlane);
+
+
 
 
 
