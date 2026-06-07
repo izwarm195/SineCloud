@@ -155,19 +155,66 @@ vec3 evalBRDF(vec3 N, vec3 V, vec3 L, vec3 baseColor,
     return (diffuse + spec) * radiance * NoL;
 }
 
+// ---- 3D hash（时间参与）----
+float hash31(vec3 p) {
+    float h = dot(p, vec3(127.1, 311.7, 74.7));
+    return fract(sin(h) * 43758.5453);
+}
+
+// ---- 带时间扰动的 2D 噪声 ----
+float noise2D_t(vec2 p, float t) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+
+    float a = hash31(vec3(i, t));
+    float b = hash31(vec3(i + vec2(1.0, 0.0), t));
+    float c = hash31(vec3(i + vec2(0.0, 1.0), t));
+    float d = hash31(vec3(i + vec2(1.0, 1.0), t));
+
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+// ---- 随时间演化的 Perlin（每个 octave 不同速度）----
+float perlin2D_evolve(vec2 p, float time) {
+    float total = 0.0;
+    float amp = 0.5;
+    float freq = 1.0;
+
+    for (int i = 0; i < 4; ++i) {
+        float t_offset = time * (0.7 + float(i) * 0.3);
+        total += amp * noise2D_t(p * freq, t_offset);
+        freq *= 2.0;
+        amp *= 0.5;
+    }
+    return total;
+}
+
+
 // ---- 采样云纹理：给定世界 XZ 坐标，返回 [0,1] 覆盖率 ----
 float sampleCloud(float wx, float wz, float time) {
     vec2 uv = vec2(wx, wz) * uCloudScale;
-    uv.x += time * uCloudSpeed * 0.3;   // X 方向滚动
-    uv.y += time * uCloudSpeed * 0.15;  // Y 方向滚动稍慢，产生交错感
-    float n = perlin2D(uv);
 
-    // ---- 像素风 banding：阶梯量化代替模糊 ----
+    // ---- Domain Warp：用噪声扭曲采样坐标 ----
+    float warpStrength = 0.25;
+    vec2 warpUV = uv * 2.7 + vec2(time * 0.08, time * 0.05);
+    float warpX = perlin2D_evolve(warpUV,                  time * 0.4) * 2.0 - 1.0;
+    float warpY = perlin2D_evolve(warpUV + vec2(5.2, 3.7), time * 0.4) * 2.0 - 1.0;
+    uv += vec2(warpX, warpY) * warpStrength;
+
+    // ---- 全局漂移（保留原来的平移）----
+    uv.x += time * uCloudSpeed * 0.3;
+    uv.y += time * uCloudSpeed * 0.15;
+
+    // ---- 主噪声（随时间演化）----
+    float n = perlin2D_evolve(uv, time * 0.15);
+
     if (uCloudBandLevels > 1.5) {
         n = (floor(n * uCloudBandLevels) + 0.5) / uCloudBandLevels;
     }
     return n;
 }
+
 
 // ---- 云阴影查询：地面上一个点是否被云遮挡 ----
 float getCloudShadow(vec3 worldPos, vec3 sunDir, float time) {
@@ -202,7 +249,7 @@ float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time) {
     float stepSize = rayLen / float(steps);
 
     // ★ 抖动：用像素世界坐标生成伪随机偏移，打破规则网格
-    float jitter = hash21(worldPos.xy * 97.0 + worldPos.z * 53.0 + time * 13.0) * 0.8;
+    float jitter = hash21(worldPos.xy * 97.0 + worldPos.z * 53.0 ) * 0.8;
 
     float accum = 0.0;
     for (int i = 0; i < steps; ++i) {
@@ -218,7 +265,7 @@ float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time) {
             vec2 uv = vec2(hitPoint.x, hitPoint.y) * uCloudScale;
             uv.x += time * uCloudSpeed * 0.3;
             uv.y += time * uCloudSpeed * 0.15;
-            float cloud = perlin2D(uv);  // 原始 Perlin，不经 sampleCloud
+            float cloud = perlin2D_evolve(uv, time * 0.05);
             accum += 1.0 - smoothstep(uCloudThreshold - 0.05,
                                       uCloudThreshold + 0.05, cloud);
         } else {
@@ -324,7 +371,7 @@ void main() {
     float sparkleNoise = fract(
         sin(dot(worldPos.xy * 17.0, vec2(12.9898, 78.233)))
       + sin(dot(worldPos.yz * 23.0, vec2(45.164, 93.497)))
-      + uCloudTime * 3.7                                    // 随时间流动
+      + uCloudTime * 0.5                                    // 随时间流动
     );
     // 只在强光区域出现闪烁（避免暗处也有金粉）
     float sparkleMask = smoothstep(0.25, 0.65, volumetric);
