@@ -12,6 +12,7 @@
 #include "Material.h"
 #include "GBuffer.h"
 #include "PostPipeline.h"
+#include "ShadowMap.h"
 
 namespace sc {
 
@@ -19,32 +20,33 @@ namespace sc {
     {
     public:
         explicit Renderer(juce::OpenGLContext& ctx)
-            : context(ctx), gbuffer(ctx), postPipeline(ctx) {
+            : context(ctx), gbuffer(ctx), postPipeline(ctx), shadowMap(ctx) {
         }
+        
+
+
 
         // ----------------------------------------------------------------
         // 生命周期
         // ----------------------------------------------------------------
         bool initialise()
         {
-            if (!gbuffer.build())
-            {
-                DBG("Renderer: GBuffer build failed");
-                return false;
-            }
-            if (!postPipeline.build())
-            {
-                DBG("Renderer: PostPipeline build failed");
-                return false;
-            }
+            if (!gbuffer.build()) { DBG("Renderer: GBuffer build failed");      return false; }
+            if (!postPipeline.build()) { DBG("Renderer: PostPipeline build failed"); return false; }
+            if (!shadowMap.build()) { DBG("Renderer: ShadowMap build failed");    return false; }
             return true;
         }
+
+
 
         void shutdown()
         {
             gbuffer.shutdown();
             postPipeline.shutdown();
+            shadowMap.shutdown();
         }
+
+
 
         // ----------------------------------------------------------------
         // Phase 1: 绑 G-Buffer，清屏，准备几何写入
@@ -189,12 +191,34 @@ namespace sc {
             const int wPx = (int)(camera.getViewportWidth() * scale);
             const int hPx = (int)(camera.getViewportHeight() * scale);
 
+            // ★ 绑定 Shadow Map 到 PostPipeline shader
+            {
+                using namespace sc::gl;
+                Shader& shader = postPipeline.getDeferredShader();
+                shader.use();
+                // unit 6: 方向光 Shadow Map
+                glActiveTexture(GL_TEXTURE6);
+                glBindTexture(GL_TEXTURE_2D, shadowMap.getDirShadowMap());
+                GLint loc = glGetUniformLocation(shader.raw().getProgramID(), "uDirShadowMap");
+                if (loc >= 0) glUniform1i(loc, 6);
+                // unit 7: Cube Shadow Map
+                glActiveTexture(GL_TEXTURE7);
+                glBindTexture(GL_TEXTURE_CUBE_MAP, shadowMap.getCubeShadowMap());
+                loc = glGetUniformLocation(shader.raw().getProgramID(), "uCubeShadowMap");
+                if (loc >= 0) glUniform1i(loc, 7);
+                // Light VP
+                loc = glGetUniformLocation(shader.raw().getProgramID(), "uLightViewProj");
+                if (loc >= 0) glUniformMatrix4fv(loc, 1, GL_FALSE, shadowMap.lightViewProj.mat);
+            }
+
+
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             postPipeline.doLighting(gbuffer, camera, light, playerPos, shadeLevels);
 
             prevViewProj = camera.proj() * camera.view();
             checkError("endFrame");
         }
+
 
 
         // ----------------------------------------------------------------
@@ -205,10 +229,39 @@ namespace sc {
             shadeLevels = juce::jmax(1.0f, levels);
         }
 
+
+        
+    // ★ 新增方法：渲染所有 Shadow Map
+    void renderShadowMaps(const Camera& camera, const Lighting& light,
+                           const Vec3& playerPos, World* world)
+    {
+        using namespace sc::gl;
+
+        // ====== Pass A: 方向光 Shadow Map ======
+        shadowMap.beginDirectionalPass(light.direction, playerPos, light.sceneRadius);
+        // 重绘所有场景几何（仅深度）
+        if (world) world->drawShadowDepth(shadowMap);
+        shadowMap.endDirectionalPass();
+
+        // ====== Pass B: 点光源 Cube Shadow Map ======
+        if (!light.pointLights.empty())
+        {
+            const auto& pl = light.pointLights[0]; // Player Light
+            for (int face = 0; face < 6; ++face)
+            {
+                shadowMap.beginCubeFace(face, pl.position, pl.range);
+                if (world) world->drawShadowDepth(shadowMap);
+                shadowMap.endCubeFace();
+            }
+        }
+    }
+
     private:
         juce::OpenGLContext& context;
         GBuffer      gbuffer;
         PostPipeline postPipeline;
+        ShadowMap   shadowMap;
+        ShadowMap& getShadowMap() noexcept { return shadowMap; }
 
         float shadeLevels{ 64.0f };
         Mat4 prevViewProj;

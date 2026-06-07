@@ -33,6 +33,7 @@ namespace sc
         float sampleHeight(float x, float y) const;
         Vec3  sampleNormal(float x, float y) const;
         void  buildFromMesh(const class Mesh& mesh);
+        void drawShadowDepth(ShadowMap& sm);
 
         bool  isEmpty() const noexcept { return tris.empty(); }
 
@@ -68,6 +69,8 @@ namespace sc
         // 主循环
         void update(float dt, const InputState& in, Camera& cam);
         void draw(Renderer& r, const Camera& cam);
+        void drawShadowDepth(class ShadowMap& sm);
+
 
         // 交互
         void onMouseWheel(float deltaY);

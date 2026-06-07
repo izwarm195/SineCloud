@@ -5,6 +5,7 @@
               pluginCode="Sct1">
   <MAINGROUP id="MWtifI" name="SineCloud">
     <GROUP id="{9D89155D-745F-44F4-4A89-1045E4DDABEF}" name="Source">
+      <FILE id="GfR9lA" name="ShadowMap.h" compile="0" resource="0" file="Source/ShadowMap.h"/>
       <FILE id="u2xL7o" name="PostPipeline.h" compile="0" resource="0" file="Source/PostPipeline.h"/>
       <FILE id="BQ1eF8" name="GBuffer.h" compile="0" resource="0" file="Source/GBuffer.h"/>
       <FILE id="bBJpE0" name="PointLight.h" compile="0" resource="0" file="Source/PointLight.h"/>

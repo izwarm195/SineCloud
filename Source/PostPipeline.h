@@ -79,6 +79,14 @@ uniform float uVolumetricSteps;   // Ray March 步数（如 8.0）
 uniform float uVolumetricIntensity; // 体积光强度（如 0.6）
 uniform float uCloudBandLevels;   // 阶梯量化级数（如 3.0，用于像素风 banding）
 
+// ★★★ Shadow Map uniforms ★★★
+uniform sampler2D   uDirShadowMap;
+uniform samplerCube uCubeShadowMap;
+uniform mat4        uLightViewProj;
+uniform vec3        uPtShadowPos;
+uniform float       uPtShadowRange;
+uniform float       uShadowBias;
+uniform float       uShadowStrength;
 
 out vec4 fragColor;
 
@@ -116,6 +124,47 @@ float perlin2D(vec2 p) {
     }
     return total;  // 范围约 [0, 1]
 }
+
+// ---- 方向光 PCF (4x4) ----
+float sampleDirShadow(vec3 worldPos, vec3 N, vec3 L)
+{
+    vec4 ls = uLightViewProj * vec4(worldPos, 1.0);
+    vec3 proj = ls.xyz / max(ls.w, 1e-6);
+    vec2 uv  = proj.xy * 0.5 + 0.5;
+    float depth = proj.z * 0.5 + 0.5;
+    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0)
+        return 1.0;
+    float bias = max(uShadowBias * (1.0 - dot(N, L)), uShadowBias * 0.25);
+    vec2 ts = 1.0 / vec2(textureSize(uDirShadowMap, 0));
+    float shadow = 0.0;
+    for (int x = -2; x <= 1; ++x)
+        for (int y = -2; y <= 1; ++y)
+        {
+            float sm = texture(uDirShadowMap, uv + vec2(float(x)+0.5, float(y)+0.5) * ts).r;
+            shadow += (depth - bias <= sm) ? 1.0 : 0.0;
+        }
+    return shadow / 16.0;
+}
+
+// ---- 点光源 Cube Shadow PCF (3x3) ----
+float samplePointShadow(vec3 worldPos, vec3 lightPos, float farPlane, vec3 N, vec3 L)
+{
+    vec3 fragToLight = worldPos - lightPos;
+    float currentDepth = length(fragToLight) / farPlane;
+    float bias = max(uShadowBias * 3.0 * (1.0 - dot(N, L)), uShadowBias * 0.75);
+    float shadow = 0.0;
+    float diskRadius = 0.008;
+    for (int i = -1; i <= 1; ++i)
+        for (int j = -1; j <= 1; ++j)
+            for (int k = -1; k <= 1; ++k)
+            {
+                vec3 offset = vec3(float(i), float(j), float(k)) * diskRadius;
+                float sm = texture(uCubeShadowMap, fragToLight + offset).r;
+                shadow += (currentDepth - bias <= sm) ? 1.0 : 0.0;
+            }
+    return shadow / 27.0;
+}
+
 
 
 float D_GGX(float NoH, float a) {
@@ -276,10 +325,15 @@ float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time,vec
             float cloud = fbm3D(vec3(uv, time * 0.005));
             accum += 1.0 - smoothstep(uCloudThreshold - 0.001,
                                       uCloudThreshold + 0.001, cloud);
+            // ★ 几何阴影：采样点被场景遮挡则不计入散射
+            float geomShadow = sampleDirShadow(samplePos, vec3(0,0,1), sunDir);
+            accum *= geomShadow;
+
         } else {
             accum += 1.0;
         }
     }
+
 
     float result = accum / float(steps); // [0, 1]
 
@@ -334,7 +388,9 @@ void main() {
     float volumetric = getVolumetricLight(worldPos, uCamPos, Ldir, uCloudTime, vUV);
 
     // ★ 组合：云阴影 × 体积光 = 真正到达该表面点的阳光比例
-    float atmosphereLight = cloudShadow * (0.15 + 20 * volumetric);
+    float geomShadow = sampleDirShadow(worldPos, N, Ldir);
+    float shadowFactor = mix(1.0, geomShadow, uShadowStrength);
+    float atmosphereLight = cloudShadow * shadowFactor * (0.15 + 20.0 * volumetric);
 
     // ★ 方向光被 atmosphereLight 调制 → 体积光真正参与 BRDF 照明
     vec3 dirRad = uLightColor * uLightIntensity * atmosphereLight;
@@ -347,7 +403,8 @@ void main() {
 
     // Point lights
     vec3 pointSum = vec3(0.0);
-    for (int i = 0; i < uNumPointLights; ++i) {
+    for (int i = 0; i < uNumPointLights; ++i)
+    {
         vec3 toLight = uPointLightPos[i] - worldPos;
         float dist = length(toLight);
         if (dist > uPointLightRange[i]) continue;
@@ -355,8 +412,19 @@ void main() {
         float atten = 1.0 / (1.0 + uPointLightQuadratic[i] * dist * dist);
         float edge = 1.0 - smoothstep(uPointLightRange[i] * 0.85, uPointLightRange[i], dist);
         vec3 radiance = uPointLightColor[i] * atten * edge;
-        pointSum += evalBRDF(N, V, Lp, baseColor, roughness, metallic, F0, radiance);
+
+        // ★新增：Player Light (i==0) 投射 Cube Shadow
+        float ptShadow = 1.0;
+        if (i == 0)
+        {
+            ptShadow = samplePointShadow(worldPos, uPtShadowPos, uPtShadowRange, N, Lp);
+            ptShadow = mix(1.0, ptShadow, uShadowStrength);
+        }
+
+
+        pointSum += evalBRDF(N, V, Lp, baseColor, roughness, metallic, F0, radiance * ptShadow);
     }
+
 
     // Ambient
     float upDot = clamp(N.z * 0.5 + 0.5, 0.0, 1.0);
@@ -546,6 +614,37 @@ void main() {
             glDepthMask(GL_FALSE);
 
             glBindVertexArray(fullscreenVAO);
+
+            // ---- Shadow Maps ----
+            {
+                using namespace sc::gl;
+                auto bindTex = [&](GLuint tex, int unit, const char* name, GLenum target) {
+                    glActiveTexture(GL_TEXTURE0 + unit);
+                    glBindTexture(target, tex);
+                    GLint loc = glGetUniformLocation(deferredShader.raw().getProgramID(), name);
+                    if (loc >= 0) glUniform1i(loc, unit);
+                    };
+                // 方向光 Shadow Map → unit 6
+                bindTex(0, 6, "uDirShadowMap", GL_TEXTURE_2D); // 占位，由 Renderer 在 endFrame 中实际绑定
+                // Cube Shadow Map → unit 7
+                bindTex(0, 7, "uCubeShadowMap", GL_TEXTURE_CUBE_MAP);
+            }
+            deferredShader.setFloat("uShadowBias", lighting.shadowBias);
+            deferredShader.setFloat("uShadowStrength", lighting.shadowStrength);
+            // 点光源阴影参数
+            if (!lighting.pointLights.empty())
+            {
+                const auto& pl = lighting.pointLights[0];
+                deferredShader.setVec3("uPtShadowPos", pl.position);
+                deferredShader.setFloat("uPtShadowRange", pl.range);
+            }
+            else
+            {
+                deferredShader.setVec3("uPtShadowPos", Vec3{ 0,0,0 });
+                deferredShader.setFloat("uPtShadowRange", 0.0f);
+            }
+
+
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
             glBindVertexArray(0);
 
@@ -554,6 +653,8 @@ void main() {
 
             checkError("PostPipeline::doLighting");
         }
+        Shader& getDeferredShader() noexcept { return deferredShader; }
+
 
     private:
         // ---- 点光源上传 ----
@@ -601,15 +702,31 @@ void main() {
             }
 
             for (int i = n; i < MAX_POINT_LIGHTS; ++i)
-{
-    const auto nameCol  = juce::String("uPointLightColor[")     + juce::String(i) + "]";
-    const auto nameRange = juce::String("uPointLightRange[")    + juce::String(i) + "]";
-    const auto nameQuad = juce::String("uPointLightQuadratic[") + juce::String(i) + "]";
+            {
+                const auto nameCol  = juce::String("uPointLightColor[")     + juce::String(i) + "]";
+                const auto nameRange = juce::String("uPointLightRange[")    + juce::String(i) + "]";
+                const auto nameQuad = juce::String("uPointLightQuadratic[") + juce::String(i) + "]";
 
-    deferredShader.setVec3(nameCol.toRawUTF8(),  Vec3{0,0,0});
-    deferredShader.setFloat(nameRange.toRawUTF8(), 0.0f);
-    deferredShader.setFloat(nameQuad.toRawUTF8(), 1.0f);
-}
+                deferredShader.setVec3(nameCol.toRawUTF8(),  Vec3{0,0,0});
+                deferredShader.setFloat(nameRange.toRawUTF8(), 0.0f);
+                deferredShader.setFloat(nameQuad.toRawUTF8(), 1.0f);
+            }
+
+            // ---- 点光源阴影（取第一个使能的 PointLight 作为 Cube Shadow 源）----
+            if (!l.pointLights.empty())
+            {
+                const auto& pl = l.pointLights[0];
+                deferredShader.setVec3("uPtShadowPos", pl.position);
+                deferredShader.setFloat("uPtShadowRange", pl.range);
+            }
+            else
+            {
+                deferredShader.setVec3("uPtShadowPos", Vec3{ 0,0,0 });
+                deferredShader.setFloat("uPtShadowRange", 0.0f);
+            }
+            deferredShader.setFloat("uShadowBias", l.shadowBias);
+            deferredShader.setFloat("uShadowStrength", l.shadowStrength);
+
 
         }
 
@@ -632,6 +749,8 @@ void main() {
 
         juce::OpenGLContext& context;
         Shader deferredShader;
+        Shader& getShader() noexcept { return deferredShader; }
+
 
         GLuint fullscreenVAO = 0;
         GLuint fullscreenVBO = 0;

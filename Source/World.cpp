@@ -10,6 +10,8 @@
 #include <limits>
 #include "tiny_obj_loader.h"
 #include <sstream>
+#include "ShadowMap.h"
+
 
 
 namespace sc
@@ -567,6 +569,38 @@ namespace sc
 
 
     }
+
+    void World::drawShadowDepth(ShadowMap& sm)
+    {
+        auto& shader = sm.getDepthShader();
+        shader.use();
+        const Mat4 I = identity();
+
+        auto drawOne = [&](Mesh* m, const Mat4& model) {
+            if (m && m->isUploaded())
+            {
+                sm.setModelForDepth(model);
+                m->draw(context);  // 仅绑 VAO + glDrawElements，depth shader 已绑好
+            }
+            };
+
+        drawOne(groundVisMesh.get(), I);
+        drawOne(propRockMesh.get(), I);
+        drawOne(propBouquetMesh.get(), I);
+        drawOne(propBouquetPillarMesh.get(), I);
+        drawOne(propKnobPillarMesh.get(), I);
+        drawOne(propMainPillarMesh.get(), I);
+        drawOne(propSurroundPillarMesh.get(), I);
+
+        // 玩家
+        if (player) drawOne(boxMesh.get(), translation(player->worldPos));
+
+        // 旋钮
+        for (auto& k : knobs)
+            drawOne(cylMesh.get(), translation(k->worldPos));
+    }
+
+
 
     void World::onMouseWheel(float deltaY)
     {

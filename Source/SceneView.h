@@ -131,6 +131,43 @@ namespace sc
 
             camera.tick(dt);
 
+            void renderOpenGL() override
+            {
+                if (renderer == nullptr) return;
+                // ... (现有 dt / InputState / world->update / camera.tick 代码不变) ...
+
+                // ====== ★ Shadow Passes（在 G-Buffer 几何阶段之前） ======
+                if (world != nullptr)
+                {
+                    auto& sm = renderer->getShadowMap();
+                    const auto& light = lighting;
+                    const Vec3 playerPos = world->getPlayer().worldPos;
+
+                    // --- 方向光 Shadow Map ---
+                    sm.beginDirectionalPass(light.direction, playerPos, light.sceneRadius);
+                    world->drawShadowDepth(sm);
+                    sm.endDirectionalPass();
+
+                    // --- 点光源 Cube Shadow Map（取第一个 PointLight = Player Light）---
+                    if (!light.pointLights.empty())
+                    {
+                        const auto& pl = light.pointLights[0];
+                        for (int face = 0; face < 6; ++face)
+                        {
+                            sm.beginCubeFace(face, pl.position, pl.range);
+                            world->drawShadowDepth(sm);
+                            sm.endCubeFace();
+                        }
+                    }
+                }
+
+                // ====== 原有渲染 ======
+                renderer->beginFrame(camera, lighting, world->getPlayer().worldPos);
+                if (world != nullptr) world->draw(*renderer, camera);
+                renderer->endFrame(camera, lighting, world->getPlayer().worldPos);
+            }
+
+
             renderer->beginFrame(camera, lighting, world->getPlayer().worldPos);
             if (world != nullptr)
                 world->draw(*renderer, camera);

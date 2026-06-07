@@ -42,6 +42,14 @@ struct Lighting
     float volumetricSteps{ 1.0f };    // Ray March 步数
     float volumetricIntensity{ 1.0f }; // 体积光强度
     float cloudTime{ 0.0f };    // 每帧由外部更新
+
+    // ★★★ 新增：阴影参数 ★★★
+    float shadowBias{ 0.0015f };
+    float shadowStrength{ 0.85f };
+    float sceneRadius{ 25.0f };
+    bool  shadowEnabled{ true };
+
+
 };
 
 inline constexpr int MAX_POINT_LIGHTS = 32;
