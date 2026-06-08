@@ -123,7 +123,7 @@ float sampleDirShadow(vec3 worldPos, vec3 N, vec3 L) {
     vec2 uv = proj.xy * 0.5 + 0.5;
     float depth = proj.z * 0.5 + 0.5;
     if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return 1.0;
-    float bias = max(uShadowBias * (1.0 - dot(N, L)), uShadowBias * 0.25);
+    float bias = max(uShadowBias * (1.0 - dot(N, L)), uShadowBias * 0.5);
     vec2 ts = 1.0 / vec2(textureSize(uDirShadowMap, 0));
     float shadow = 0.0;
     for (int x = -2; x <= 1; ++x)
@@ -246,7 +246,7 @@ float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time, ve
     if (rayLen < 0.01) return 0.0;
     rayDir /= rayLen;
     int steps = int(uVolumetricSteps);
-    steps = max(steps, 12);
+    steps = max(steps, 8);   // 改: 12→8, 减少步数以补偿 shadow 采样开销
     float stepSize = rayLen / float(steps);
     float jitter = hash21(worldPos.xy * 97.0 + worldPos.z * 53.0 + time * 13.0) * 0.8;
     float baseOffset = fract(sin(dot(vUV, vec2(127.1, 311.7)) + time * 0.37) * 43758.5453);
@@ -256,6 +256,10 @@ float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time, ve
         float t = (float(i) + 0.5 + jitter + layerOffset) * stepSize;
         t = clamp(t, 0.0, rayLen);
         vec3 samplePos = camPos + rayDir * t;
+        // ★ 新增：几何遮挡 —— 采样点如果在几何阴影中则跳过
+        float geomBlock = sampleDirShadow(samplePos, vec3(0,0,1), sunDir);
+        if (geomBlock < 0.1) continue;
+
         float tSun = (uCloudPlaneHeight - samplePos.z) / max(abs(sunDir.z), 1e-6);
         if (tSun > 0.0) {
             vec3 hitPoint = samplePos + tSun * sunDir;
@@ -264,20 +268,20 @@ float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time, ve
             uv.y += time * uCloudSpeed * 0.15;
             float cloud = fbm3D(vec3(uv, time * 0.005));
             accum += 1.0 - smoothstep(uCloudThreshold - 0.001, uCloudThreshold + 0.001, cloud);
-            
         } else {
             accum += 1.0;
         }
     }
     float result = accum / float(steps);
-    float beamEdge = 0.6;
-    float sharpness = 1000.0;
-    result = smoothstep(beamEdge - 0.15, beamEdge + 0.15, result);
+    // ★ 改: 放宽阈值过渡带, beamEdge 从 0.6 降到 0.15
+    float beamEdge = 0.15;
+    result = smoothstep(beamEdge - 0.15, beamEdge + 0.20, result);
     if (uCloudBandLevels > 1.5) {
         result = (floor(result * uCloudBandLevels) + 0.5) / uCloudBandLevels;
     }
     return result;
 }
+
 )";
 
             const juce::String fs_part2 = R"(
@@ -371,7 +375,7 @@ void main() {
     inscatter *= uVolumetricIntensity * uLightIntensity;
 
     // Combine
-    vec3 col = direct + pointSum + sssTerm + ambientTerm + emissive + inscatter;
+    vec3 col = direct + pointSum + sssTerm + ambientTerm + emissive;
 
     // Fog
     if (uFogDensity > 0.0) {
@@ -381,6 +385,9 @@ void main() {
         float fogAmt = 1.0 - exp(-dFog * uFogDensity * heightK);
         col = mix(col, uFogColor, clamp(fogAmt, 0.0, 1.0));
     }
+
+    // ★ Inscatter 在雾之后叠加, 保留 god rays 穿透感
+    col += inscatter;
 
     // Reinhard tonemap + Gamma
     col = col / (col + vec3(1.0));

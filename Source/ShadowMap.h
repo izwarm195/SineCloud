@@ -127,7 +127,7 @@ void main() {}
             const Mat4 lightView = lookAt(lightPos, lightTarget, up);
             const float halfSz = sceneRadius;
             const Mat4 lightProj = ortho(-halfSz, halfSz, -halfSz, halfSz,
-                0.1f, sceneRadius * 4.0f);
+                0.05f, sceneRadius * 3.0f);
             lightViewProj = lightProj * lightView;
 
             // ±£´æµ±Ç° viewport
