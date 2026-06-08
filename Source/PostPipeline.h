@@ -264,8 +264,7 @@ float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time, ve
             uv.y += time * uCloudSpeed * 0.15;
             float cloud = fbm3D(vec3(uv, time * 0.005));
             accum += 1.0 - smoothstep(uCloudThreshold - 0.001, uCloudThreshold + 0.001, cloud);
-            float geomShadow = sampleDirShadow(samplePos, vec3(0,0,1), sunDir);
-            accum *= geomShadow;
+            
         } else {
             accum += 1.0;
         }
@@ -370,16 +369,6 @@ void main() {
                    + goldCore  * beamTight * 0.30
                    + goldSpark * sparkle   * 0.12;
     inscatter *= uVolumetricIntensity * uLightIntensity;
-
-    // Volumetric fade with cloud-plane distance
-    float tCam = (uCloudPlaneHeight - uCamPos.z) / max(abs(Ldir.z), 1e-6);
-    vec2 camCloudXY = uCamPos.xy + tCam * Ldir.xy;
-    float tSurf = (uCloudPlaneHeight - worldPos.z) / max(abs(Ldir.z), 1e-6);
-    vec2 surfCloudXY = worldPos.xy + tSurf * Ldir.xy;
-    float distInCloudPlane = distance(surfCloudXY, camCloudXY);
-    float volFadeNear = 15.0;
-    float volFadeFar  = 25.0;
-    volumetric *= smoothstep(volFadeNear, volFadeFar, distInCloudPlane);
 
     // Combine
     vec3 col = direct + pointSum + sssTerm + ambientTerm + emissive + inscatter;
@@ -499,36 +488,6 @@ void main() {
             glDepthMask(GL_FALSE);
 
             glBindVertexArray(fullscreenVAO);
-
-            // ---- Shadow Maps ----
-            {
-                using namespace sc::gl;
-                auto bindTex = [&](GLuint tex, int unit, const char* name, GLenum target) {
-                    glActiveTexture(GL_TEXTURE0 + unit);
-                    glBindTexture(target, tex);
-                    GLint loc = glGetUniformLocation(deferredShader.raw().getProgramID(), name);
-                    if (loc >= 0) glUniform1i(loc, unit);
-                    };
-                // 方向光 Shadow Map → unit 6
-                bindTex(0, 6, "uDirShadowMap", GL_TEXTURE_2D); // 占位，由 Renderer 在 endFrame 中实际绑定
-                // Cube Shadow Map → unit 7
-                bindTex(0, 7, "uCubeShadowMap", GL_TEXTURE_CUBE_MAP);
-            }
-            deferredShader.setFloat("uShadowBias", lighting.shadowBias);
-            deferredShader.setFloat("uShadowStrength", lighting.shadowStrength);
-            // 点光源阴影参数
-            if (!lighting.pointLights.empty())
-            {
-                const auto& pl = lighting.pointLights[0];
-                deferredShader.setVec3("uPtShadowPos", pl.position);
-                deferredShader.setFloat("uPtShadowRange", pl.range);
-            }
-            else
-            {
-                deferredShader.setVec3("uPtShadowPos", Vec3{ 0,0,0 });
-                deferredShader.setFloat("uPtShadowRange", 0.0f);
-            }
-
 
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
             glBindVertexArray(0);

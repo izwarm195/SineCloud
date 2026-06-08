@@ -46,7 +46,7 @@ struct Lighting
     // ★★★ 新增：阴影参数 ★★★
     float shadowBias{ 0.0015f };
     float shadowStrength{ 0.85f };
-    float sceneRadius{ 25.0f };
+    float sceneRadius{ 15.0f };
     bool  shadowEnabled{ true };
 
 
