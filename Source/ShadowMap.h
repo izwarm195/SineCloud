@@ -125,9 +125,9 @@ void main() {}
                 ? Vec3{ 0, 1, 0 } : Vec3{ 0, 0, 1 };
 
             const Mat4 lightView = lookAt(lightPos, lightTarget, up);
-            const float halfSz = sceneRadius * 0.65f;
+            const float halfSz = sceneRadius * 2.0f;
             const Mat4 lightProj = ortho(-halfSz, halfSz, -halfSz, halfSz,
-                0.02f, sceneRadius * 2.5f);
+                0.02f, sceneRadius * 5.0f);
             lightViewProj = lightProj * lightView;
 
             // ±£´æµ±Ç° viewport
@@ -187,9 +187,9 @@ void main() {}
             Mat4 cubeProj = perspective(1.57079632679f /*90¡ã*/, 1.0f, 0.05f, farPlane);
             cubeLightViewProj = cubeProj * cubeView;
 
-            GLint prevVP[4];
-            glGetIntegerv(GL_VIEWPORT, prevVP);
-            prevVPW = prevVP[2]; prevVPH = prevVP[3];
+            //GLint prevVP[4];
+            //glGetIntegerv(GL_VIEWPORT, prevVP);
+            //prevVPW = prevVP[2]; prevVPH = prevVP[3];
 
             glBindFramebuffer(GL_FRAMEBUFFER, cubeFBO);
             glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,

@@ -26,7 +26,7 @@ struct Lighting
 
     // ---- 距离雾（俯视专用） ----
     Vec3 fogColorSRGB{ 0.70f, 0.70f, 0.73f }; // 默认与 clearColor 同色
-    float fogDensity   { 0.1f };               // 越大越浓；0 = 关闭
+    float fogDensity   { 0.3f };               // 越大越浓；0 = 关闭
     float fogHeightFalloff { 0.1f };            // Z 越高雾越稀；0 = 均匀雾
     float fogStart     { 4.0f };                 // 这个距离前不算雾
 
@@ -39,13 +39,13 @@ struct Lighting
     float cloudSpeed{ 1.25f };   // 云移动速度
     float cloudPlaneHeight{ 30.0f };   // 虚拟云层高度
     float cloudBandLevels{ 3.0f };    // 像素风 banding 级数
-    float volumetricSteps{ 64.0f };    // Ray March 步数
+    float volumetricSteps{ 16.0f };    // Ray March 步数
     float volumetricIntensity{ 0.3f }; // 体积光强度
     float cloudTime{ 0.0f };    // 每帧由外部更新
 
     // ★★★ 新增：阴影参数 ★★★
     float shadowBias{ 0.0025f };
-    float shadowStrength{ 0.95f };
+    float shadowStrength{ 1.0f };
     float sceneRadius{ 7.0f };
     bool  shadowEnabled{ true };
 

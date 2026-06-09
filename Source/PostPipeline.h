@@ -135,6 +135,8 @@ float sampleDirShadow(vec3 worldPos, vec3 N, vec3 L) {
 }
 // ---- Hard single-sample directional shadow (for volumetric ray march) ----
 float sampleDirShadowHard(vec3 worldPos) {
+    
+
     vec4 ls = uLightViewProj * vec4(worldPos, 1.0);
     vec3 proj = ls.xyz / max(ls.w, 1e-6);
     vec2 uv = proj.xy * 0.5 + 0.5;
