@@ -109,6 +109,9 @@ namespace sc
 
         //// ---- 速度 ----
         float targetSpeed{ 5.0f };   // ¾ÉÖµÊÇÃ¿Ö¡ 5.0 ÏñËØ ¡Ö 300px/s£¬ÕâÀï»»³ÉÊÀ½çµ¥Î»
+
+        float getYaw() const noexcept { return yaw; }
+
         
 
     private:

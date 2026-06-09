@@ -125,7 +125,7 @@ void main() {}
                 ? Vec3{ 0, 1, 0 } : Vec3{ 0, 0, 1 };
 
             const Mat4 lightView = lookAt(lightPos, lightTarget, up);
-            const float halfSz = sceneRadius;
+            const float halfSz = sceneRadius * 0.65f;
             const Mat4 lightProj = ortho(-halfSz, halfSz, -halfSz, halfSz,
                 0.02f, sceneRadius * 2.5f);
             lightViewProj = lightProj * lightView;

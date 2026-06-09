@@ -133,6 +133,17 @@ float sampleDirShadow(vec3 worldPos, vec3 N, vec3 L) {
         }
     return shadow / 9.0;   
 }
+// ---- Hard single-sample directional shadow (for volumetric ray march) ----
+float sampleDirShadowHard(vec3 worldPos) {
+    vec4 ls = uLightViewProj * vec4(worldPos, 1.0);
+    vec3 proj = ls.xyz / max(ls.w, 1e-6);
+    vec2 uv = proj.xy * 0.5 + 0.5;
+    float depth = proj.z * 0.5 + 0.5;
+    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) return 1.0;
+    float sm = texture(uDirShadowMap, uv).r;
+    float bias = uShadowBias * 0.75;
+    return (depth - bias <= sm) ? 1.0 : 0.0;
+}
 
 // ---- Point Cube Shadow PCF (3x3) ----
 float samplePointShadow(vec3 worldPos, vec3 lightPos, float farPlane, vec3 N, vec3 L) {
@@ -240,25 +251,31 @@ float getCloudShadow(vec3 worldPos, vec3 sunDir, float time) {
     float shadow = 1.0 - smoothstep(uCloudThreshold - 0.05, uCloudThreshold + 0.05, cloud);
     return mix(0.25, 1.0, shadow);
 }
+
+
 float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time, vec2 vUV) {
     vec3 rayDir = worldPos - camPos;
     float rayLen = length(rayDir);
     if (rayLen < 0.01) return 0.0;
     rayDir /= rayLen;
+
     int steps = int(uVolumetricSteps);
-    steps = max(steps, 8);   // 改: 12→8, 减少步数以补偿 shadow 采样开销
+    steps = max(steps, 8);
     float stepSize = rayLen / float(steps);
+
     float jitter = hash21(worldPos.xy * 97.0 + worldPos.z * 53.0 + time * 13.0) * 0.8;
     float baseOffset = fract(sin(dot(vUV, vec2(127.1, 311.7)) + time * 0.37) * 43758.5453);
     float layerOffset = baseOffset * 0.6;
+
     float accum = 0.0;
     for (int i = 0; i < steps; ++i) {
         float t = (float(i) + 0.5 + jitter + layerOffset) * stepSize;
         t = clamp(t, 0.0, rayLen);
         vec3 samplePos = camPos + rayDir * t;
-        // ★ 新增：几何遮挡 —— 采样点如果在几何阴影中则跳过
-        float geomBlock = sampleDirShadow(samplePos, vec3(0,0,1), sunDir);
-        if (geomBlock < 0.1) continue;
+
+        // ★ 改用硬阴影单采样 + 加权累积，替代原来的 PCF + continue
+        float geomVis = sampleDirShadowHard(samplePos);
+        float weight = geomVis;
 
         float tSun = (uCloudPlaneHeight - samplePos.z) / max(abs(sunDir.z), 1e-6);
         if (tSun > 0.0) {
@@ -267,13 +284,13 @@ float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time, ve
             uv.x += time * uCloudSpeed * 0.3;
             uv.y += time * uCloudSpeed * 0.15;
             float cloud = fbm3D(vec3(uv, time * 0.005));
-            accum += 1.0 - smoothstep(uCloudThreshold - 0.001, uCloudThreshold + 0.001, cloud);
+            accum += weight * (1.0 - smoothstep(uCloudThreshold - 0.001, uCloudThreshold + 0.001, cloud));
         } else {
-            accum += 1.0;
+            accum += weight * 1.0;
         }
     }
+
     float result = accum / float(steps);
-    // ★ 改: 放宽阈值过渡带, beamEdge 从 0.6 降到 0.15
     float beamEdge = 0.15;
     result = smoothstep(beamEdge - 0.15, beamEdge + 0.20, result);
     if (uCloudBandLevels > 1.5) {
@@ -281,6 +298,7 @@ float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time, ve
     }
     return result;
 }
+
 
 )";
 

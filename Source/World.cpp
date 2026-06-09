@@ -595,7 +595,15 @@ namespace sc
 
         //Player
         if (player && boxMesh)
-            drawOne(boxMesh.get(), translation(player->worldPos));
+        {
+            Vec3 shadowPos = player->worldPos;
+            shadowPos.z += 0.3f;  // scale.z * 0.5 = 0.6 * 0.5
+            Mat4 model = translation(shadowPos)
+                * rotationZ(player->getYaw())
+                * scaling(Vec3{ 0.6f, 0.6f, 0.6f });
+            drawOne(boxMesh.get(), model);
+        }
+
         //Knob
         for (auto& k : knobs)
             drawOne(cylMesh.get(), translation(k->worldPos));
