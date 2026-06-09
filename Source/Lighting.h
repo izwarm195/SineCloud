@@ -39,8 +39,8 @@ struct Lighting
     float cloudSpeed{ 1.25f };   // 云移动速度
     float cloudPlaneHeight{ 30.0f };   // 虚拟云层高度
     float cloudBandLevels{ 3.0f };    // 像素风 banding 级数
-    float volumetricSteps{ 1.0f };    // Ray March 步数
-    float volumetricIntensity{ 0.5f }; // 体积光强度
+    float volumetricSteps{ 64.0f };    // Ray March 步数
+    float volumetricIntensity{ 0.3f }; // 体积光强度
     float cloudTime{ 0.0f };    // 每帧由外部更新
 
     // ★★★ 新增：阴影参数 ★★★

@@ -604,9 +604,13 @@ namespace sc
             drawOne(boxMesh.get(), model);
         }
 
-        //Knob
-        for (auto& k : knobs)
-            drawOne(cylMesh.get(), translation(k->worldPos));
+        //Knob — 必须与 KnobEntity::draw() 使用相同的缩放
+        for (auto& k : knobs) {
+            float r = k->getRadius();
+            float h = k->getHeight();
+            drawOne(cylMesh.get(), translation(k->worldPos) * scaling(Vec3{ r, r, h }));
+        }
+
     }
 
     void World::onMouseWheel(float deltaY)
