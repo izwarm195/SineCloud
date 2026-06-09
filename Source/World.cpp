@@ -520,7 +520,7 @@ namespace sc
          if (groundVisMesh && groundVisMesh->isUploaded())
          {
              r.drawMesh(*groundVisMesh, identity(),
-                 Material::stone({ 0.50f, 0.51f, 0.52f }));
+                 Material::stone({ 0.30f, 0.31f, 0.32f }));
          }
 
         

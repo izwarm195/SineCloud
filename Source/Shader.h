@@ -49,6 +49,15 @@ namespace sc
         //----------------------------------------------------------------------
         // Uniform setters
         //----------------------------------------------------------------------
+       
+        void setVec2(const char* name, float x, float y) noexcept
+        {
+            const GLint loc = sc::gl::uniformLoc(program, name);
+            if (loc >= 0)
+                sc::gl::glUniform2f(loc, x, y);
+        }
+
+
         void setMat3(const char* name, const float* m9) noexcept
         {
             const GLint loc = sc::gl::uniformLoc(program, name);

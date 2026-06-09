@@ -33,21 +33,28 @@ struct Lighting
     // ---- 动态点光源 ----
     std::vector<PointLight> pointLights;
 
-    // ★★★ 新增：云层 / 体积光参数 ★★★
+    // ★★★ 云层 / 体积光参数 ★★★
     float cloudScale{ 0.4f };  // Perlin 噪声缩放
     float cloudThreshold{ 0.4f };   // 云/晴 阈值
     float cloudSpeed{ 1.25f };   // 云移动速度
     float cloudPlaneHeight{ 30.0f };   // 虚拟云层高度
     float cloudBandLevels{ 3.0f };    // 像素风 banding 级数
     float volumetricSteps{ 16.0f };    // Ray March 步数
-    float volumetricIntensity{ 0.3f }; // 体积光强度
+    float volumetricIntensity{ 0.2f }; // 体积光强度
     float cloudTime{ 0.0f };    // 每帧由外部更新
 
-    // ★★★ 新增：阴影参数 ★★★
+    // ★★★ 阴影参数 ★★★
     float shadowBias{ 0.0025f };
     float shadowStrength{ 1.0f };
     float sceneRadius{ 7.0f };
     bool  shadowEnabled{ true };
+
+    // ★★★ Bloom 参数 ★★★
+    float bloomThreshold{ 1.0f };   // HDR 亮度阈值
+    float bloomSoftKnee{ 0.5f };   // 软过渡
+    float bloomStrength{ 0.06f };  // 混合权重
+    float bloomFilterRadius{ 1.0f };   // 上采样模糊半径
+
 
 
 };

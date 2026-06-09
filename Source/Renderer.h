@@ -1,10 +1,9 @@
 // ==============================================================================
 //   Renderer.h
-//   Layer 3: Deferred Rendering
-//   每帧渲染入口。持有 GBuffer + PostPipeline。
-//   beginFrame 绑 G-Buffer MRT，所有几何写入；endFrame 跑延迟光照。
+//   Layer 3 + 4: Deferred Rendering + Bloom
 // ==============================================================================
 #pragma once
+
 #include "GLUtils.h"
 #include "Mesh.h"
 #include "Camera.h"
@@ -13,6 +12,7 @@
 #include "GBuffer.h"
 #include "PostPipeline.h"
 #include "ShadowMap.h"
+#include "BloomPass.h"            // ★ L4
 
 namespace sc {
 
@@ -20,25 +20,28 @@ namespace sc {
     {
     public:
         explicit Renderer(juce::OpenGLContext& ctx)
-            : context(ctx), gbuffer(ctx), postPipeline(ctx), shadowMap(ctx) {
-        }
-        
-        // ----------------------------------------------------------------
-        // 生命周期
-        // ----------------------------------------------------------------
+            : context(ctx), gbuffer(ctx), postPipeline(ctx), shadowMap(ctx), bloom(ctx) {
+        }  // ★ bloom
+
+// ----------------------------------------------------------------
+// 生命周期
+// ----------------------------------------------------------------
         bool initialise()
         {
             if (!gbuffer.build()) { DBG("Renderer: GBuffer build failed");      return false; }
             if (!postPipeline.build()) { DBG("Renderer: PostPipeline build failed"); return false; }
             if (!shadowMap.build()) { DBG("Renderer: ShadowMap build failed");    return false; }
+            if (!bloom.build()) { DBG("Renderer: BloomPass build failed");    return false; }  // ★
             return true;
         }
 
         void shutdown()
         {
+            releaseSceneHDR();          // ★
             gbuffer.shutdown();
             postPipeline.shutdown();
             shadowMap.shutdown();
+            bloom.shutdown();           // ★
         }
 
         // ----------------------------------------------------------------
@@ -173,7 +176,7 @@ namespace sc {
         }
 
         // ----------------------------------------------------------------
-        // Phase 2: 延迟光照
+        // Phase 2: 延迟光照 → HDR → Bloom → Composite
         // ----------------------------------------------------------------
         void endFrame(const Camera& camera, const Lighting& light, const Vec3& playerPos) noexcept
         {
@@ -184,39 +187,45 @@ namespace sc {
             const int wPx = (int)(camera.getViewportWidth() * scale);
             const int hPx = (int)(camera.getViewportHeight() * scale);
 
-            // ★ 绑定 Shadow Map 到 PostPipeline shader
+            // ★ 确保 HDR 中间缓冲 + Bloom mip 尺寸一致
+            ensureSceneHDR(wPx, hPx);
+            bloom.ensureSize(wPx, hPx);
+
+            // ★ Shadow Map 绑定（和原来逻辑一致）
             {
-                using namespace sc::gl;
                 Shader& shader = postPipeline.getDeferredShader();
                 shader.use();
-                // unit 6: 方向光 Shadow Map
                 glActiveTexture(GL_TEXTURE6);
                 glBindTexture(GL_TEXTURE_2D, shadowMap.getDirShadowMap());
                 GLint loc = glGetUniformLocation(shader.raw().getProgramID(), "uDirShadowMap");
                 if (loc >= 0) glUniform1i(loc, 6);
-                // unit 7: Cube Shadow Map
                 glActiveTexture(GL_TEXTURE7);
                 glBindTexture(GL_TEXTURE_CUBE_MAP, shadowMap.getCubeShadowMap());
                 loc = glGetUniformLocation(shader.raw().getProgramID(), "uCubeShadowMap");
                 if (loc >= 0) glUniform1i(loc, 7);
-                // Light VP
                 loc = glGetUniformLocation(shader.raw().getProgramID(), "uLightViewProj");
                 if (loc >= 0) glUniformMatrix4fv(loc, 1, GL_FALSE, shadowMap.lightViewProj.mat);
             }
 
+            // ★ 1) Lighting Pass → sceneHDR FBO（线性 HDR 输出）
+            glBindFramebuffer(GL_FRAMEBUFFER, sceneHDRFBO);
+            glViewport(0, 0, wPx, hPx);
+            glClear(GL_COLOR_BUFFER_BIT);
+            postPipeline.doLighting(gbuffer, camera, light, playerPos, 1.0f);
 
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            postPipeline.doLighting(gbuffer, camera, light, playerPos, shadeLevels);
+            // ★ 2) Bloom + ACES + Gamma + Posterize → 默认 FBO
+            bloom.render(sceneHDRTex,
+                postPipeline.getFullscreenVAO(),
+                light.bloomThreshold,
+                light.bloomSoftKnee,
+                light.bloomStrength,
+                light.bloomFilterRadius,
+                shadeLevels);
 
             prevViewProj = camera.proj() * camera.view();
             checkError("endFrame");
         }
 
-
-
-        // ----------------------------------------------------------------
-        // 风格控制
-        // ----------------------------------------------------------------
         void setShadeLevels(float levels) noexcept
         {
             shadeLevels = juce::jmax(1.0f, levels);
@@ -228,10 +237,49 @@ namespace sc {
         juce::OpenGLContext& context;
         GBuffer      gbuffer;
         PostPipeline postPipeline;
-        ShadowMap   shadowMap;
+        ShadowMap    shadowMap;
+        BloomPass    bloom;              // ★ L4
 
         float shadeLevels{ 64.0f };
-        Mat4 prevViewProj;
+        Mat4  prevViewProj;
+
+        // ★ sceneHDR 中间缓冲（成员变量定义在这里，ensureSceneHDR / releaseSceneHDR 使用它们）
+        GLuint sceneHDRFBO = 0;
+        GLuint sceneHDRTex = 0;
+        int    sceneHDRW = 0;
+        int    sceneHDRH = 0;
+
+        // ★ 私有辅助方法
+        void ensureSceneHDR(int newW, int newH)
+        {
+            if (newW == sceneHDRW && newH == sceneHDRH) return;
+            releaseSceneHDR();
+            sceneHDRW = newW;
+            sceneHDRH = newH;
+
+            using namespace sc::gl;
+
+            glGenTextures(1, &sceneHDRTex);
+            glBindTexture(GL_TEXTURE_2D, sceneHDRTex);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, newW, newH, 0, GL_RGBA, GL_FLOAT, nullptr);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+            glGenFramebuffers(1, &sceneHDRFBO);
+            glBindFramebuffer(GL_FRAMEBUFFER, sceneHDRFBO);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, sceneHDRTex, 0);
+
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        }
+
+        void releaseSceneHDR()
+        {
+            if (sceneHDRFBO) { sc::gl::glDeleteFramebuffers(1, &sceneHDRFBO); sceneHDRFBO = 0; }
+            if (sceneHDRTex) { sc::gl::glDeleteTextures(1, &sceneHDRTex);     sceneHDRTex = 0; }
+            sceneHDRW = sceneHDRH = 0;
+        }
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Renderer)
     };

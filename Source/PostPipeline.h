@@ -408,19 +408,10 @@ void main() {
 
     // ★ Inscatter 在雾之后叠加, 保留 god rays 穿透感
     col += inscatter;
-
-    // Reinhard tonemap + Gamma
-    col = col / (col + vec3(1.0));
-    col = pow(col, vec3(1.0 / 2.2));
-
-    // Shade levels
-    if (uShadeLevels > 1.5) {
-        float Y = max(dot(col, vec3(0.2126, 0.7152, 0.0722)), 1e-5);
-        float Yq = (floor(Y * uShadeLevels) + 0.5) / uShadeLevels;
-        col = col * (Yq / Y);
-    }
-
+    
+    // ★ HDR 输出：tonemap + Gamma + posterize 移至 BloomPass 的 composite 阶段
     fragColor = vec4(col, 1.0);
+
 }
 )";
 
@@ -494,7 +485,6 @@ void main() {
             setFog(lighting);
 
             deferredShader.setVec3("uPlayerPos", playerPos);
-            deferredShader.setFloat("uShadeLevels", shadeLevels);
 
             // ---- 云层 / 体积光 ----
             auto setCF = [&](const char* name, float v) {
@@ -525,6 +515,8 @@ void main() {
             checkError("PostPipeline::doLighting");
         }
         Shader& getDeferredShader() noexcept { return deferredShader; }
+        GLuint getFullscreenVAO() const noexcept { return fullscreenVAO; }
+
 
 
     private:
