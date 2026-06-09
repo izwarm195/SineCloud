@@ -126,12 +126,12 @@ float sampleDirShadow(vec3 worldPos, vec3 N, vec3 L) {
     float bias = max(uShadowBias * (1.0 - dot(N, L)), uShadowBias * 0.5);
     vec2 ts = 1.0 / vec2(textureSize(uDirShadowMap, 0));
     float shadow = 0.0;
-    for (int x = -2; x <= 1; ++x)
-        for (int y = -2; y <= 1; ++y) {
-            float sm = texture(uDirShadowMap, uv + vec2(float(x)+0.5, float(y)+0.5) * ts).r;
+    for (int x = -1; x <= 1; ++x)
+        for (int y = -1; y <= 1; ++y) {
+            float sm = texture(uDirShadowMap, uv + vec2(float(x), float(y)) * ts).r;
             shadow += (depth - bias <= sm) ? 1.0 : 0.0;
         }
-    return shadow / 16.0;
+    return shadow / 9.0;   
 }
 
 // ---- Point Cube Shadow PCF (3x3) ----

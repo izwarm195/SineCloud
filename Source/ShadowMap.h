@@ -51,7 +51,7 @@ void main() {}
             }
 
             // ---- 方向光 Shadow Map (2D) ----
-            dirRes = 2048;
+            dirRes = 4096;
             glGenFramebuffers(1, &dirFBO);
             glGenTextures(1, &dirShadowMap);
             glBindTexture(GL_TEXTURE_2D, dirShadowMap);
@@ -127,7 +127,7 @@ void main() {}
             const Mat4 lightView = lookAt(lightPos, lightTarget, up);
             const float halfSz = sceneRadius;
             const Mat4 lightProj = ortho(-halfSz, halfSz, -halfSz, halfSz,
-                0.05f, sceneRadius * 3.0f);
+                0.02f, sceneRadius * 2.5f);
             lightViewProj = lightProj * lightView;
 
             // 保存当前 viewport
