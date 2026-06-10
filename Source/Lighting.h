@@ -28,7 +28,7 @@ struct Lighting
     Vec3 fogColorSRGB{ 0.85f, 0.80f, 0.73f }; // 默认与 clearColor 同色
     float fogDensity   { 0.05f };               // 越大越浓；0 = 关闭
     float fogHeightFalloff { 0.2f };            // Z 越高雾越稀；0 = 均匀雾
-    float fogStart     { 6.0f };                 // 这个距离前不算雾
+    float fogStart     { 5.0f };                 // 这个距离前不算雾
 
     // ---- 动态点光源 ----
     std::vector<PointLight> pointLights;

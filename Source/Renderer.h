@@ -14,6 +14,7 @@
 #include "ShadowMap.h"
 #include "BloomPass.h" 
 #include "MotionBlurPass.h" 
+#include "PixelatePass.h" 
 
 namespace sc {
 
@@ -21,7 +22,7 @@ namespace sc {
     {
     public:
         explicit Renderer(juce::OpenGLContext& ctx)
-            : context(ctx), gbuffer(ctx), postPipeline(ctx), shadowMap(ctx), bloom(ctx), motionBlur(ctx) {
+            : context(ctx), gbuffer(ctx), postPipeline(ctx), shadowMap(ctx), bloom(ctx), motionBlur(ctx),pixelate(ctx) {
         }  // ★ bloom
 
 // ----------------------------------------------------------------
@@ -34,6 +35,7 @@ namespace sc {
             if (!shadowMap.build()) { DBG("Renderer: ShadowMap build failed");    return false; }
             if (!bloom.build()) { DBG("Renderer: BloomPass build failed");    return false; }  // ★
             if (!motionBlur.build()) { DBG("Renderer: MotionBlurPass build failed"); return false; }
+            if (!pixelate.build()) { DBG("Renderer: PixelatePass build failed"); return false; }
 
             return true;
         }
@@ -46,6 +48,7 @@ namespace sc {
             shadowMap.shutdown();
             bloom.shutdown();           // ★
             motionBlur.shutdown();
+            pixelate.shutdown();
             releaseMBInput();
 
         }
@@ -227,7 +230,17 @@ namespace sc {
                 light.bloomStrength,
                 light.bloomFilterRadius,
                 shadeLevels,
-                mbInputFBO);                          // ★ 输出到中间 FBO
+                mbInputFBO); 
+            // ★ 输出到中间 FBO
+            
+            // ★ 像素化 pass：读 mbInputTex，写回 mbInputFBO（或新开 FBO）
+            pixelate.render(mbInputTex,                   // src = bloom composite 输出
+                postPipeline.getFullscreenVAO(),
+                wPx, hPx,
+                pixelSize,
+                colorLevels > 0.0f ? colorLevels : shadeLevels, // fallback
+                false,                         // 默认用亮度 posterize 模式
+                mbInputFBO);                   // 写回同一个中间 FBO
 
             // ★ 3) Motion Blur → 默认 FBO
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -259,6 +272,7 @@ namespace sc {
         BloomPass    bloom;
         MotionBlurPass motionBlur;
 
+
         float shadeLevels{ 64.0f };
         Mat4  prevViewProj;
 
@@ -271,6 +285,10 @@ namespace sc {
         int    mbInputW = 0, mbInputH = 0;
         int    sceneHDRW = 0;
         int    sceneHDRH = 0;
+
+        PixelatePass pixelate;   // ★ 新成员
+        float pixelSize = 4.0f; // 默认 4×4 像素块
+        float colorLevels = 0.0f; // 0 = 不做色阶量化，沿用 shadeLevels 即可
 
         // ★ 私有辅助方法
         void ensureSceneHDR(int newW, int newH)
