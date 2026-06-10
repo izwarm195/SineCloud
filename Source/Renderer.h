@@ -15,6 +15,8 @@
 #include "BloomPass.h" 
 #include "MotionBlurPass.h" 
 #include "PixelatePass.h" 
+#include "DenoisePass.h"
+
 
 namespace sc {
 
@@ -22,7 +24,8 @@ namespace sc {
     {
     public:
         explicit Renderer(juce::OpenGLContext& ctx)
-            : context(ctx), gbuffer(ctx), postPipeline(ctx), shadowMap(ctx), bloom(ctx), motionBlur(ctx),pixelate(ctx) {
+            : context(ctx), gbuffer(ctx), postPipeline(ctx), shadowMap(ctx), bloom(ctx), motionBlur(ctx), pixelate(ctx), denoise(ctx) {
+
         }  // ★ bloom
 
 // ----------------------------------------------------------------
@@ -36,6 +39,8 @@ namespace sc {
             if (!bloom.build()) { DBG("Renderer: BloomPass build failed");    return false; }  // ★
             if (!motionBlur.build()) { DBG("Renderer: MotionBlurPass build failed"); return false; }
             if (!pixelate.build()) { DBG("Renderer: PixelatePass build failed"); return false; }
+            if (!denoise.build()) { DBG("Renderer: DenoisePass build failed"); return false; }
+
 
             return true;
         }
@@ -46,12 +51,16 @@ namespace sc {
             releaseMBInput();
             releasePixelateTex();  // ★ 新增
             releaseVolHist();   // ★
+            releaseDenoiseTex();
+
             gbuffer.shutdown();
             postPipeline.shutdown();
             shadowMap.shutdown();
             bloom.shutdown();
             motionBlur.shutdown();
             pixelate.shutdown();
+            denoise.shutdown();
+
         }
 
         // ----------------------------------------------------------------
@@ -240,6 +249,26 @@ namespace sc {
                 0.0f,              
                 mbInputFBO);
 
+            // ★ 3.5) Denoise — block-level (only meaningful after pixelate)
+            if (light.pixelSize > 1.0f && light.denoiseStrength > 0.0f)
+            {
+                ensureDenoiseTex(wPx, hPx);
+                denoise.render(mbInputTex,
+                    postPipeline.getFullscreenVAO(),
+                    wPx, hPx,
+                    light.pixelSize,
+                    light.denoiseStrength,
+                    light.denoiseColorSigma,
+                    denoiseFBO);
+                // blit back to mbInputFBO for motion blur
+                glBindFramebuffer(GL_READ_FRAMEBUFFER, denoiseFBO);
+                glBindFramebuffer(GL_DRAW_FRAMEBUFFER, mbInputFBO);
+                glViewport(0, 0, wPx, hPx);
+                glBlitFramebuffer(0, 0, wPx, hPx, 0, 0, wPx, hPx,
+                    GL_COLOR_BUFFER_BIT, GL_NEAREST);
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            }
+
 
             // ★ 3) Pixelate — Double Buffer Ping-Pong
             if (light.pixelSize > 1.0f)
@@ -296,6 +325,7 @@ namespace sc {
         BloomPass    bloom;
         MotionBlurPass motionBlur;
 
+
         // ★ Pixelate double-buffer
         GLuint pixelateFBO[2] = { 0, 0 }; // ping-pong buffer pair
         GLuint pixelateTex[2] = { 0, 0 };
@@ -320,6 +350,13 @@ namespace sc {
         int    sceneHDRH = 0;
 
         PixelatePass pixelate;   // ★ 新成员
+
+        DenoisePass denoise;                                      
+        // ★ Denoise intermediate FBO
+        GLuint denoiseFBO = 0;
+        GLuint denoiseTex = 0;
+        int denoiseW = 0, denoiseH = 0;
+
         
 
         // ★ 私有辅助方法
@@ -435,6 +472,35 @@ namespace sc {
             if (volHistTex) { sc::gl::glDeleteTextures(1, &volHistTex); volHistTex = 0; }
             volHistW = volHistH = 0;
         }
+
+        void ensureDenoiseTex(int newW, int newH)
+        {
+            if (newW == denoiseW && newH == denoiseH) return;
+            releaseDenoiseTex();
+            denoiseW = newW; denoiseH = newH;
+            using namespace sc::gl;
+            glGenTextures(1, &denoiseTex);
+            glBindTexture(GL_TEXTURE_2D, denoiseTex);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, newW, newH, 0,
+                GL_RGBA, GL_FLOAT, nullptr);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glGenFramebuffers(1, &denoiseFBO);
+            glBindFramebuffer(GL_FRAMEBUFFER, denoiseFBO);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                GL_TEXTURE_2D, denoiseTex, 0);
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        }
+
+        void releaseDenoiseTex()
+        {
+            if (denoiseFBO) { sc::gl::glDeleteFramebuffers(1, &denoiseFBO); denoiseFBO = 0; }
+            if (denoiseTex) { sc::gl::glDeleteTextures(1, &denoiseTex); denoiseTex = 0; }
+            denoiseW = denoiseH = 0;
+        }
+
 
 
         

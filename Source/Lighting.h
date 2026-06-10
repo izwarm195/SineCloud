@@ -63,8 +63,11 @@ struct Lighting
     float pixelSize{ 4.0f };       // 像素块大小（屏幕像素单位，1=关闭）
     float colorLevels{ 0.0f };     // 0=不量化; >1=色阶数
     bool  useColorQuant{ false };   // true=RGB独立量化（更硬边缘）; false=亮度posterize
-    float edgeBoost{ 0.01f };
+    float edgeBoost{ 0.05f };
 
+    // ★★★ Denoise 参数 ★★★
+    float denoiseStrength{ 0.0f };   // 降噪混合强度 [0, 1]，0 = 不降噪
+    float denoiseColorSigma{ 0.99f }; // 亮度相似度 sigma，越大越激进
 
 
 };
