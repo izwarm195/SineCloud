@@ -84,6 +84,10 @@ uniform float uPtShadowRange;
 uniform float uShadowBias;
 uniform float uShadowStrength;
 
+uniform sampler2D uVolHistory;
+uniform float uTemporalBlend;
+
+
 out vec4 fragColor;
 const float PI = 3.14159265359;
 
@@ -265,7 +269,7 @@ float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time, ve
     steps = max(steps, 8);
     float stepSize = rayLen / float(steps);
 
-    float jitter = hash21(worldPos.xy * 97.0 + worldPos.z * 53.0 + time * 13.0) * 0.8;
+    float jitter = hash21(worldPos.xy * 97.0 + worldPos.z * 53.0) * 0.8;
     float baseOffset = fract(sin(dot(vUV, vec2(127.1, 311.7)) + time * 0.37) * 43758.5453);
     float layerOffset = baseOffset * 0.6;
 
@@ -331,8 +335,17 @@ void main() {
     // Cloud shadow (ground)
     float cloudShadow = getCloudShadow(worldPos, Ldir, uCloudTime);
 
-    // Volumetric (beam)
+    // Volumetric (beam) — 带时间累积
     float volumetric = getVolumetricLight(worldPos, uCamPos, Ldir, uCloudTime, vUV);
+
+    // ★ Temporal accumulation: 混合上一帧的体积光
+    if (uTemporalBlend > 0.0)
+    {
+        // uVolHistory 是上一帧的 volumetric 值（单通道，存为 RGBA16F 纹理的 R 通道）
+        float prevVol = texture(uVolHistory, vUV).r;
+        volumetric = mix(volumetric, prevVol, uTemporalBlend);
+    }
+
 
     // Geometry shadow
     float geomShadow = sampleDirShadow(worldPos, N, Ldir);
@@ -406,6 +419,8 @@ void main() {
         col = mix(col, uFogColor, clamp(fogAmt, 0.0, 1.0));
     }
 
+    
+
     // ★ Inscatter 在雾之后叠加, 保留 god rays 穿透感
     col += inscatter;
     
@@ -455,11 +470,10 @@ void main() {
         // ----------------------------------------------------------------
         // 每帧：延迟光照
         // ----------------------------------------------------------------
-        void doLighting(const GBuffer& gbuffer,
-            const Camera& camera,
-            const Lighting& lighting,
-            const Vec3& playerPos,
-            float shadeLevels) noexcept
+        void doLighting(const GBuffer& gbuffer, const Camera& camera, const Lighting& lighting,
+            const Vec3& playerPos, float shadeLevels,
+            GLuint volHistoryTex = 0, float temporalBlend = 0.0f) noexcept
+
         {
             using namespace sc::gl;
 
@@ -511,6 +525,20 @@ void main() {
 
             glDepthMask(GL_TRUE);
             glEnable(GL_DEPTH_TEST);
+
+            // ★ Temporal blend for volumetric light
+            deferredShader.setFloat("uTemporalBlend", temporalBlend);
+            if (volHistoryTex)
+            {
+                glActiveTexture(GL_TEXTURE8);
+                glBindTexture(GL_TEXTURE_2D, volHistoryTex);
+                deferredShader.setInt("uVolHistory", 8);
+            }
+            else
+            {
+                deferredShader.setInt("uVolHistory", -1);
+            }
+
 
             checkError("PostPipeline::doLighting");
         }

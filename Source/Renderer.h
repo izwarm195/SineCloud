@@ -45,6 +45,7 @@ namespace sc {
             releaseSceneHDR();
             releaseMBInput();
             releasePixelateTex();  // ★ 新增
+            releaseVolHist();   // ★
             gbuffer.shutdown();
             postPipeline.shutdown();
             shadowMap.shutdown();
@@ -200,6 +201,8 @@ namespace sc {
             ensureSceneHDR(wPx, hPx);
             ensureMBInput(wPx, hPx);
             bloom.ensureSize(wPx, hPx);
+            ensureVolHist(wPx, hPx);
+
 
             // ★ Shadow Map 绑定（和原来逻辑一致）
             {
@@ -217,10 +220,15 @@ namespace sc {
                 if (loc >= 0) glUniformMatrix4fv(loc, 1, GL_FALSE, shadowMap.lightViewProj.mat);
             }
 
-            // ★ 1) 延迟光照 → sceneHDRTex
+            // ★ 1) 延迟光照 → sceneHDRTex（带体积光时间累积）
             glBindFramebuffer(GL_FRAMEBUFFER, sceneHDRFBO);
             glViewport(0, 0, wPx, hPx);
-            postPipeline.doLighting(gbuffer, camera, light, playerPos, 1.0f);
+
+            // 第一帧或尺寸变化时 temporalBlend = 0（无历史）
+            float tBlend = (volHistTex != 0) ? 0.25f : 0.0f;
+            postPipeline.doLighting(gbuffer, camera, light, playerPos, 1.0f,
+                volHistTex, tBlend);
+
 
             // ★ 2) Bloom + ACES + Gamma + Posterize → mbInputFBO
             bloom.render(sceneHDRTex,
@@ -292,6 +300,10 @@ namespace sc {
         GLuint pixelateFBO[2] = { 0, 0 }; // ping-pong buffer pair
         GLuint pixelateTex[2] = { 0, 0 };
         int    pixelateW = 0, pixelateH = 0;
+        // ★ Volumetric temporal accumulation
+        GLuint volHistTex = 0;   // 体积光历史帧纹理 (RGBA16F)
+        GLuint volHistFBO = 0;
+        int    volHistW = 0, volHistH = 0;
 
 
         float shadeLevels{ 64.0f };
@@ -361,6 +373,13 @@ namespace sc {
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
         }
 
+        void releaseMBInput()
+        {
+            if (mbInputFBO) { sc::gl::glDeleteFramebuffers(1, &mbInputFBO); mbInputFBO = 0; }
+            if (mbInputTex) { sc::gl::glDeleteTextures(1, &mbInputTex); mbInputTex = 0; }
+            mbInputW = mbInputH = 0;
+        }
+
         void ensurePixelateTex(int newW, int newH)
         {
             if (newW == pixelateW && newH == pixelateH) return;
@@ -391,13 +410,34 @@ namespace sc {
             pixelateW = pixelateH = 0;
         }
 
-
-        void releaseMBInput()
+        void ensureVolHist(int newW, int newH)
         {
-            if (mbInputFBO) { sc::gl::glDeleteFramebuffers(1, &mbInputFBO); mbInputFBO = 0; }
-            if (mbInputTex) { sc::gl::glDeleteTextures(1, &mbInputTex); mbInputTex = 0; }
-            mbInputW = mbInputH = 0;
+            if (newW == volHistW && newH == volHistH) return;
+            releaseVolHist();
+            volHistW = newW; volHistH = newH;
+            using namespace sc::gl;
+            glGenTextures(1, &volHistTex);
+            glBindTexture(GL_TEXTURE_2D, volHistTex);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, newW, newH, 0, GL_RGBA, GL_FLOAT, nullptr);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glGenFramebuffers(1, &volHistFBO);
+            glBindFramebuffer(GL_FRAMEBUFFER, volHistFBO);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, volHistTex, 0);
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
         }
+
+        void releaseVolHist()
+        {
+            if (volHistFBO) { sc::gl::glDeleteFramebuffers(1, &volHistFBO); volHistFBO = 0; }
+            if (volHistTex) { sc::gl::glDeleteTextures(1, &volHistTex); volHistTex = 0; }
+            volHistW = volHistH = 0;
+        }
+
+
+        
 
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Renderer)

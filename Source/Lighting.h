@@ -35,12 +35,12 @@ struct Lighting
 
     // ★★★ 云层 / 体积光参数 ★★★
     float cloudScale{ 0.3f };  // Perlin 噪声缩放
-    float cloudThreshold{ 0.45f };   // 云/晴 阈值
+    float cloudThreshold{ 0.4f };   // 云/晴 阈值
     float cloudSpeed{ 0.65f };   // 云移动速度
     float cloudPlaneHeight{ 90.0f };   // 虚拟云层高度
     float cloudBandLevels{ 5.0f };    // 像素风 banding 级数
     float volumetricSteps{ 0.0f };    // Ray March 步数
-    float volumetricIntensity{ 0.1f }; // 体积光强度
+    float volumetricIntensity{ 0.5f }; // 体积光强度
     float cloudTime{ 0.0f };    // 每帧由外部更新
 
     // ★★★ 阴影参数 ★★★

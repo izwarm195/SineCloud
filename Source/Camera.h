@@ -203,8 +203,8 @@ namespace sc
         float yaw{ 0.0f };
         float pitch{ juce::MathConstants<float>::pi * 0.35f };
         float distance{ 25.0f };
-        float minDistance{ 20.0f };   // 新增
-        float maxDistance{ 30.0f };  // 新增
+        float minDistance{ 10.0f };   // 新增
+        float maxDistance{ 20.0f };  // 新增
 
 
 
