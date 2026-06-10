@@ -32,9 +32,12 @@ namespace sc
             context.setComponentPaintingEnabled(true);
             context.setContinuousRepainting(false);
             context.attachTo(*this);
+            context.setSwapInterval(0);               // ★ 不等待 vsync，允许 120fps 自由跑
 
             debugOverlay.setCamera(&camera);
-            startTimerHz(60);
+            startTimerHz(120);
+            context.setContinuousRepainting(true);    // ★ 与定时器双驱动确保不掉帧
+
 
             // ---- Pause ----
             addAndMakeVisible(pauseOverlay);

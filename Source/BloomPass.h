@@ -158,20 +158,17 @@ void main() {
         // ----------------------------------------------------------------
         // 每帧渲染
         // ----------------------------------------------------------------
-        void render(GLuint        sceneHDRTex,
-            GLuint        fullscreenVAO,
-            float         threshold,
-            float         softKnee,
-            float         strength,
-            float         filterRadius,
-            float         shadeLevels) noexcept
+        void render(GLuint sceneHDRTex, GLuint fullscreenVAO,
+            float threshold, float softKnee, float strength,
+            float filterRadius, float shadeLevels,
+            GLuint targetFBO = 0) noexcept
         {
             using namespace sc::gl;
 
             glDisable(GL_DEPTH_TEST);
             glDepthMask(GL_FALSE);
             glDisable(GL_BLEND);
-            glBindVertexArray(fullscreenVAO);
+            glBindFramebuffer(GL_FRAMEBUFFER, targetFBO);
 
             // ---- 6 级降采样 ----
             downShader.use();

@@ -213,6 +213,9 @@ namespace sc {
         int width()  const noexcept { return w; }
         int height() const noexcept { return h; }
 
+        GLuint getVelocityTex() const noexcept { return gVelocity; }
+
+
     private:
         void releaseTextures()
         {

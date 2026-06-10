@@ -12,7 +12,8 @@
 #include "GBuffer.h"
 #include "PostPipeline.h"
 #include "ShadowMap.h"
-#include "BloomPass.h"            // ★ L4
+#include "BloomPass.h" 
+#include "MotionBlurPass.h" 
 
 namespace sc {
 
@@ -20,7 +21,7 @@ namespace sc {
     {
     public:
         explicit Renderer(juce::OpenGLContext& ctx)
-            : context(ctx), gbuffer(ctx), postPipeline(ctx), shadowMap(ctx), bloom(ctx) {
+            : context(ctx), gbuffer(ctx), postPipeline(ctx), shadowMap(ctx), bloom(ctx), motionBlur(ctx) {
         }  // ★ bloom
 
 // ----------------------------------------------------------------
@@ -42,6 +43,7 @@ namespace sc {
             postPipeline.shutdown();
             shadowMap.shutdown();
             bloom.shutdown();           // ★
+            motionBlur.shutdown();
         }
 
         // ----------------------------------------------------------------
@@ -189,6 +191,7 @@ namespace sc {
 
             // ★ 确保 HDR 中间缓冲 + Bloom mip 尺寸一致
             ensureSceneHDR(wPx, hPx);
+            ensureMBInput(wPx, hPx);
             bloom.ensureSize(wPx, hPx);
 
             // ★ Shadow Map 绑定（和原来逻辑一致）
@@ -207,23 +210,34 @@ namespace sc {
                 if (loc >= 0) glUniformMatrix4fv(loc, 1, GL_FALSE, shadowMap.lightViewProj.mat);
             }
 
-            // ★ 1) Lighting Pass → sceneHDR FBO（线性 HDR 输出）
+            // ★ 1) 延迟光照 → sceneHDRTex
             glBindFramebuffer(GL_FRAMEBUFFER, sceneHDRFBO);
             glViewport(0, 0, wPx, hPx);
-            glClear(GL_COLOR_BUFFER_BIT);
             postPipeline.doLighting(gbuffer, camera, light, playerPos, 1.0f);
 
-            // ★ 2) Bloom + ACES + Gamma + Posterize → 默认 FBO
+            // ★ 2) Bloom + ACES + Gamma + Posterize → mbInputFBO（中间缓冲）
             bloom.render(sceneHDRTex,
                 postPipeline.getFullscreenVAO(),
                 light.bloomThreshold,
                 light.bloomSoftKnee,
                 light.bloomStrength,
                 light.bloomFilterRadius,
-                shadeLevels);
+                shadeLevels,
+                mbInputFBO);                          // ★ 输出到中间 FBO
+
+            // ★ 3) Motion Blur → 默认 FBO
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glViewport(0, 0, wPx, hPx);
+            motionBlur.render(mbInputTex,
+                gbuffer.getVelocityTex(),        // ★ GBuffer 需暴露 gVelocity getter
+                postPipeline.getFullscreenVAO(),
+                wPx, hPx,
+                0.5f,   // intensity
+                16);    // samples
 
             prevViewProj = camera.proj() * camera.view();
             checkError("endFrame");
+
         }
 
         void setShadeLevels(float levels) noexcept
@@ -238,7 +252,8 @@ namespace sc {
         GBuffer      gbuffer;
         PostPipeline postPipeline;
         ShadowMap    shadowMap;
-        BloomPass    bloom;              // ★ L4
+        BloomPass    bloom;
+        MotionBlurPass motionBlur;
 
         float shadeLevels{ 64.0f };
         Mat4  prevViewProj;
@@ -246,6 +261,10 @@ namespace sc {
         // ★ sceneHDR 中间缓冲（成员变量定义在这里，ensureSceneHDR / releaseSceneHDR 使用它们）
         GLuint sceneHDRFBO = 0;
         GLuint sceneHDRTex = 0;
+        // ★ 新增中间 FBO 成员（sceneHDR 区域后）
+        GLuint mbInputFBO = 0;        // ★ L5: bloom composite → 这个 FBO
+        GLuint mbInputTex = 0;        // ★ L5: 对应的纹理
+        int    mbInputW = 0, mbInputH = 0;
         int    sceneHDRW = 0;
         int    sceneHDRH = 0;
 
@@ -280,6 +299,33 @@ namespace sc {
             if (sceneHDRTex) { sc::gl::glDeleteTextures(1, &sceneHDRTex);     sceneHDRTex = 0; }
             sceneHDRW = sceneHDRH = 0;
         }
+
+        void ensureMBInput(int newW, int newH)
+        {
+            if (newW == mbInputW && newH == mbInputH) return;
+            releaseMBInput();
+            mbInputW = newW; mbInputH = newH;
+            using namespace sc::gl;
+            glGenTextures(1, &mbInputTex);
+            glBindTexture(GL_TEXTURE_2D, mbInputTex);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, newW, newH, 0, GL_RGBA, GL_FLOAT, nullptr);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glGenFramebuffers(1, &mbInputFBO);
+            glBindFramebuffer(GL_FRAMEBUFFER, mbInputFBO);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mbInputTex, 0);
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        }
+
+        void releaseMBInput()
+        {
+            if (mbInputFBO) { sc::gl::glDeleteFramebuffers(1, &mbInputFBO); mbInputFBO = 0; }
+            if (mbInputTex) { sc::gl::glDeleteTextures(1, &mbInputTex); mbInputTex = 0; }
+            mbInputW = mbInputH = 0;
+        }
+
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(Renderer)
     };
