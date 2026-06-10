@@ -53,7 +53,7 @@ namespace sc {
             vNormalWS = normalize(mat3(uModel) * aNormal);
             vUV       = aUV;
             vCurrClip = uProj * uView * wp;
-            vPrevClip = uPrevModelViewProj * vec4(aPos, 1.0);
+            vPrevClip = uPrevModelViewProj * wp; 
             gl_Position = vCurrClip;
         })";
 

@@ -101,7 +101,7 @@ namespace sc {
             geom.use();
             geom.setMat4("uView", camera.view());
             geom.setMat4("uProj", camera.proj());
-            geom.setMat4("uPrevModelViewProj", prevViewProj);
+            geom.setMat4("uPrevViewProj", prevViewProj);
             geom.setInt("uIsLine", 0);
         }
 
