@@ -33,6 +33,8 @@ namespace sc {
             if (!postPipeline.build()) { DBG("Renderer: PostPipeline build failed"); return false; }
             if (!shadowMap.build()) { DBG("Renderer: ShadowMap build failed");    return false; }
             if (!bloom.build()) { DBG("Renderer: BloomPass build failed");    return false; }  // ★
+            if (!motionBlur.build()) { DBG("Renderer: MotionBlurPass build failed"); return false; }
+
             return true;
         }
 
@@ -44,6 +46,8 @@ namespace sc {
             shadowMap.shutdown();
             bloom.shutdown();           // ★
             motionBlur.shutdown();
+            releaseMBInput();
+
         }
 
         // ----------------------------------------------------------------

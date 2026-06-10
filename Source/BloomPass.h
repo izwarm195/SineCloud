@@ -169,6 +169,8 @@ void main() {
             glDepthMask(GL_FALSE);
             glDisable(GL_BLEND);
             glBindFramebuffer(GL_FRAMEBUFFER, targetFBO);
+            glBindVertexArray(fullscreenVAO);
+
 
             // ---- 6 级降采样 ----
             downShader.use();
@@ -212,7 +214,7 @@ void main() {
             glDisable(GL_BLEND);
 
             // ---- Composite 到默认 framebuffer ----
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glBindFramebuffer(GL_FRAMEBUFFER, targetFBO);
             glViewport(0, 0, w, h);
 
             compositeShader.use();
