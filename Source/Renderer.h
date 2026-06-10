@@ -42,15 +42,15 @@ namespace sc {
 
         void shutdown()
         {
-            releaseSceneHDR();          // ★
+            releaseSceneHDR();
+            releaseMBInput();
+            releasePixelateTex();  // ★ 新增
             gbuffer.shutdown();
             postPipeline.shutdown();
             shadowMap.shutdown();
-            bloom.shutdown();           // ★
+            bloom.shutdown();
             motionBlur.shutdown();
             pixelate.shutdown();
-            releaseMBInput();
-
         }
 
         // ----------------------------------------------------------------
@@ -233,16 +233,28 @@ namespace sc {
                 mbInputFBO);
 
 
-            // ★ 3) Pixelate
+            // ★ 3) Pixelate — Double Buffer Ping-Pong
             if (light.pixelSize > 1.0f)
             {
+                ensurePixelateTex(wPx, hPx);
+
+                // src = mbInputTex, target = pixelateTex[0] (pixelateFBO[0])
                 pixelate.render(mbInputTex,
                     postPipeline.getFullscreenVAO(),
                     wPx, hPx,
                     light.pixelSize,
-                    light.edgeBoost,          // ★ 替换原来的 colorLevels / useColorQuant
-                    mbInputFBO);
+                    light.edgeBoost,
+                    pixelateFBO[0]);
+
+                // ★ 把 pixelateTex[0] 拷回 mbInputFBO（供 motion blur 使用）
+                glBindFramebuffer(GL_READ_FRAMEBUFFER, pixelateFBO[0]);
+                glBindFramebuffer(GL_DRAW_FRAMEBUFFER, mbInputFBO);
+                glViewport(0, 0, wPx, hPx);
+                glBlitFramebuffer(0, 0, wPx, hPx, 0, 0, wPx, hPx, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
             }
+
+
             // 删除 PixelatePass 成员旁边的 colorLevels 成员变量（已不需要）
 
 
@@ -275,6 +287,11 @@ namespace sc {
         ShadowMap    shadowMap;
         BloomPass    bloom;
         MotionBlurPass motionBlur;
+
+        // ★ Pixelate double-buffer
+        GLuint pixelateFBO[2] = { 0, 0 }; // ping-pong buffer pair
+        GLuint pixelateTex[2] = { 0, 0 };
+        int    pixelateW = 0, pixelateH = 0;
 
 
         float shadeLevels{ 64.0f };
@@ -343,6 +360,37 @@ namespace sc {
             glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, mbInputTex, 0);
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
         }
+
+        void ensurePixelateTex(int newW, int newH)
+        {
+            if (newW == pixelateW && newH == pixelateH) return;
+            releasePixelateTex();
+            pixelateW = newW; pixelateH = newH;
+            using namespace sc::gl;
+            for (int i = 0; i < 2; ++i) {
+                glGenTextures(1, &pixelateTex[i]);
+                glBindTexture(GL_TEXTURE_2D, pixelateTex[i]);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, newW, newH, 0, GL_RGBA, GL_FLOAT, nullptr);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+                glGenFramebuffers(1, &pixelateFBO[i]);
+                glBindFramebuffer(GL_FRAMEBUFFER, pixelateFBO[i]);
+                glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, pixelateTex[i], 0);
+            }
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        }
+
+        void releasePixelateTex()
+        {
+            for (int i = 0; i < 2; ++i) {
+                if (pixelateFBO[i]) { sc::gl::glDeleteFramebuffers(1, &pixelateFBO[i]); pixelateFBO[i] = 0; }
+                if (pixelateTex[i]) { sc::gl::glDeleteTextures(1, &pixelateTex[i]); pixelateTex[i] = 0; }
+            }
+            pixelateW = pixelateH = 0;
+        }
+
 
         void releaseMBInput()
         {

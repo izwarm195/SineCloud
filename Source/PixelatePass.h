@@ -38,10 +38,9 @@ void main() {
             const juce::String fs = R"(#version 330 core
 
 in vec2 vUV;
-
 uniform sampler2D uSrc;
-uniform float   uPixelSize;
-uniform float   uEdgeBoost;  // ★ 边缘对比度强度 [0, 1]，0=关闭
+uniform float uPixelSize;
+uniform float uEdgeBoost;
 
 out vec4 fragColor;
 
@@ -51,37 +50,36 @@ void main()
     float gridX = float(texSize.x) / uPixelSize;
     float gridY = float(texSize.y) / uPixelSize;
 
-    // ---- 1) UV snap 到像素块几何中心 ----
+    // ---- 1) UV snap ----
     vec2 blockUV = floor(vUV * vec2(gridX, gridY)) / vec2(gridX, gridY)
                  + vec2(0.5 / gridX, 0.5 / gridY);
 
-    // ---- 2) ★ texelFetch 硬采样：绕过所有 texture filter ----
+    // ---- 2) texelFetch 硬采样 ----
     ivec2 coord = ivec2(blockUV * vec2(texSize));
     vec3 col = texelFetch(uSrc, coord, 0).rgb;
 
-    // ---- 3) ★ 边缘局部对比度增强（不改色阶，只调对比度） ----
+    // ---- 3) 边缘增强 — deadzone 防抖动 ----
     if (uEdgeBoost > 0.0)
     {
-        int step = int(uPixelSize);           // 步长 = 像素块大小
-        vec3 n  = texelFetch(uSrc, coord + ivec2(0, -step), 0).rgb;
-        vec3 s  = texelFetch(uSrc, coord + ivec2(0,  step), 0).rgb;
-        vec3 e  = texelFetch(uSrc, coord + ivec2( step, 0), 0).rgb;
-        vec3 w  = texelFetch(uSrc, coord + ivec2(-step, 0), 0).rgb;
+        int step = int(uPixelSize);
+        vec3 n = texelFetch(uSrc, coord + ivec2(0, -step), 0).rgb;
+        vec3 s = texelFetch(uSrc, coord + ivec2(0,  step), 0).rgb;
+        vec3 e = texelFetch(uSrc, coord + ivec2( step, 0), 0).rgb;
+        vec3 w = texelFetch(uSrc, coord + ivec2(-step, 0), 0).rgb;
 
-        // 4 邻域平均
         vec3 avg = (n + s + e + w) * 0.25;
-
-        // 当前块与邻域的差异 → 边缘强度
         float edge = length(col - avg);
 
-        // 往远离邻域均值的方向推 → 边缘更跳
-        // boost ∈ [1.0, 1.0+uEdgeBoost]，edge 越大 boost 越强
-        float boost = 1.0 + uEdgeBoost * edge * 3.0;
-        col = clamp(mix(col, col * boost, edge), 0.0, 1.0);
+        // deadzone: edge < 0.02 为0, edge > 0.15 满boost
+        float edgeSharp = smoothstep(0.02, 0.15, edge);
+        float boost = 1.0 + uEdgeBoost * edgeSharp * 2.5;
+        col = clamp(col * boost, 0.0, 1.0);
     }
 
     fragColor = vec4(col, 1.0);
 })";
+
+
 
 
 
