@@ -33,54 +33,57 @@ void main() {
     gl_Position = vec4(aPos, 0.0, 1.0);
 })";
 
-            // ★ Red Giraffe 风格：UV snap + 可选的 full color quantization
+            //UV snap + 可选的 full color quantization
+
             const juce::String fs = R"(#version 330 core
 
 in vec2 vUV;
 
 uniform sampler2D uSrc;
-uniform float   uPixelSize;       // 像素块大小（屏幕像素单位，如 2.0 = 2×2 pixel art block）
-uniform float   uColorLevels;     // RGB 独立色阶数（0 = 不做色阶量化）
-uniform bool    uUseColorQuant;   // true: RGB 独立量化 / false: 沿用 luminance posterize
+uniform float   uPixelSize;
+uniform float   uEdgeBoost;  // ★ 边缘对比度强度 [0, 1]，0=关闭
 
 out vec4 fragColor;
 
 void main()
 {
-    // ---- 1) 采样分辨率 ----
     ivec2 texSize = textureSize(uSrc, 0);
-
-    // ---- 2) Red Giraffe UV snap：锁到像素块几何中心 ----
-    //      floor(vUV * grid) / grid    →    块左上角
-    //      + 0.5 / grid                →    块正中心（避免子像素偏差）
     float gridX = float(texSize.x) / uPixelSize;
     float gridY = float(texSize.y) / uPixelSize;
-    vec2  pixelUV = floor(vUV * vec2(gridX, gridY)) / vec2(gridX, gridY)
-                  + vec2(0.5 / gridX, 0.5 / gridY);
 
-    vec3 col = texture(uSrc, pixelUV).rgb;
+    // ---- 1) UV snap 到像素块几何中心 ----
+    vec2 blockUV = floor(vUV * vec2(gridX, gridY)) / vec2(gridX, gridY)
+                 + vec2(0.5 / gridX, 0.5 / gridY);
 
-    // ---- 3) 色阶量化 ----
-    if (uColorLevels > 1.5)
+    // ---- 2) ★ texelFetch 硬采样：绕过所有 texture filter ----
+    ivec2 coord = ivec2(blockUV * vec2(texSize));
+    vec3 col = texelFetch(uSrc, coord, 0).rgb;
+
+    // ---- 3) ★ 边缘局部对比度增强（不改色阶，只调对比度） ----
+    if (uEdgeBoost > 0.0)
     {
-        if (uUseColorQuant)
-        {
-            // RGB 三个通道独立量化 — 更接近像素艺术调色板限制
-            col.r = (floor(col.r * uColorLevels) + 0.5) / uColorLevels;
-            col.g = (floor(col.g * uColorLevels) + 0.5) / uColorLevels;
-            col.b = (floor(col.b * uColorLevels) + 0.5) / uColorLevels;
-        }
-        else
-        {
-            // 基于亮度的量化（与现有 shadeLevels 逻辑一致，避免 hue shift）
-            float Y = max(dot(col, vec3(0.2126, 0.7152, 0.0722)), 1e-5);
-            float Yq = (floor(Y * uColorLevels) + 0.5) / uColorLevels;
-            col = col * (Yq / Y);
-        }
+        int step = int(uPixelSize);           // 步长 = 像素块大小
+        vec3 n  = texelFetch(uSrc, coord + ivec2(0, -step), 0).rgb;
+        vec3 s  = texelFetch(uSrc, coord + ivec2(0,  step), 0).rgb;
+        vec3 e  = texelFetch(uSrc, coord + ivec2( step, 0), 0).rgb;
+        vec3 w  = texelFetch(uSrc, coord + ivec2(-step, 0), 0).rgb;
+
+        // 4 邻域平均
+        vec3 avg = (n + s + e + w) * 0.25;
+
+        // 当前块与邻域的差异 → 边缘强度
+        float edge = length(col - avg);
+
+        // 往远离邻域均值的方向推 → 边缘更跳
+        // boost ∈ [1.0, 1.0+uEdgeBoost]，edge 越大 boost 越强
+        float boost = 1.0 + uEdgeBoost * edge * 3.0;
+        col = clamp(mix(col, col * boost, edge), 0.0, 1.0);
     }
 
     fragColor = vec4(col, 1.0);
 })";
+
+
 
             if (!shader.build(quadVS, fs))
             {
@@ -98,14 +101,14 @@ void main()
         // ----------------------------------------------------------------
         // 每帧调用
         // ----------------------------------------------------------------
-        void render(GLuint   srcTex,        // 输入纹理（已 composite 好的 sRGB）
-            GLuint   fullscreenVAO, // PostPipeline 的 quad VAO
-            int      viewW,
-            int      viewH,
-            float    pixelSize,     // e.g. 2.0 ~ 8.0
-            float    colorLevels,   // e.g. 16.0
-            bool     useColorQuant, // true: RGB独立 / false: 亮度posterize
-            GLuint   targetFBO = 0) noexcept
+        void render(GLuint srcTex,
+            GLuint fullscreenVAO,
+            int viewW,
+            int viewH,
+            float pixelSize,
+            float edgeBoost,      // ★ 替代原来的 colorLevels + useColorQuant
+            GLuint targetFBO = 0) noexcept
+
         {
             using namespace sc::gl;
 
@@ -123,8 +126,9 @@ void main()
             shader.setInt("uSrc", 0);
 
             shader.setFloat("uPixelSize", juce::jmax(1.0f, pixelSize));
-            shader.setFloat("uColorLevels", juce::jmax(1.0f, colorLevels));
-            shader.setInt("uUseColorQuant", useColorQuant ? 1 : 0);
+            shader.setFloat("uEdgeBoost", juce::jmax(0.0f, juce::jmin(1.0f, edgeBoost)));
+            // 删除原有 uColorLevels / uUseColorQuant 的 setFloat/setInt
+
 
             glBindVertexArray(fullscreenVAO);
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);

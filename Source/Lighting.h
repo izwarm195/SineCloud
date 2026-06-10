@@ -39,7 +39,7 @@ struct Lighting
     float cloudSpeed{ 0.65f };   // 云移动速度
     float cloudPlaneHeight{ 90.0f };   // 虚拟云层高度
     float cloudBandLevels{ 5.0f };    // 像素风 banding 级数
-    float volumetricSteps{ 16.0f };    // Ray March 步数
+    float volumetricSteps{ 0.0f };    // Ray March 步数
     float volumetricIntensity{ 0.1f }; // 体积光强度
     float cloudTime{ 0.0f };    // 每帧由外部更新
 
@@ -61,9 +61,9 @@ struct Lighting
 
     // ★★★ Pixelate 参数 ★★★
     float pixelSize{ 8.0f };       // 像素块大小（屏幕像素单位，1=关闭）
-    float colorLevels{ 256.0f };     // 0=不量化; >1=色阶数
-    bool  useColorQuant{ true };   // true=RGB独立量化（更硬边缘）; false=亮度posterize
-
+    float colorLevels{ 0.0f };     // 0=不量化; >1=色阶数
+    bool  useColorQuant{ false };   // true=RGB独立量化（更硬边缘）; false=亮度posterize
+    float edgeBoost{ 0.2f };
 
 
 

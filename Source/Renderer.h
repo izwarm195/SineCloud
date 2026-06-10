@@ -233,18 +233,18 @@ namespace sc {
                 mbInputFBO);
 
 
-            // ★ 3) Pixelate — 参数从 light 读取，解决边缘模糊
-            //       关键：colorLevels 默认 8 + useColorQuant = true
-            if (light.pixelSize > 1.0f)   // >1 才做像素化
+            // ★ 3) Pixelate
+            if (light.pixelSize > 1.0f)
             {
                 pixelate.render(mbInputTex,
                     postPipeline.getFullscreenVAO(),
                     wPx, hPx,
                     light.pixelSize,
-                    light.colorLevels,    // ★ 默认 8，RGB 独立量化
-                    light.useColorQuant,  // ★ true = 锐利硬边
-                    mbInputFBO);          // 写回同一个 FBO
+                    light.edgeBoost,          // ★ 替换原来的 colorLevels / useColorQuant
+                    mbInputFBO);
             }
+            // 删除 PixelatePass 成员旁边的 colorLevels 成员变量（已不需要）
+
 
             // ★ 4) Motion Blur → 默认 FBO
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
