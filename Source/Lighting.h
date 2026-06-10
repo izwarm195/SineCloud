@@ -16,7 +16,7 @@ struct Lighting
 {
     // ---- 主方向光 ----
     Vec3  direction { -0.577f, 0.277f, -0.577f };
-    Vec3  color     { 1.20f, 1.10f, 1.00f };
+    Vec3  color     { 0.80f, 0.70f, 0.60f };
     Vec3  ambient   { 0.22f, 0.17f, 0.12f };
 
     // ---- 半球环境光 ----
@@ -26,7 +26,7 @@ struct Lighting
 
     // ---- 距离雾（俯视专用） ----
     Vec3 fogColorSRGB{ 0.85f, 0.80f, 0.73f }; // 默认与 clearColor 同色
-    float fogDensity   { 0.05f };               // 越大越浓；0 = 关闭
+    float fogDensity   { 0.12f };               // 越大越浓；0 = 关闭
     float fogHeightFalloff { 0.2f };            // Z 越高雾越稀；0 = 均匀雾
     float fogStart     { 5.0f };                 // 这个距离前不算雾
 
@@ -34,13 +34,13 @@ struct Lighting
     std::vector<PointLight> pointLights;
 
     // ★★★ 云层 / 体积光参数 ★★★
-    float cloudScale{ 0.3f };  // Perlin 噪声缩放
-    float cloudThreshold{ 0.4f };   // 云/晴 阈值
+    float cloudScale{ 0.9f };  // Perlin 噪声缩放
+    float cloudThreshold{ 0.35f };   // 云/晴 阈值
     float cloudSpeed{ 0.65f };   // 云移动速度
     float cloudPlaneHeight{ 90.0f };   // 虚拟云层高度
-    float cloudBandLevels{ 5.0f };    // 像素风 banding 级数
-    float volumetricSteps{ 0.0f };    // Ray March 步数
-    float volumetricIntensity{ 0.5f }; // 体积光强度
+    float cloudBandLevels{ 3.0f };    // 像素风 banding 级数
+    float volumetricSteps{ 8.0f };    // Ray March 步数
+    float volumetricIntensity{ 0.3f }; // 体积光强度
     float cloudTime{ 0.0f };    // 每帧由外部更新
 
     // ★★★ 阴影参数 ★★★
@@ -60,10 +60,10 @@ struct Lighting
     int   motionBlurSamples{ 16 };        // 采样数 (2 ~ 32)
 
     // ★★★ Pixelate 参数 ★★★
-    float pixelSize{ 8.0f };       // 像素块大小（屏幕像素单位，1=关闭）
+    float pixelSize{ 4.0f };       // 像素块大小（屏幕像素单位，1=关闭）
     float colorLevels{ 0.0f };     // 0=不量化; >1=色阶数
     bool  useColorQuant{ false };   // true=RGB独立量化（更硬边缘）; false=亮度posterize
-    float edgeBoost{ 0.0f };
+    float edgeBoost{ 0.01f };
 
 
 

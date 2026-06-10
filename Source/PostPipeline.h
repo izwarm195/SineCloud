@@ -259,7 +259,7 @@ float getCloudShadow(vec3 worldPos, vec3 sunDir, float time) {
 }
 
 
-float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time)
+float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time, vec2 vUV)
 {
     vec3 rayDir = worldPos - camPos;
     float rayLen = length(rayDir);
@@ -267,14 +267,18 @@ float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time)
     rayDir /= rayLen;
 
     int steps = int(uVolumetricSteps);
-    steps = max(steps, 8);
+    steps = max(steps, 12);  // ★ 8 → 12，每帧多 50% 开销但体感平滑很多
+
     float stepSize = rayLen / float(steps);
 
-    // ★ 无 jitter：所有像素用完全相同的相对采样位置
+    // ★ vUV 空间 dither：相邻像素平滑渐变，帧间完全固定
+    float dither = fract(sin(dot(vUV, vec2(127.1, 311.7))) * 43758.5453) * 0.5;
+
     float accum = 0.0;
     for (int i = 0; i < steps; ++i)
     {
-        float t = (float(i) + 0.5) * stepSize;
+        float t = (float(i) + 0.5 + dither) * stepSize;
+        t = clamp(t, 0.0, rayLen);
         vec3 samplePos = camPos + rayDir * t;
 
         float geomVis = sampleDirShadowHard(samplePos);
@@ -298,9 +302,8 @@ float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time)
 
     float result = accum / float(steps);
 
-    // ★ 加宽 smoothstep 消除固定步进产生的 banding
-    float beamEdge = 0.12;
-    result = smoothstep(beamEdge - 0.25, beamEdge + 0.30, result);
+    float beamEdge = 0.15;
+    result = smoothstep(beamEdge - 0.20, beamEdge + 0.25, result);
 
     if (uCloudBandLevels > 1.5)
     {
@@ -309,6 +312,7 @@ float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time)
 
     return result;
 }
+
 
 
 
@@ -342,7 +346,7 @@ void main() {
     float cloudShadow = getCloudShadow(worldPos, Ldir, uCloudTime);
 
     // Volumetric (beam) — 带时间累积
-    float volumetric = getVolumetricLight(worldPos, uCamPos, Ldir, uCloudTime);
+    float volumetric = getVolumetricLight(worldPos, uCamPos, Ldir, uCloudTime, vUV);
 
 
     // Geometry shadow
