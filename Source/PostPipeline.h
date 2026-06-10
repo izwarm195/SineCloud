@@ -270,7 +270,7 @@ float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time, ve
     float stepSize = rayLen / float(steps);
 
     float jitter = hash21(worldPos.xy * 97.0 + worldPos.z * 53.0) * 0.8;
-    float baseOffset = fract(sin(dot(vUV, vec2(127.1, 311.7)) + time * 0.37) * 43758.5453);
+    float baseOffset = fract(sin(dot(vUV, vec2(127.1, 311.7)) ) * 43758.5453);
     float layerOffset = baseOffset * 0.6;
 
     float accum = 0.0;
@@ -298,7 +298,7 @@ float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time, ve
 
     float result = accum / float(steps);
     float beamEdge = 0.15;
-    result = smoothstep(beamEdge - 0.15, beamEdge + 0.20, result);
+    result = smoothstep(beamEdge - 0.20, beamEdge + 0.25, result);
     if (uCloudBandLevels > 1.5) {
         result = (floor(result * uCloudBandLevels) + 0.5) / uCloudBandLevels;
     }
@@ -397,8 +397,7 @@ void main() {
     float beamTight = pow(volumetric, 4.0);
     float sparkleNoise = fract(
         sin(dot(worldPos.xy * 17.0, vec2(12.9898, 78.233))) +
-        sin(dot(worldPos.yz * 23.0, vec2(45.164, 93.497))) +
-        uCloudTime * 0.5
+        sin(dot(worldPos.yz * 23.0, vec2(45.164, 93.497)))
     );
     float sparkleMask = smoothstep(0.25, 0.65, volumetric);
     float sparkle = sparkleNoise * sparkleMask;
