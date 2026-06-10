@@ -222,35 +222,39 @@ namespace sc {
             glViewport(0, 0, wPx, hPx);
             postPipeline.doLighting(gbuffer, camera, light, playerPos, 1.0f);
 
-            // ★ 2) Bloom + ACES + Gamma + Posterize → mbInputFBO（中间缓冲）
+            // ★ 2) Bloom + ACES + Gamma + Posterize → mbInputFBO
             bloom.render(sceneHDRTex,
                 postPipeline.getFullscreenVAO(),
                 light.bloomThreshold,
                 light.bloomSoftKnee,
                 light.bloomStrength,
                 light.bloomFilterRadius,
-                shadeLevels,
-                mbInputFBO); 
-            // ★ 输出到中间 FBO
-            
-            // ★ 像素化 pass：读 mbInputTex，写回 mbInputFBO（或新开 FBO）
-            pixelate.render(mbInputTex,                   // src = bloom composite 输出
-                postPipeline.getFullscreenVAO(),
-                wPx, hPx,
-                pixelSize,
-                colorLevels > 0.0f ? colorLevels : shadeLevels, // fallback
-                false,                         // 默认用亮度 posterize 模式
-                mbInputFBO);                   // 写回同一个中间 FBO
+                0.0f,              
+                mbInputFBO);
 
-            // ★ 3) Motion Blur → 默认 FBO
+
+            // ★ 3) Pixelate — 参数从 light 读取，解决边缘模糊
+            //       关键：colorLevels 默认 8 + useColorQuant = true
+            if (light.pixelSize > 1.0f)   // >1 才做像素化
+            {
+                pixelate.render(mbInputTex,
+                    postPipeline.getFullscreenVAO(),
+                    wPx, hPx,
+                    light.pixelSize,
+                    light.colorLevels,    // ★ 默认 8，RGB 独立量化
+                    light.useColorQuant,  // ★ true = 锐利硬边
+                    mbInputFBO);          // 写回同一个 FBO
+            }
+
+            // ★ 4) Motion Blur → 默认 FBO
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             glViewport(0, 0, wPx, hPx);
             motionBlur.render(mbInputTex,
-                gbuffer.getVelocityTex(),        // ★ GBuffer 需暴露 gVelocity getter
+                gbuffer.getVelocityTex(),
                 postPipeline.getFullscreenVAO(),
                 wPx, hPx,
-                0.5f,   // intensity
-                16);    // samples
+                light.motionBlurIntensity,  // ★ 从 Lighting 读
+                light.motionBlurSamples);    // ★ 从 Lighting 读
 
             prevViewProj = camera.proj() * camera.view();
             checkError("endFrame");
@@ -287,8 +291,7 @@ namespace sc {
         int    sceneHDRH = 0;
 
         PixelatePass pixelate;   // ★ 新成员
-        float pixelSize = 4.0f; // 默认 4×4 像素块
-        float colorLevels = 0.0f; // 0 = 不做色阶量化，沿用 shadeLevels 即可
+        
 
         // ★ 私有辅助方法
         void ensureSceneHDR(int newW, int newH)

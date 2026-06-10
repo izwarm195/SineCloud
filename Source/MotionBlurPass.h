@@ -88,7 +88,7 @@ void main() {
             GLuint velocityTex,
             GLuint fullscreenVAO,
             int    w, int h,
-            float  intensity = 0.5f,
+            float  intensity = 1.0f,
             int    samples = 16) noexcept
         {
             using namespace sc::gl;

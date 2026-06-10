@@ -55,6 +55,16 @@ struct Lighting
     float bloomStrength{ 0.1f };  // 混合权重
     float bloomFilterRadius{ 1.0f };   // 上采样模糊半径
 
+    // ★★★ Motion Blur 参数 ★★★
+    float motionBlurIntensity{ 0.5f };   // 混合强度 [0, 1]
+    int   motionBlurSamples{ 16 };        // 采样数 (2 ~ 32)
+
+    // ★★★ Pixelate 参数 ★★★
+    float pixelSize{ 8.0f };       // 像素块大小（屏幕像素单位，1=关闭）
+    float colorLevels{ 256.0f };     // 0=不量化; >1=色阶数
+    bool  useColorQuant{ true };   // true=RGB独立量化（更硬边缘）; false=亮度posterize
+
+
 
 
 };
