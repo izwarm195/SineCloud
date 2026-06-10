@@ -7,7 +7,7 @@ SineCloudAudioProcessorEditor::SineCloudAudioProcessorEditor(SineCloudAudioProce
     setOpaque(true);
     setResizable(true, true);
     setResizeLimits(640, 360, 1920, 1080);
-    setSize(1600, 900);
+    setSize(1000, 640);
     setWantsKeyboardFocus(false);
 
     // ★ 先建 SceneView（因为 World 需要它的 lighting 引用）

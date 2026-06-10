@@ -208,8 +208,8 @@ namespace sc
 
 
 
-        float minPitch{ juce::MathConstants<float>::pi * 0.00f };
-        float maxPitch{ juce::MathConstants<float>::pi * 0.48f };
+        float minPitch{ juce::MathConstants<float>::pi * 0.22f };
+        float maxPitch{ juce::MathConstants<float>::pi * 0.22f };
 
         Vec3  pivot{ 0, 0, 0 };
 

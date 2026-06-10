@@ -34,13 +34,13 @@ struct Lighting
     std::vector<PointLight> pointLights;
 
     // ★★★ 云层 / 体积光参数 ★★★
-    float cloudScale{ 0.9f };  // Perlin 噪声缩放
-    float cloudThreshold{ 0.35f };   // 云/晴 阈值
+    float cloudScale{ 0.3f };  // Perlin 噪声缩放
+    float cloudThreshold{ 0.37f };   // 云/晴 阈值
     float cloudSpeed{ 0.65f };   // 云移动速度
     float cloudPlaneHeight{ 90.0f };   // 虚拟云层高度
     float cloudBandLevels{ 3.0f };    // 像素风 banding 级数
-    float volumetricSteps{ 8.0f };    // Ray March 步数
-    float volumetricIntensity{ 0.3f }; // 体积光强度
+    float volumetricSteps{ 16.0f };    // Ray March 步数
+    float volumetricIntensity{ 0.52f }; // 体积光强度
     float cloudTime{ 0.0f };    // 每帧由外部更新
 
     // ★★★ 阴影参数 ★★★
@@ -53,7 +53,7 @@ struct Lighting
     float bloomThreshold{ 1.0f };   // HDR 亮度阈值
     float bloomSoftKnee{ 0.5f };   // 软过渡
     float bloomStrength{ 0.1f };  // 混合权重
-    float bloomFilterRadius{ 1.0f };   // 上采样模糊半径
+    float bloomFilterRadius{ 2.0f };   // 上采样模糊半径
 
     // ★★★ Motion Blur 参数 ★★★
     float motionBlurIntensity{ 0.5f };   // 混合强度 [0, 1]
@@ -61,9 +61,9 @@ struct Lighting
 
     // ★★★ Pixelate 参数 ★★★
     float pixelSize{ 4.0f };       // 像素块大小（屏幕像素单位，1=关闭）
-    float colorLevels{ 0.0f };     // 0=不量化; >1=色阶数
-    bool  useColorQuant{ false };   // true=RGB独立量化（更硬边缘）; false=亮度posterize
-    float edgeBoost{ 0.05f };
+    float colorLevels{ 16.0f };     // 0=不量化; >1=色阶数
+    bool  useColorQuant{ true };   // true=RGB独立量化（更硬边缘）; false=亮度posterize
+    float edgeBoost{ 0.15f };
 
     // ★★★ Denoise 参数 ★★★
     float denoiseStrength{ 0.0f };   // 降噪混合强度 [0, 1]，0 = 不降噪

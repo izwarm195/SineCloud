@@ -205,16 +205,14 @@ namespace sc
         void mouseMove(const juce::MouseEvent& e) override
         {
             if (paused) return;
-
             if (ignoreNextMouseMove)
             {
                 ignoreNextMouseMove = false;
+                // ★ 鼠标刚被 warp 回来，不要用这个 delta 去推动惯性
                 return;
             }
-
             const auto sp = e.getScreenPosition();
             const juce::Point<float> screenPos((float)sp.x, (float)sp.y);
-
             if (!mouseLookInit)
             {
                 lastMouseLookScreenPos = screenPos;
@@ -222,17 +220,20 @@ namespace sc
                 mouseLookInit = true;
                 return;
             }
+            const float rawDx = (screenPos.x - lastMouseLookScreenPos.x) * 0.015f;
+            const float rawDy = (screenPos.y - lastMouseLookScreenPos.y) * 0.015f;
 
-            const float dx = screenPos.x - lastMouseLookScreenPos.x;
-            const float dy = screenPos.y - lastMouseLookScreenPos.y;
+            // ★ 惯性：EMA 低通滤波
+            mouseVelX = mouseVelX * (1.0f - kInertiaSmooth) + rawDx * kInertiaSmooth;
+            mouseVelY = mouseVelY * (1.0f - kInertiaSmooth) + rawDy * kInertiaSmooth;
 
-            camera.setYaw(camera.getYaw() + dx * 0.005f, lastDt);
-            camera.setPitch(camera.getPitch() + dy * 0.005f, lastDt);
+            camera.setYaw(camera.getYaw() + mouseVelX, lastDt);
+            camera.setPitch(camera.getPitch() + mouseVelY, lastDt);
 
             ignoreNextMouseMove = true;
             juce::Desktop::getInstance().getMainMouseSource()
                 .setScreenPosition(warpTarget);
-            lastMouseLookScreenPos = warpTarget;   // ★ 不管 OS 有没有弹回去，都当弹回去了
+            lastMouseLookScreenPos = warpTarget;
         }
 
         void mouseDown(const juce::MouseEvent&) override
@@ -244,22 +245,21 @@ namespace sc
         {
             // 松手时重置 mouseLookInit，防止 setScreenPosition 被 OS 拦截期间积累的偏移在下一帧跳变
             mouseLookInit = false;
+            mouseVelX = 0.0f;
+            mouseVelY = 0.0f;
+
         }
 
         void mouseDrag(const juce::MouseEvent& e) override
         {
-            // 和 mouseMove 完全一样的逻辑，因为 JUCE 按住按键时走 mouseDrag 而非 mouseMove
             if (paused) return;
-
             if (ignoreNextMouseMove)
             {
                 ignoreNextMouseMove = false;
                 return;
             }
-
             const auto sp = e.getScreenPosition();
             const juce::Point<float> screenPos((float)sp.x, (float)sp.y);
-
             if (!mouseLookInit)
             {
                 lastMouseLookScreenPos = screenPos;
@@ -267,18 +267,21 @@ namespace sc
                 mouseLookInit = true;
                 return;
             }
+            const float rawDx = (screenPos.x - lastMouseLookScreenPos.x) * 0.005f;
+            const float rawDy = (screenPos.y - lastMouseLookScreenPos.y) * 0.005f;
 
-            const float dx = screenPos.x - lastMouseLookScreenPos.x;
-            const float dy = screenPos.y - lastMouseLookScreenPos.y;
+            mouseVelX = mouseVelX * (1.0f - kInertiaSmooth) + rawDx * kInertiaSmooth;
+            mouseVelY = mouseVelY * (1.0f - kInertiaSmooth) + rawDy * kInertiaSmooth;
 
-            camera.setYaw(camera.getYaw() + dx * 0.005f, lastDt);
-            camera.setPitch(camera.getPitch() + dy * 0.005f, lastDt);
+            camera.setYaw(camera.getYaw() + mouseVelX, lastDt);
+            camera.setPitch(camera.getPitch() + mouseVelY, lastDt);
 
             ignoreNextMouseMove = true;
             juce::Desktop::getInstance().getMainMouseSource()
                 .setScreenPosition(warpTarget);
             lastMouseLookScreenPos = warpTarget;
         }
+
 
 
 
@@ -395,6 +398,11 @@ namespace sc
         bool mouseLookInit = false;
         bool ignoreNextMouseMove = false;
         
+        // ---- 鼠标惯性 ----
+        float mouseVelX{ 0.0f };
+        float mouseVelY{ 0.0f };
+        static constexpr float kInertiaSmooth{ 0.10f };  // 越小惯性越大，0.08~0.15 自然
+
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SceneView)
     };
