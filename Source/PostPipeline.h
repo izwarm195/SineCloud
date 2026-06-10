@@ -259,7 +259,8 @@ float getCloudShadow(vec3 worldPos, vec3 sunDir, float time) {
 }
 
 
-float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time, vec2 vUV) {
+float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time)
+{
     vec3 rayDir = worldPos - camPos;
     float rayLen = length(rayDir);
     if (rayLen < 0.01) return 0.0;
@@ -269,41 +270,46 @@ float getVolumetricLight(vec3 worldPos, vec3 camPos, vec3 sunDir, float time, ve
     steps = max(steps, 8);
     float stepSize = rayLen / float(steps);
 
-    float jitter = hash21(worldPos.xy * 97.0 + worldPos.z * 53.0) * 0.8;
-    float baseOffset = fract(sin(dot(vUV, vec2(127.1, 311.7)) ) * 43758.5453);
-    float layerOffset = baseOffset * 0.6;
-
+    // ★ 无 jitter：所有像素用完全相同的相对采样位置
     float accum = 0.0;
-    for (int i = 0; i < steps; ++i) {
-        float t = (float(i) + 0.5 + jitter + layerOffset) * stepSize;
-        t = clamp(t, 0.0, rayLen);
+    for (int i = 0; i < steps; ++i)
+    {
+        float t = (float(i) + 0.5) * stepSize;
         vec3 samplePos = camPos + rayDir * t;
 
-        // ★ 改用硬阴影单采样 + 加权累积，替代原来的 PCF + continue
         float geomVis = sampleDirShadowHard(samplePos);
         float weight = geomVis;
 
         float tSun = (uCloudPlaneHeight - samplePos.z) / max(abs(sunDir.z), 1e-6);
-        if (tSun > 0.0) {
+        if (tSun > 0.0)
+        {
             vec3 hitPoint = samplePos + tSun * sunDir;
             vec2 uv = vec2(hitPoint.x, hitPoint.y) * uCloudScale;
             uv.x += time * uCloudSpeed * 0.3;
             uv.y += time * uCloudSpeed * 0.15;
             float cloud = fbm3D(vec3(uv, time * 0.005));
-            accum += weight * (1.0 - smoothstep(uCloudThreshold - 0.001, uCloudThreshold + 0.001, cloud));
-        } else {
+            accum += weight * (1.0 - smoothstep(uCloudThreshold - 0.01, uCloudThreshold + 0.01, cloud));
+        }
+        else
+        {
             accum += weight * 1.0;
         }
     }
 
     float result = accum / float(steps);
-    float beamEdge = 0.15;
-    result = smoothstep(beamEdge - 0.20, beamEdge + 0.25, result);
-    if (uCloudBandLevels > 1.5) {
+
+    // ★ 加宽 smoothstep 消除固定步进产生的 banding
+    float beamEdge = 0.12;
+    result = smoothstep(beamEdge - 0.25, beamEdge + 0.30, result);
+
+    if (uCloudBandLevels > 1.5)
+    {
         result = (floor(result * uCloudBandLevels) + 0.5) / uCloudBandLevels;
     }
+
     return result;
 }
+
 
 
 )";
@@ -336,15 +342,7 @@ void main() {
     float cloudShadow = getCloudShadow(worldPos, Ldir, uCloudTime);
 
     // Volumetric (beam) — 带时间累积
-    float volumetric = getVolumetricLight(worldPos, uCamPos, Ldir, uCloudTime, vUV);
-
-    // ★ Temporal accumulation: 混合上一帧的体积光
-    if (uTemporalBlend > 0.0)
-    {
-        // uVolHistory 是上一帧的 volumetric 值（单通道，存为 RGBA16F 纹理的 R 通道）
-        float prevVol = texture(uVolHistory, vUV).r;
-        volumetric = mix(volumetric, prevVol, uTemporalBlend);
-    }
+    float volumetric = getVolumetricLight(worldPos, uCamPos, Ldir, uCloudTime);
 
 
     // Geometry shadow
@@ -524,20 +522,6 @@ void main() {
 
             glDepthMask(GL_TRUE);
             glEnable(GL_DEPTH_TEST);
-
-            // ★ Temporal blend for volumetric light
-            deferredShader.setFloat("uTemporalBlend", temporalBlend);
-            if (volHistoryTex)
-            {
-                glActiveTexture(GL_TEXTURE8);
-                glBindTexture(GL_TEXTURE_2D, volHistoryTex);
-                deferredShader.setInt("uVolHistory", 8);
-            }
-            else
-            {
-                deferredShader.setInt("uVolHistory", -1);
-            }
-
 
             checkError("PostPipeline::doLighting");
         }
