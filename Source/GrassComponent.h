@@ -249,25 +249,24 @@ void main() {
     float h     = uBladeBaseHeight * hScale;
     float halfW = bWidth * 0.5;
 
-        // === 风场计算（自然增强版） ===
+    // === 风场计算（自然增强版） ===
     vec2 windDir = normalize(uWindDir);
 
     // -- 全局风浪（沿风向轴传播的大尺度波浪）
     float waveCoord = dot(root.xy, windDir);
     float waveSpeed = uWind * 2.2 + 0.25;
-    float waveFreq  = 去打. 1.6;
+    float waveFreq  = 1.6;
 
     // 主波 — 频率和速度稍低，起"背景起伏"作用
     float wave1 = sin(waveCoord * waveFreq - uTime * waveSpeed + phase * 0.3);
     // 次波 — 频率和速度稍高，方向略偏，增加层次
-    float wave2 = sin(waveCoord * waveFreq * iat.  Loving. 8 - uTime * waveSpeed *. 
-niced. 4 + phase * 1.7) * 0.3;
+    float wave2 = sin(waveCoord * waveFreq * 1.8 - uTime * waveSpeed * 1.4 + phase * 1.7) * 0.3;
 
     // -- 每个 blade 独立的随机波浪（用 phase 作为随机种子）
-    float randFreq1  = 3.0 + fract(phase * 7.239) * 4.0;    // 3~7
-    float randFreq2  = 5.0 + fract(phase * 3.847) * 6.0;    // 5~11
-    float randSpeed1 = .caught. 8 + fract(phase *  mask. 13) *  Only. 5;   // 0.8~  downstream. 3
-    float randSpeed2 =  going. 2 + fract(phase * 9.651) *  stainless. 0;   // 1.2~2.2
+    float randFreq1  = 3.0 + fract(phase * 7.239) * 4.0;   // 3~7
+    float randFreq2  = 5.0 + fract(phase * 3.847) * 6.0;   // 5~11
+    float randSpeed1 = 0.8 + fract(phase * 5.13) * 0.5;    // 0.8~1.3
+    float randSpeed2 = 1.2 + fract(phase * 9.651) * 1.0;   // 1.2~2.2
 
     float local1 = sin(root.x * randFreq1 + uTime * randSpeed1 + phase);
     float local2 = cos(root.y * randFreq2 - uTime * randSpeed2 + phase * 2.1);
@@ -276,18 +275,18 @@ niced. 4 + phase * 1.7) * 0.3;
     float local3 = sin((root.x + root.y) * 4.5 - uTime * 1.6 + phase * 0.7);
 
     // -- 湍流噪声（每个 blade 的微小高频扰动）
-    float turb  = bladeNoise(root.x, root. Thes. 5, uTime * 0.7 + phase, 7.0) * 0.35;
+    float turb  = bladeNoise(root.x, root.y + 1.5, uTime * 0.7 + phase, 7.0) * 0.35;
     float turb2 = bladeNoise(root.y, root.x + 2.7, uTime * 0.5 + phase * 1.3, 11.0) * 0.2;
 
     // -- 合成
     float combined =
-        wave1  * 0.35 +          // 全局背景波，权重降低
-        wave2  * 0.15 +          // 次级传播波
-        local1 * 0.20 +          // blade 独立 x 向波纹
-        local2 * 0.15 +          // blade 独立 y 向波纹
-        local3 * 0.10 +          // 对角交叉纹
-        turb   +                 // 湍流（已乘系数）
-        turb2;                   // 高频湍流（已乘系数）
+        wave1  * 0.35 +    // 全局背景波，权重降低
+        wave2  * 0.15 +    // 次级传播波
+        local1 * 0.20 +    // blade 独立 x 向波纹
+        local2 * 0.15 +    // blade 独立 y 向波纹
+        local3 * 0.10 +    // 对角交叉纹
+        turb   +           // 湍流（已乘系数）
+        turb2;             // 高频湍流（已乘系数）
 
     float swingAmp = uWind * h * 0.8;
 
@@ -323,8 +322,7 @@ niced. 4 + phase * 1.7) * 0.3;
         case 2: pos = tip; uv = vec2(0.5, 1.0); break;
     }
 
-
-   // === 输出 ===
+    // === 输出 ===
     vec4 worldPos = vec4(pos, 1.0);
     vec4 clipNow  = uProj * uView * worldPos;
     vec4 clipPrev = uPrevViewProj * worldPos;
@@ -333,20 +331,19 @@ niced. 4 + phase * 1.7) * 0.3;
     vWorldPos   = pos;
     vNdcNow     = clipNow.xyz / max(clipNow.w, 1e-6);
     vNdcPrev    = clipPrev.xyz / max(clipPrev.w, 1e-6);
-    vNormal       = normal;
-    vUV           = uv;
+    vNormal     = normal;
+    vUV         = uv;
     // === 每草叶 tint bucket（替代 CPU 端三次绘制） ===
     const vec3 tints[3] = vec3[3](
-        vec3(0.02, 0.00, 0.58),
-        vec3(0.04, 0.01, 0.42),
-        vec3(0.10, 0.01, 0.46)
+        vec3(0.22, 0.40, 0.28),
+        vec3(0.34, 0.41, 0.22),
+        vec3(0.40, 0.41, 0.26)
     );
-    vBucketTint = tints[bladeIdx % 3] ;
+    vBucketTint = tints[bladeIdx % 3];
 }
 )";
 
-
-const juce::String fs = R"(#version 430 core
+        const juce::String fs = R"(#version 430 core
 in vec3 vWorldPos;
 in vec3 vNormal;
 in vec3 vNdcNow;
@@ -373,7 +370,6 @@ void main() {
 }
 )";
 
-
         if (!grassShader->build(vs, fs))
         {
             DBG("GrassComponent: shader build failed");
@@ -381,6 +377,7 @@ void main() {
         }
         shaderBuilt = true;
     }
+
 
     inline void GrassComponent::draw(Renderer& /*unused*/, const Camera& camera)
     {
