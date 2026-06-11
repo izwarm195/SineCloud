@@ -550,6 +550,8 @@ namespace sc
 
     void World::draw(Renderer& r, const Camera& cam)
     {
+         // World::draw() 中，草先画
+         if (grass) grass->draw(r, cam);
          // 场景 OBJ 模型
          if (groundVisMesh && groundVisMesh->isUploaded())
          {
@@ -601,8 +603,7 @@ namespace sc
         // 实体
         for (auto& k : knobs) k->draw(r, cam);
         player->draw(r, cam);
-        // 草
-        if (grass) grass->draw(r, cam);  // 原来是 grass->draw(r)
+           
 
 
     }

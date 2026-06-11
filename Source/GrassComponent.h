@@ -272,7 +272,10 @@ void main() {
     vec3 rightB = root - right * halfW;
     vec3 midB   = (leftB + rightB) * 0.5;
 
-    vec3 normal = normalize(cross(rightB - leftB, vec3(0,0,1)));
+    vec3 flatNormal = normalize(cross(rightB - leftB, vec3(0,0,1)));
+    vec3 upBlend = vec3(0, 0, 1);
+    vec3 normal = normalize(mix(flatNormal, upBlend, 0.4));  // 40% 朝上
+
 
     // === 选顶点 ===
     vec3 pos;
