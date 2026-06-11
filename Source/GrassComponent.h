@@ -257,11 +257,12 @@ namespace sc {
             }
 
             if (verts.empty()) continue;
-
-            grassMesh.releaseGPU(*glCtx);
+            
             grassMesh.vertices = std::move(verts);
             grassMesh.indices = std::move(indices);
-            grassMesh.uploadToGPU(*glCtx);
+            grassMesh.uploadToGPU(*glCtx);  // vao != 0，走复用路径，只更新 buffer 数据
+            
+
 
             r.drawMesh(grassMesh, identity(),
                 kTintColors[bucket],

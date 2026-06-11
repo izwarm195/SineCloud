@@ -324,7 +324,10 @@ namespace sc
             ext.glBindVertexArray(vao);
             ext.glGenBuffers(1, &vbo);
             ext.glGenBuffers(1, &ebo);
-            // 设置 vertex attrib 指针（只做一次）
+
+            // ✅ 关键修复：先 bind VBO，再设置 attrib 指针
+            ext.glBindBuffer(juce::gl::GL_ARRAY_BUFFER, vbo);
+
             ext.glEnableVertexAttribArray(0);
             ext.glVertexAttribPointer(0, 3, juce::gl::GL_FLOAT, juce::gl::GL_FALSE,
                 sizeof(MeshVertex), (void*)offsetof(MeshVertex, px));
@@ -340,10 +343,11 @@ namespace sc
             ext.glBindVertexArray(vao);
         }
 
+        // 下面再 bind + BufferData 来 orphaning 更新数据（对 attrib 指针无影响）
         ext.glBindBuffer(juce::gl::GL_ARRAY_BUFFER, vbo);
         ext.glBufferData(juce::gl::GL_ARRAY_BUFFER,
             (GLsizeiptr)(vertices.size() * sizeof(MeshVertex)),
-            vertices.data(), juce::gl::GL_DYNAMIC_DRAW);  // DYNAMIC 更适合每帧更新
+            vertices.data(), juce::gl::GL_DYNAMIC_DRAW);
 
         ext.glBindBuffer(juce::gl::GL_ELEMENT_ARRAY_BUFFER, ebo);
         ext.glBufferData(juce::gl::GL_ELEMENT_ARRAY_BUFFER,
@@ -352,6 +356,7 @@ namespace sc
 
         ext.glBindVertexArray(0);
     }
+
 
 
     void Mesh::releaseGPU(juce::OpenGLContext& ctx)
