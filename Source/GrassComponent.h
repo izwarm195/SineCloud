@@ -68,22 +68,7 @@ namespace sc {
 
         int getBladeCount() const noexcept { return (int)blades.size(); }
 
-        inline void GrassComponent::buildFromGrid(
-            float minX, float maxX, float minY, float maxY,
-            float cellSize, float bladeHeight, float bladeWidth,
-            std::function<float(float, float)> heightFunc)  // ✅
-        {
-            std::vector<MeshVertex> verts;
-            for (float x = minX; x <= maxX; x += cellSize)
-                for (float y = minY; y <= maxY; y += cellSize)
-                {
-                    MeshVertex v;
-                    v.px = x; v.py = y;
-                    v.pz = heightFunc(x, y);  // ✅ 回调，不需要 HeightField 完整类型
-                    verts.push_back(v);
-                }
-            buildFromMeshPoints(verts, cellSize, bladeHeight, bladeWidth, heightFunc);
-        }
+        
 
 
     private:

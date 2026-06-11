@@ -58,7 +58,7 @@ namespace sc
     {
     public:
         explicit World(SineCloudAudioProcessor& p, Lighting& l);
-
+        ~World();
 
         // GL 资源生命周期
         void uploadMeshes(juce::OpenGLContext& ctx);
