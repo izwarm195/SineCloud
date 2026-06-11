@@ -204,9 +204,8 @@ namespace sc {
     {
         const juce::String vs = R"(#version 430 core
 
-// SSBO: blade 元数据
 layout(std430, binding = 0) readonly buffer BladeBlock {
-    float data[]; // 每 blade 8 个 float
+    float data[];
 };
 
 uniform mat4 uView;
@@ -217,133 +216,168 @@ uniform float uWind;
 uniform float uBladeBaseHeight;
 uniform float uBladeBaseWidth;
 uniform vec3 uGrassColor;
-uniform vec2 uWindDir; 
+uniform vec2 uWindDir;
 
 out vec3 vWorldPos;
 out vec3 vWorldPosPrev;
 out vec3 vNormal;
 out vec3 vNdcNow;
 out vec3 vNdcPrev;
-
 out vec2 vUV;
 flat out vec3 vBucketTint;
 
 const int BLADE_STRIDE = 8;
 
-float bladeNoise(float x, float y, float t, float freq) {
-    return sin(x * freq + t * 2.3)
-         + cos(y * freq * 1.7 + t * 1.1)
-         + sin((x + y) * freq * 0.6 + t * 1.8);
+// =============================================
+// Hash & 连续噪声函数（用于 gust 大尺度场）
+// =============================================
+float hash12(vec2 p) {
+    float h = dot(p, vec2(127.1, 311.7));
+    return fract(sin(h) * 43758.5453123);
+}
+
+// 2D value noise（C2 连续，无周期）
+float noise2D(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f); // smoothstep
+    return mix(
+        mix(hash12(i),              hash12(i + vec2(1.0, 0.0)), f.x),
+        mix(hash12(i + vec2(0.0, 1.0)), hash12(i + vec2(1.0, 1.0)), f.x),
+        f.y
+    );
+}
+
+// 2 阶 FBM（2 octaves 足够低频用途）
+float fbm2(vec2 p) {
+    return noise2D(p) * 0.6 + noise2D(p * 2.1) * 0.4;
 }
 
 void main() {
     int bladeIdx = gl_InstanceID;
     int off = bladeIdx * BLADE_STRIDE;
 
-    vec3 root       = vec3(data[off],   data[off+1], data[off+2]);
-    float phase     = data[off+3];
-    float hScale    = data[off+4];
-    float bWidth    = data[off+5];
-    float tint      = data[off+6];
+    vec3 root   = vec3(data[off],   data[off+1], data[off+2]);
+    float phase = data[off+3];
+    float hScale = data[off+4];
+    float bWidth = data[off+5];
 
     float h     = uBladeBaseHeight * hScale;
     float halfW = bWidth * 0.5;
 
-    // === 风场计算（自然增强版） ===
     vec2 windDir = normalize(uWindDir);
 
-    // -- 全局风浪（沿风向轴传播的大尺度波浪）
+    // =============================================
+    // ★ 阵风场（Gust Field）— 核心新增
+    // =============================================
+    // 空间尺度：除以 18 意味着 18 单位才完成一次噪声周期的大致过渡
+    // → 相邻 5~10 单位内的 blade 会得到相似的 gust 值（相干弯曲）
+    vec2 gustCoord = root.xy / 18.0;
+    // gustSample 随时间极慢移动，约 0.05 单位/秒 → 20 秒才平移 1 个噪声格
+    float gustVal = fbm2(gustCoord + uTime * 0.05);
+    // gustVal ∈ [0,1]，重映射到 [0.15, 1.0] 作为振幅调制系数
+    float gustAmp = 0.15 + gustVal * 0.85;
+
+    // =============================================
+    // 风场分量（保留结构，各分量的振幅由 gustAmp 调制）
+    // =============================================
+
+    // -- 全局传播波（沿风方向） --
     float waveCoord = dot(root.xy, windDir);
-    float waveSpeed = uWind * 2.2 + 0.25;
-    float waveFreq  = 1.6;
+    float waveFreq  = 0.3;                  // 原 1.6 → 波长 ≈ 21 单位，真正大尺度
+    float waveSpeed = 0.4 + uWind * 0.15;   // 慢速传播
+    float wave1 = sin(waveCoord * waveFreq - uTime * waveSpeed + 0.7);
+    float wave2 = sin(waveCoord * waveFreq * 1.6 - uTime * waveSpeed * 1.3 + 2.1) * 0.35;
 
-    // 主波 — 频率和速度稍低，起"背景起伏"作用
-    float wave1 = sin(waveCoord * waveFreq - uTime * waveSpeed + phase * 0.3);
-    // 次波 — 频率和速度稍高，方向略偏，增加层次
-    float wave2 = sin(waveCoord * waveFreq * 1.8 - uTime * waveSpeed * 1.4 + phase * 1.7) * 0.3;
+    // -- blade 独立随机波（降速） --
+    float rf1 = 3.0 + fract(phase * 7.239) * 4.0;
+    float rf2 = 5.0 + fract(phase * 3.847) * 6.0;
+    float rs1 = 0.15 + fract(phase * 5.13) * 0.3;
+    float rs2 = 0.2  + fract(phase * 9.651) * 0.4;
 
-    // -- 每个 blade 独立的随机波浪（用 phase 作为随机种子）
-    float randFreq1  = 3.0 + fract(phase * 7.239) * 4.0;   // 3~7
-    float randFreq2  = 5.0 + fract(phase * 3.847) * 6.0;   // 5~11
-    float randSpeed1 = 0.8 + fract(phase * 5.13) * 0.5;    // 0.8~1.3
-    float randSpeed2 = 1.2 + fract(phase * 9.651) * 1.0;   // 1.2~2.2
+    float local1 = sin(root.x * rf1 + uTime * rs1 + phase);
+    float local2 = cos(root.y * rf2 - uTime * rs2 + phase * 2.1);
+    float local3 = sin((root.x + root.y) * 3.5 - uTime * 0.8 + phase * 0.7);
 
-    float local1 = sin(root.x * randFreq1 + uTime * randSpeed1 + phase);
-    float local2 = cos(root.y * randFreq2 - uTime * randSpeed2 + phase * 2.1);
+    // -- 高频微颤（保留但降速） --
+    float micro1 = sin(root.x * 7.0 + uTime * 0.4 + phase * 3.1) * 0.22
+                 + cos(root.y * 6.3 - uTime * 0.35 + phase * 1.7) * 0.18;
 
-    // local3: 用 blade 坐标的对角方向产生更复杂的交叉波纹
-    float local3 = sin((root.x + root.y) * 4.5 - uTime * 1.6 + phase * 0.7);
-
-    // -- 湍流噪声（每个 blade 的微小高频扰动）
-    float turb  = bladeNoise(root.x, root.y + 1.5, uTime * 0.7 + phase, 7.0) * 0.35;
-    float turb2 = bladeNoise(root.y, root.x + 2.7, uTime * 0.5 + phase * 1.3, 11.0) * 0.2;
-
-    // -- 合成
+    // =============================================
+    // 合成：所有分量 × gustAmp
+    // =============================================
     float combined =
-        wave1  * 0.35 +    // 全局背景波，权重降低
-        wave2  * 0.15 +    // 次级传播波
-        local1 * 0.20 +    // blade 独立 x 向波纹
-        local2 * 0.15 +    // blade 独立 y 向波纹
-        local3 * 0.10 +    // 对角交叉纹
-        turb   +           // 湍流（已乘系数）
-        turb2;             // 高频湍流（已乘系数）
+        (wave1  * 0.45 +   // 大尺度波权重提升到主导
+         wave2  * 0.15 +
+         local1 * 0.14 +
+         local2 * 0.10 +
+         local3 * 0.08 +
+         micro1
+        ) * gustAmp;        // ★ 阵风调制：整片区域振幅同步变化
 
-    float swingAmp = uWind * h * 0.8;
-
+    float swingAmp = uWind * h * 1.8;
     float swingX = combined * swingAmp * windDir.x;
     float swingY = combined * swingAmp * windDir.y;
 
-
-    // ===== 补回 blade 几何体构建 =====
+    // ===== blade 几何体 =====
     vec3 tip = root + vec3(swingX, swingY, h * 0.95);
-    float compress = 1.0 - uWind * 0.08;
+    float compress = 1.0 - uWind * 0.06;
     tip.z = root.z + h * 0.95 * compress;
 
     vec3 toTip = normalize(tip - root);
-    vec3 upRef = vec3(0, 0, 1);
-    vec3 right = cross(upRef, toTip);
-    if (length(right) < 1e-8) right = vec3(1, 0, 0);
-    else right = normalize(right);
+    vec3 upRef = vec3(0.0, 0.0, 1.0);
+
+    vec3 rightBase = cross(upRef, toTip);
+    if (length(rightBase) < 1e-8) rightBase = vec3(1.0, 0.0, 0.0);
+    else rightBase = normalize(rightBase);
+
+    // 随机朝向
+    float rotAngle = fract(phase * 1.618 + bladeIdx * 0.276) * 6.283185307;
+    float cosA = cos(rotAngle);
+    float sinA = sin(rotAngle);
+    vec3 right = rightBase * cosA + cross(toTip, rightBase) * sinA;
 
     vec3 leftB  = root + right * halfW;
     vec3 rightB = root - right * halfW;
 
-    vec3 flatNormal = normalize(cross(rightB - leftB, vec3(0,0,1)));
-    vec3 upBlend = vec3(0, 0, 1);
-    vec3 normal = normalize(mix(flatNormal, upBlend, 0.4));
+    vec3 flatNormal = normalize(cross(rightB - leftB, vec3(0.0, 0.0, 1.0)));
+    vec3 upBlend    = vec3(0.0, 0.0, 1.0);
+    vec3 normal     = normalize(mix(flatNormal, upBlend, 0.4));
 
-    // === 选顶点 ===
     vec3 pos;
     vec2 uv;
     switch (gl_VertexID) {
         default:
-        case 0: pos = leftB; uv = vec2(0.0, 0.0); break;
+        case 0: pos = leftB;  uv = vec2(0.0, 0.0); break;
         case 1: pos = rightB; uv = vec2(1.0, 0.0); break;
-        case 2: pos = tip; uv = vec2(0.5, 1.0); break;
+        case 2: pos = tip;    uv = vec2(0.5, 1.0); break;
     }
 
-    // === 输出 ===
     vec4 worldPos = vec4(pos, 1.0);
     vec4 clipNow  = uProj * uView * worldPos;
     vec4 clipPrev = uPrevViewProj * worldPos;
-    gl_Position = clipNow;
 
-    vWorldPos   = pos;
-    vNdcNow     = clipNow.xyz / max(clipNow.w, 1e-6);
-    vNdcPrev    = clipPrev.xyz / max(clipPrev.w, 1e-6);
-    vNormal     = normal;
-    vUV         = uv;
-    // === 每草叶 tint bucket（替代 CPU 端三次绘制） ===
+    gl_Position   = clipNow;
+    vWorldPos     = pos;
+    vNdcNow       = clipNow.xyz  / max(clipNow.w, 1e-6);
+    vNdcPrev      = clipPrev.xyz / max(clipPrev.w, 1e-6);
+    vNormal       = normal;
+    vUV           = uv;
+
     const vec3 tints[3] = vec3[3](
-        vec3(0.22, 0.40, 0.28),
-        vec3(0.34, 0.41, 0.22),
-        vec3(0.40, 0.41, 0.26)
+        vec3(0.25, 0.20, 0.08),
+        vec3(0.24, 0.22, 0.06),
+        vec3(0.28, 0.20, 0.07)
     );
     vBucketTint = tints[bladeIdx % 3];
 }
+
+
+
 )";
 
         const juce::String fs = R"(#version 430 core
+
 in vec3 vWorldPos;
 in vec3 vNormal;
 in vec3 vNdcNow;
@@ -352,6 +386,7 @@ in vec2 vUV;
 flat in vec3 vBucketTint;
 
 uniform vec3 uEmissive;
+uniform vec3 uGrassColor;    // ← 现在真正参与计算
 
 layout(location = 0) out vec4 outAlbedoRough;
 layout(location = 1) out vec4 outNormalMetal;
@@ -360,14 +395,23 @@ layout(location = 3) out vec2 outVelocity;
 layout(location = 4) out vec3 outWorldPos;
 
 void main() {
-    float tipBright = vUV.y * 0.25;
-    vec3 albedo = vBucketTint + vec3(tipBright);
-    outAlbedoRough = vec4(albedo, 0.95);
-    outNormalMetal = vec4(vNormal * 0.5 + 0.5, 0.0);
-    outEmissiveSSS = vec4(uEmissive, 0.0);
-    outVelocity = (vNdcNow.xy - vNdcPrev.xy) * 0.5;
-    outWorldPos = vWorldPos;
+    // -- 叶尖微亮 (降低系数: 0.25 → 0.12) --
+    float tipBright = vUV.y * 0.12;
+
+    // -- 混合：tint 作为品种色，uGrassColor 作为全局调色 --
+    // lerp(tint, uGrassColor, 0.6) 使得可调范围足够大
+    vec3 base = mix(vBucketTint, uGrassColor, 0.6);
+
+    // -- 最终 albedo：底部深、叶尖略亮 --
+    vec3 albedo = base + vec3(tipBright * 0.8, tipBright, tipBright * 0.6);
+
+    outAlbedoRough  = vec4(albedo, 0.95);
+    outNormalMetal  = vec4(vNormal * 0.5 + 0.5, 0.0);
+    outEmissiveSSS  = vec4(uEmissive, 0.0);
+    outVelocity      = (vNdcNow.xy - vNdcPrev.xy) * 0.5;
+    outWorldPos      = vWorldPos;
 }
+
 )";
 
         if (!grassShader->build(vs, fs))

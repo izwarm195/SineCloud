@@ -282,9 +282,9 @@ namespace sc
         // 2. 均匀网格铺草（每 3cm 一根，宽到盖住间隙）
         grass->buildFromGrid(
             gndMinX, gndMaxX, gndMinY, gndMaxY,
-            0.03f,   // cellSize: 3cm 间距→ 每平米约 1100 根
-            0.15f,   // bladeHeight
-            0.1f,   // bladeWidth: 加宽让草叶互相交叠，遮住地面
+            0.04f,   // cellSize: 3cm 间距→ 每平米约 1100 根
+            0.16f,   // bladeHeight
+            0.05f,   // bladeWidth: 加宽让草叶互相交叠，遮住地面
             [this](float x, float y) { return heightField.sampleHeight(x, y); }
         );
 
@@ -560,7 +560,7 @@ namespace sc
          if (groundVisMesh && groundVisMesh->isUploaded())
          {
              r.drawMesh(*groundVisMesh, identity(),
-                 Material::stone({ 0.22, 0.50, 0.28 }));
+                 Material::stone({ 0.25, 0.40, 0.28 }));
          }
 
         
