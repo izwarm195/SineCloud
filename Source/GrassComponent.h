@@ -199,7 +199,7 @@ namespace sc {
 
     inline void GrassComponent::tryBuildShader()
     {
-        const juce::String vs = R"(#version 330 core
+        const juce::String vs = R"(#version 430 core
 
 // SSBO: blade 元数据
 layout(std430, binding = 0) readonly buffer BladeBlock {
@@ -271,11 +271,11 @@ void main() {
     vec3 right = cross(upRef, toTip);
     if (length(right) < 1e-8) right = vec3(1, 0, 0);
     else right = normalize(right);
-
-    vec3 leftB  = root + right * halfW;
+    
+    vec3 leftB = root + right * halfW;
     vec3 rightB = root - right * halfW;
-    vec3 midB   = (leftB + rightB) * 0.5;
 
+    
     vec3 flatNormal = normalize(cross(rightB - leftB, vec3(0,0,1)));
     vec3 upBlend = vec3(0, 0, 1);
     vec3 normal = normalize(mix(flatNormal, upBlend, 0.4));  // 40% 朝上
@@ -286,11 +286,11 @@ void main() {
     vec2 uv;
     switch (gl_VertexID) {
         default:
-        case 0: pos = leftB;  uv = vec2(0.0, 0.0); break;
-        case 1: pos = midB;   uv = vec2(0.5, 0.0); break;
-        case 2: pos = rightB; uv = vec2(1.0, 0.0); break;
-        case 3: pos = tip;    uv = vec2(0.5, 1.0); break;
+        case 0: pos = leftB; uv = vec2(0.0, 0.0); break;
+        case 1: pos = rightB; uv = vec2(1.0, 0.0); break;
+        case 2: pos = tip; uv = vec2(0.5, 1.0); break;
     }
+
 
    // === 输出 ===
     vec4 worldPos = vec4(pos, 1.0);
@@ -317,7 +317,7 @@ void main() {
 )";
 
 
-const juce::String fs = R"(#version 330 core
+const juce::String fs = R"(#version 430 core
 in vec3 vWorldPos;
 in vec3 vNormal;
 in vec3 vNdcNow;
@@ -373,7 +373,7 @@ void main() {
         ext.glBindVertexArray(dummyVAO);
 
         int totalN = (int)blades.size();
-        juce::gl::glDrawArraysInstanced(juce::gl::GL_TRIANGLE_STRIP, 0, 4, totalN);
+        juce::gl::glDrawArraysInstanced(juce::gl::GL_TRIANGLES, 0, 3, totalN);
 
 
         ext.glBindVertexArray(0);

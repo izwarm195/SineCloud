@@ -136,6 +136,7 @@ namespace sc {
         void drawMesh(Mesh& mesh, const Mat4& model, const Material& mat) noexcept
         {
             Shader& geom = gbuffer.getGeometryShader();
+            geom.use();
             geom.setInt("uIsLine", 0);
             geom.setMat4("uModel", model);
 

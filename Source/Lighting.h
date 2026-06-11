@@ -20,7 +20,7 @@ struct Lighting
     Vec3  ambient   { 0.22f, 0.17f, 0.12f };
 
     // ---- 半球环境光 ----
-    Vec3  skyColor  { 1.20f, 1.20f, 1.00f };
+    Vec3  skyColor  { 0.80f, 0.80f, 0.60f };
     Vec3  groundColor { 0.06f, 0.05f, 0.04f };
     float intensity { 1.0f };
 
@@ -35,12 +35,12 @@ struct Lighting
 
     // ★★★ 云层 / 体积光参数 ★★★
     float cloudScale{ 0.3f };  // Perlin 噪声缩放
-    float cloudThreshold{ 0.37f };   // 云/晴 阈值
-    float cloudSpeed{ 1.65f };   // 云移动速度
+    float cloudThreshold{ 0.327f };   // 云/晴 阈值
+    float cloudSpeed{ 1.0f };   // 云移动速度
     float cloudPlaneHeight{ 90.0f };   // 虚拟云层高度
     float cloudBandLevels{ 3.0f };    // 像素风 banding 级数
     float volumetricSteps{ 16.0f };    // Ray March 步数
-    float volumetricIntensity{ 1.0f }; // 体积光强度
+    float volumetricIntensity{ 0.8f }; // 体积光强度
     float cloudTime{ 0.0f };    // 每帧由外部更新
 
     // ★★★ 阴影参数 ★★★
@@ -52,7 +52,7 @@ struct Lighting
     // ★★★ Bloom 参数 ★★★
     float bloomThreshold{ 1.0f };   // HDR 亮度阈值
     float bloomSoftKnee{ 0.5f };   // 软过渡
-    float bloomStrength{ 0.4f };  // 混合权重
+    float bloomStrength{ 0.2f };  // 混合权重
     float bloomFilterRadius{ 2.0f };   // 上采样模糊半径
 
     // ★★★ Motion Blur 参数 ★★★
@@ -68,8 +68,6 @@ struct Lighting
     // ★★★ Denoise 参数 ★★★
     float denoiseStrength{ 0.0f };   // 降噪混合强度 [0, 1]，0 = 不降噪
     float denoiseColorSigma{ 0.99f }; // 亮度相似度 sigma，越大越激进
-
-
 
 };
 
