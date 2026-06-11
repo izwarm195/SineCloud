@@ -185,6 +185,11 @@ namespace sc {
 
         // ---- Dummy VAO（instancing 需要） ----
         ext.glGenVertexArrays(1, &dummyVAO);
+        ext.glBindVertexArray(dummyVAO);
+        // 满足 core profile 的 minimum attribute 要求
+        ext.glEnableVertexAttribArray(0);  // 即使 shader 不用，也必须 enable 一个
+        ext.glBindVertexArray(0);
+
 
         // ---- Shader ----
         grassShader = std::make_unique<Shader>(*glCtx);
@@ -309,6 +314,7 @@ layout(location = 0) out vec4 outAlbedoRough;
 layout(location = 1) out vec4 outNormalMetal;
 layout(location = 2) out vec4 outEmissiveSSS;
 layout(location = 3) out vec2 outVelocity;
+layout(location = 4) out vec3 outWorldPos;
 
 void main() {
     float tipBright = vUV.y * 0.25;
@@ -318,6 +324,7 @@ void main() {
     outNormalMetal   = vec4(vNormal * 0.5 + 0.5, 0.0);
     outEmissiveSSS   = vec4(uEmissive, 0.0);
     outVelocity      = vWorldPosPrev.xy - vWorldPos.xy;
+    outWorldPos = vWorldPos;
 }
 )";
 

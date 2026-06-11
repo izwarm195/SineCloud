@@ -291,7 +291,7 @@ namespace sc
         grass->setColor({ 0.25f, 0.58f, 0.22f });
         grass->buildGPUResources();
 
-
+        DBG("Grass blade count: " << grass->getBladeCount());
 
     }
 
