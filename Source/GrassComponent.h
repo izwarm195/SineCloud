@@ -203,73 +203,88 @@ namespace sc {
     inline void GrassComponent::draw(Renderer& r)
     {
         if (blades.empty() || glCtx == nullptr) return;
-
         const int N = (int)blades.size();
         const float time = totalTime;
         const float wind = currentWind;
 
-        // 3 个色阶：绿 → 黄绿 → 更偏黄
         static const Vec3 kTintColors[3] = {
-            { 0.22f, 0.56f, 0.18f },  // 偏冷绿
-            { 0.28f, 0.58f, 0.20f },  // 标准绿
-            { 0.34f, 0.56f, 0.16f },  // 偏暖黄绿
+            { 0.22f, 0.56f, 0.18f },
+            { 0.28f, 0.58f, 0.20f },
+            { 0.34f, 0.56f, 0.16f },
         };
+
+        // ★ 一次遍历，全量收集到同一个 buffer
+        std::vector<MeshVertex> allVerts;
+        std::vector<uint32_t>      allIndices;
+        allVerts.reserve(N * 4 + 16);
+        allIndices.reserve(N * 6 + 32);
+
+        // 记录每个 bucket 在 index buffer 中的范围
+        int bucketStartByte[3] = {};
+        int bucketCount[3] = {};
 
         for (int bucket = 0; bucket < 3; ++bucket)
         {
-            std::vector<MeshVertex> verts;
-            std::vector<uint32_t>  indices;
-            verts.reserve(N * 4 / 3 + 16);
-            indices.reserve(N * 6 / 3 + 32);
+            bucketStartByte[bucket] = (int)(allIndices.size() * sizeof(uint32_t));
 
             for (int i = 0; i < N; ++i)
             {
-                // 根据 tint 分配到桶
                 int b = (int)(blades[i].colorTint * 3.0f);
                 if (b >= 3) b = 2;
                 if (b != bucket) continue;
 
                 Vec3 tipPos, leftBase, rightBase;
-                computeBladeVertices(blades[i], time, wind, tipPos, leftBase, rightBase);
+                computeBladeVertices(blades[i], time, wind,
+                    tipPos, leftBase, rightBase);
 
                 const Vec3 midBase = (leftBase + rightBase) * 0.5f;
-                const Vec3 normal = normalize(cross(rightBase - leftBase, Vec3{ 0, 0, 1 }));
+                const Vec3 normal = normalize(
+                    cross(rightBase - leftBase, Vec3{ 0, 0, 1 }));
 
-                const uint32_t baseIdx = static_cast<uint32_t>(verts.size());
+                const uint32_t baseIdx = static_cast<uint32_t>(allVerts.size());
                 auto addVert = [&](const Vec3& pos, float u, float v) {
                     MeshVertex mv;
                     mv.px = pos.x; mv.py = pos.y; mv.pz = pos.z;
                     mv.nx = normal.x; mv.ny = normal.y; mv.nz = normal.z;
                     mv.u = u; mv.v = v;
-                    verts.push_back(mv);
+                    allVerts.push_back(mv);
                     };
                 addVert(leftBase, 0.0f, 0.0f);
                 addVert(midBase, 0.5f, 0.0f);
                 addVert(rightBase, 1.0f, 0.0f);
                 addVert(tipPos, 0.5f, 1.0f);
 
-                indices.push_back(baseIdx + 0);
-                indices.push_back(baseIdx + 1);
-                indices.push_back(baseIdx + 3);
-                indices.push_back(baseIdx + 1);
-                indices.push_back(baseIdx + 2);
-                indices.push_back(baseIdx + 3);
+                allIndices.push_back(baseIdx + 0);
+                allIndices.push_back(baseIdx + 1);
+                allIndices.push_back(baseIdx + 3);
+                allIndices.push_back(baseIdx + 1);
+                allIndices.push_back(baseIdx + 2);
+                allIndices.push_back(baseIdx + 3);
             }
+            bucketCount[bucket] =
+                (int)allIndices.size()
+                - bucketStartByte[bucket] / (int)sizeof(uint32_t);
+        }
 
-            if (verts.empty()) continue;
-            
-            grassMesh.vertices = std::move(verts);
-            grassMesh.indices = std::move(indices);
-            grassMesh.uploadToGPU(*glCtx);  // vao != 0，走复用路径，只更新 buffer 数据
-            
+        if (allVerts.empty()) return;
 
+        // ★ 只上传一次
+        grassMesh.vertices = std::move(allVerts);
+        grassMesh.indices = std::move(allIndices);
+        grassMesh.uploadToGPU(*glCtx);
 
+        // ★ 三次绘制，共享同一个 VBO，仅 index 范围不同
+        for (int bucket = 0; bucket < 3; ++bucket)
+        {
+            if (bucketCount[bucket] == 0) continue;
             r.drawMesh(grassMesh, identity(),
                 kTintColors[bucket],
-                Vec3{ 0.03f, 0.06f, 0.01f });
-
+                Vec3{ 0.03f, 0.06f, 0.01f },
+                bucketCount[bucket],
+                bucketStartByte[bucket]);
         }
     }
+
 
 
 } // namespace sc

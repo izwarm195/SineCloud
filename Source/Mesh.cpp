@@ -378,4 +378,20 @@ namespace sc
         ext.glBindVertexArray(0);
     }
 
+    // Mesh.cpp — 实现（放在 draw() 后面）：
+    void Mesh::drawRange(juce::OpenGLContext& ctx,
+        GLsizei indexCount,
+        GLintptr indexByteOffset)
+    {
+        if (!isUploaded()) return;
+        auto& ext = ctx.extensions;
+        ext.glBindVertexArray(vao);
+        juce::gl::glDrawElements(primitive, indexCount,
+            juce::gl::GL_UNSIGNED_INT,
+            (void*)indexByteOffset);
+        ext.glBindVertexArray(0);
+    }
+
+
+
 } // namespace sc

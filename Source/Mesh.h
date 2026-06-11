@@ -49,6 +49,9 @@ namespace sc
         void uploadToGPU(juce::OpenGLContext& ctx);
         void releaseGPU(juce::OpenGLContext& ctx);
         void draw(juce::OpenGLContext& ctx);
+        void drawRange(juce::OpenGLContext& ctx,
+            GLsizei indexCount,
+            GLintptr indexByteOffset);
 
         int  getVertexCount() const noexcept { return (int)vertices.size(); }
         int  getIndexCount()  const noexcept { return (int)indices.size(); }

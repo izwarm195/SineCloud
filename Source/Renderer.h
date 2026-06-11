@@ -174,6 +174,27 @@ namespace sc {
             mesh.draw(context);
         }
 
+       
+        void drawMesh(Mesh& mesh, const Mat4& model,
+            const Vec3& baseColorSRGB,
+            const Vec3& emissiveSRGB,
+            int indexCount, int indexByteOffset) noexcept
+        {
+            Shader& geom = gbuffer.getGeometryShader();
+            geom.setInt("uIsLine", 0);
+            geom.setMat4("uModel", model);
+            const Vec3 baseLin = srgbToLinear(baseColorSRGB);
+            const Vec3 emissiveLin = srgbToLinear(emissiveSRGB);
+            geom.setVec3("uBaseColor", baseLin);
+            geom.setFloat("uRoughness", 0.9f);
+            geom.setFloat("uMetallic", 0.0f);
+            geom.setVec3("uEmissive", emissiveLin);
+            geom.setFloat("uEmissiveStrength", 0.0f);
+            geom.setFloat("uSSS", 0.0f);
+            mesh.drawRange(context, indexCount, indexByteOffset);
+        }
+
+
         // 网格线: 线模式写入 G-Buffer
         void drawLines(Mesh& mesh, const Mat4& model, const Vec3& color) noexcept
         {
