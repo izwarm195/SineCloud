@@ -217,6 +217,7 @@ uniform float uWind;
 uniform float uBladeBaseHeight;
 uniform float uBladeBaseWidth;
 uniform vec3 uGrassColor;
+uniform vec2 uWindDir; 
 
 out vec3 vWorldPos;
 out vec3 vWorldPosPrev;
@@ -279,7 +280,23 @@ void main() {
     float swingX = combined * swingAmp * windDir.x;
     float swingY = combined * swingAmp * windDir.y;
 
+    // ===== 补回 blade 几何体构建 =====
+    vec3 tip = root + vec3(swingX, swingY, h * 0.95);
+    float compress = 1.0 - uWind * 0.08;
+    tip.z = root.z + h * 0.95 * compress;
 
+    vec3 toTip = normalize(tip - root);
+    vec3 upRef = vec3(0, 0, 1);
+    vec3 right = cross(upRef, toTip);
+    if (length(right) < 1e-8) right = vec3(1, 0, 0);
+    else right = normalize(right);
+
+    vec3 leftB  = root + right * halfW;
+    vec3 rightB = root - right * halfW;
+
+    vec3 flatNormal = normalize(cross(rightB - leftB, vec3(0,0,1)));
+    vec3 upBlend = vec3(0, 0, 1);
+    vec3 normal = normalize(mix(flatNormal, upBlend, 0.4));
 
     // === 选顶点 ===
     vec3 pos;
@@ -301,7 +318,6 @@ void main() {
     vWorldPos   = pos;
     vNdcNow     = clipNow.xyz / max(clipNow.w, 1e-6);
     vNdcPrev    = clipPrev.xyz / max(clipPrev.w, 1e-6);
-
     vNormal       = normal;
     vUV           = uv;
     // === 每草叶 tint bucket（替代 CPU 端三次绘制） ===
