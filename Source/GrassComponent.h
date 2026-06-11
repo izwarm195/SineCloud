@@ -134,7 +134,6 @@ namespace sc {
             b.colorTint = dist01(rng);  // ✅ 新增
             blades.push_back(b);
 
-            blades.push_back(b);
         }
 
         DBG("GrassComponent: " << (int)blades.size() << " blades, spacing=" << spacing);
@@ -268,7 +267,6 @@ namespace sc {
                 kTintColors[bucket],
                 Vec3{ 0.03f, 0.06f, 0.01f });
 
-            grassMesh.releaseGPU(*glCtx);
         }
     }
 

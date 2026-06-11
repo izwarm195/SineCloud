@@ -318,35 +318,41 @@ namespace sc
     void Mesh::uploadToGPU(juce::OpenGLContext& ctx)
     {
         auto& ext = ctx.extensions;
-        ext.glGenVertexArrays(1, &vao);
-        ext.glBindVertexArray(vao);
+        if (vao == 0)
+        {
+            ext.glGenVertexArrays(1, &vao);
+            ext.glBindVertexArray(vao);
+            ext.glGenBuffers(1, &vbo);
+            ext.glGenBuffers(1, &ebo);
+            // 设置 vertex attrib 指针（只做一次）
+            ext.glEnableVertexAttribArray(0);
+            ext.glVertexAttribPointer(0, 3, juce::gl::GL_FLOAT, juce::gl::GL_FALSE,
+                sizeof(MeshVertex), (void*)offsetof(MeshVertex, px));
+            ext.glEnableVertexAttribArray(1);
+            ext.glVertexAttribPointer(1, 3, juce::gl::GL_FLOAT, juce::gl::GL_FALSE,
+                sizeof(MeshVertex), (void*)offsetof(MeshVertex, nx));
+            ext.glEnableVertexAttribArray(2);
+            ext.glVertexAttribPointer(2, 2, juce::gl::GL_FLOAT, juce::gl::GL_FALSE,
+                sizeof(MeshVertex), (void*)offsetof(MeshVertex, u));
+        }
+        else
+        {
+            ext.glBindVertexArray(vao);
+        }
 
-        ext.glGenBuffers(1, &vbo);
         ext.glBindBuffer(juce::gl::GL_ARRAY_BUFFER, vbo);
         ext.glBufferData(juce::gl::GL_ARRAY_BUFFER,
             (GLsizeiptr)(vertices.size() * sizeof(MeshVertex)),
-            vertices.data(),
-            juce::gl::GL_STATIC_DRAW);
+            vertices.data(), juce::gl::GL_DYNAMIC_DRAW);  // DYNAMIC 更适合每帧更新
 
-        ext.glGenBuffers(1, &ebo);
         ext.glBindBuffer(juce::gl::GL_ELEMENT_ARRAY_BUFFER, ebo);
         ext.glBufferData(juce::gl::GL_ELEMENT_ARRAY_BUFFER,
             (GLsizeiptr)(indices.size() * sizeof(unsigned int)),
-            indices.data(),
-            juce::gl::GL_STATIC_DRAW);
-
-        ext.glEnableVertexAttribArray(0);
-        ext.glVertexAttribPointer(0, 3, juce::gl::GL_FLOAT, juce::gl::GL_FALSE,
-            sizeof(MeshVertex), (void*)offsetof(MeshVertex, px));
-        ext.glEnableVertexAttribArray(1);
-        ext.glVertexAttribPointer(1, 3, juce::gl::GL_FLOAT, juce::gl::GL_FALSE,
-            sizeof(MeshVertex), (void*)offsetof(MeshVertex, nx));
-        ext.glEnableVertexAttribArray(2);
-        ext.glVertexAttribPointer(2, 2, juce::gl::GL_FLOAT, juce::gl::GL_FALSE,
-            sizeof(MeshVertex), (void*)offsetof(MeshVertex, u));
+            indices.data(), juce::gl::GL_DYNAMIC_DRAW);
 
         ext.glBindVertexArray(0);
     }
+
 
     void Mesh::releaseGPU(juce::OpenGLContext& ctx)
     {
