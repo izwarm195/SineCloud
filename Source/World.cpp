@@ -265,9 +265,11 @@ namespace sc
 
         grass = std::make_unique<GrassComponent>();
         grass->setGLContext(&ctx);    // ★ 传入 ctx
+
         grass->buildFromMeshPoints(
             groundColMesh->vertices, 0.35f, 0.65f, 0.12f,
             [this](float x, float y) { return heightField.sampleHeight(x, y); }
+
         );
         grass->setColor({ 0.25f, 0.58f, 0.22f });  // 深绿
 

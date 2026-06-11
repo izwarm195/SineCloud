@@ -1,5 +1,5 @@
-// ==============================================================================
-// GrassComponent.h °™ corrected (no circular include, cross fallback)
+Ôªø// ==============================================================================
+// GrassComponent.h ‚Äî corrected (no circular include, cross fallback)
 // ==============================================================================
 #pragma once
 #include "Mesh.h"
@@ -13,18 +13,16 @@
 
 namespace sc {
 
-    // forward declare (avoid circular include with World.h)
-    struct HeightField;
-
+    
     // =============================================================================
     // GrassBlade
     // =============================================================================
     struct GrassBlade
     {
         Vec3   root;
-        float  phaseOffset;
-        float  heightScale;
-        float  bladeWidth;
+        float  phaseOffset{ 0.0f };
+        float  heightScale{ 0.0f };
+        float  bladeWidth{ 0.0f };
     };
 
     // =============================================================================
@@ -37,7 +35,7 @@ namespace sc {
 
         void setGLContext(juce::OpenGLContext* c) noexcept { glCtx = c; }
 
-        // -------- Ω®‘Ï --------
+        // -------- Âª∫ÈÄ† --------
         void buildFromMeshPoints(
             const std::vector<MeshVertex>& worldVertices,
             float spacing,
@@ -46,16 +44,13 @@ namespace sc {
             std::function<float(float, float)> worldHeightFunc);
 
         void buildFromGrid(
-            float minX, float maxX,
-            float minY, float maxY,
-            float cellSize,
-            float bladeHeight,
-            float bladeWidth,
-            const HeightField& hf);
+            float minX, float maxX, float minY, float maxY,
+            float cellSize, float bladeHeight, float bladeWidth,
+            std::function<float(float, float)> heightFunc);
 
         void releaseGPU();
 
-        // -------- ≤Œ ˝ --------
+        // -------- ÂèÇÊï∞ --------
         void setColor(const Vec3& srgb) noexcept { grassColorSRGB = srgb; }
         Vec3 getColor() const noexcept { return grassColorSRGB; }
 
@@ -72,6 +67,24 @@ namespace sc {
         void draw(Renderer& r);
 
         int getBladeCount() const noexcept { return (int)blades.size(); }
+
+        inline void GrassComponent::buildFromGrid(
+            float minX, float maxX, float minY, float maxY,
+            float cellSize, float bladeHeight, float bladeWidth,
+            std::function<float(float, float)> heightFunc)  // ‚úÖ
+        {
+            std::vector<MeshVertex> verts;
+            for (float x = minX; x <= maxX; x += cellSize)
+                for (float y = minY; y <= maxY; y += cellSize)
+                {
+                    MeshVertex v;
+                    v.px = x; v.py = y;
+                    v.pz = heightFunc(x, y);  // ‚úÖ ÂõûË∞ÉÔºå‰∏çÈúÄË¶Å HeightField ÂÆåÊï¥Á±ªÂûã
+                    verts.push_back(v);
+                }
+            buildFromMeshPoints(verts, cellSize, bladeHeight, bladeWidth, heightFunc);
+        }
+
 
     private:
         Vec3   grassColorSRGB{ 0.28f, 0.62f, 0.28f };
@@ -97,7 +110,7 @@ namespace sc {
         }
     };
 
-    // =========================  µœ÷ =========================
+    // ========================= ÂÆûÁé∞ =========================
 
     inline void GrassComponent::buildFromMeshPoints(
         const std::vector<MeshVertex>& worldVertices,
@@ -139,18 +152,19 @@ namespace sc {
 
     inline void GrassComponent::buildFromGrid(
         float minX, float maxX, float minY, float maxY,
-        float cellSize, float bladeHeight, float bladeWidth, const HeightField& hf)
+        float cellSize, float bladeHeight, float bladeWidth,
+        std::function<float(float, float)> heightFunc)  // ‚úÖ
     {
         std::vector<MeshVertex> verts;
         for (float x = minX; x <= maxX; x += cellSize)
             for (float y = minY; y <= maxY; y += cellSize)
             {
                 MeshVertex v;
-                v.px = x; v.py = y; v.pz = hf.sampleHeight(x, y);
+                v.px = x; v.py = y;
+                v.pz = heightFunc(x, y);  // ‚úÖ ÂõûË∞ÉÔºå‰∏çÈúÄË¶Å HeightField ÂÆåÊï¥Á±ªÂûã
                 verts.push_back(v);
             }
-        auto hFunc = [&hf](float x, float y) { return hf.sampleHeight(x, y); };
-        buildFromMeshPoints(verts, cellSize, bladeHeight, bladeWidth, hFunc);
+        buildFromMeshPoints(verts, cellSize, bladeHeight, bladeWidth, heightFunc);
     }
 
     inline void GrassComponent::releaseGPU()
@@ -166,7 +180,7 @@ namespace sc {
         const float h = bladeBaseHeight * blade.heightScale;
         const float halfW = blade.bladeWidth * 0.5f;
 
-        // »˝≤„’˝œ“µ˛º”
+        // ‰∏âÂ±ÇÊ≠£Âº¶Âè†Âä†
         const float freq0 = 0.4f, freq1 = 0.9f, freq2 = 1.7f;
         const float bigWave = std::sin(blade.root.x * freq0 + time * 0.8f)
             + std::cos(blade.root.y * freq0 * 0.7f + time * 0.65f);
@@ -186,7 +200,7 @@ namespace sc {
         const Vec3 upRef{ 0, 0, 1 };
         const Vec3 toTip = normalize(tipPos - blade.root);
 
-        // °Ô –ﬁ∏¥£∫cross ÕÀªØºÏ≤‚£®Œﬁ∑Á ± toTip == upRef °˙ ¡„œÚ¡ø£©
+        // ‚òÖ ‰øÆÂ§çÔºöcross ÈÄÄÂåñÊ£ÄÊµãÔºàÊó†È£éÊó∂ toTip == upRef ‚Üí Èõ∂ÂêëÈáèÔºâ
         Vec3 right = cross(upRef, toTip);
         if (lengthSquared(right) < 1e-8f)
             right = { 1.0f, 0.0f, 0.0f };
