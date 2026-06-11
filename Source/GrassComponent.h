@@ -19,11 +19,13 @@ namespace sc {
     // =============================================================================
     struct GrassBlade
     {
-        Vec3   root;
-        float  phaseOffset{ 0.0f };
-        float  heightScale{ 0.0f };
-        float  bladeWidth{ 0.0f };
+        Vec3 root;
+        float phaseOffset{ 0.0f };
+        float heightScale{ 0.0f };
+        float bladeWidth{ 0.0f };
+        float colorTint{ 0.0f };   // ✅ 0=纯绿, 1=偏黄
     };
+
 
     // =============================================================================
     // GrassComponent
@@ -129,6 +131,9 @@ namespace sc {
             b.phaseOffset = dist01(rng) * juce::MathConstants<float>::twoPi;
             b.heightScale = 0.65f + dist01(rng) * 0.7f;
             b.bladeWidth = bladeWidth * (0.7f + dist01(rng) * 0.6f);
+            b.colorTint = dist01(rng);  // ✅ 新增
+            blades.push_back(b);
+
             blades.push_back(b);
         }
 
@@ -204,51 +209,68 @@ namespace sc {
         const float time = totalTime;
         const float wind = currentWind;
 
-        std::vector<MeshVertex> verts;
-        std::vector<uint32_t> indices;
-        verts.reserve(N * 4);
-        indices.reserve(N * 6);
+        // 3 个色阶：绿 → 黄绿 → 更偏黄
+        static const Vec3 kTintColors[3] = {
+            { 0.22f, 0.56f, 0.18f },  // 偏冷绿
+            { 0.28f, 0.58f, 0.20f },  // 标准绿
+            { 0.34f, 0.56f, 0.16f },  // 偏暖黄绿
+        };
 
-        for (int i = 0; i < N; ++i)
+        for (int bucket = 0; bucket < 3; ++bucket)
         {
-            Vec3 tipPos, leftBase, rightBase;
-            computeBladeVertices(blades[i], time, wind, tipPos, leftBase, rightBase);
-            const Vec3 midBase = (leftBase + rightBase) * 0.5f;
-            const Vec3 normal = normalize(cross(rightBase - leftBase, Vec3{ 0, 0, 1 }));
+            std::vector<MeshVertex> verts;
+            std::vector<uint32_t>  indices;
+            verts.reserve(N * 4 / 3 + 16);
+            indices.reserve(N * 6 / 3 + 32);
 
-            const uint32_t baseIdx = static_cast<uint32_t>(verts.size());
-            auto addVert = [&](const Vec3& pos, float u, float v) {
-                MeshVertex mv;
-                mv.px = pos.x; mv.py = pos.y; mv.pz = pos.z;
-                mv.nx = normal.x; mv.ny = normal.y; mv.nz = normal.z;
-                mv.u = u; mv.v = v;
-                verts.push_back(mv);
-                };
+            for (int i = 0; i < N; ++i)
+            {
+                // 根据 tint 分配到桶
+                int b = (int)(blades[i].colorTint * 3.0f);
+                if (b >= 3) b = 2;
+                if (b != bucket) continue;
 
-            addVert(leftBase, 0.0f, 0.0f);
-            addVert(midBase, 0.5f, 0.0f);
-            addVert(rightBase, 1.0f, 0.0f);
-            addVert(tipPos, 0.5f, 1.0f);
+                Vec3 tipPos, leftBase, rightBase;
+                computeBladeVertices(blades[i], time, wind, tipPos, leftBase, rightBase);
 
-            indices.push_back(baseIdx + 0);
-            indices.push_back(baseIdx + 1);
-            indices.push_back(baseIdx + 3);
+                const Vec3 midBase = (leftBase + rightBase) * 0.5f;
+                const Vec3 normal = normalize(cross(rightBase - leftBase, Vec3{ 0, 0, 1 }));
 
-            indices.push_back(baseIdx + 1);
-            indices.push_back(baseIdx + 2);
-            indices.push_back(baseIdx + 3);
+                const uint32_t baseIdx = static_cast<uint32_t>(verts.size());
+                auto addVert = [&](const Vec3& pos, float u, float v) {
+                    MeshVertex mv;
+                    mv.px = pos.x; mv.py = pos.y; mv.pz = pos.z;
+                    mv.nx = normal.x; mv.ny = normal.y; mv.nz = normal.z;
+                    mv.u = u; mv.v = v;
+                    verts.push_back(mv);
+                    };
+                addVert(leftBase, 0.0f, 0.0f);
+                addVert(midBase, 0.5f, 0.0f);
+                addVert(rightBase, 1.0f, 0.0f);
+                addVert(tipPos, 0.5f, 1.0f);
+
+                indices.push_back(baseIdx + 0);
+                indices.push_back(baseIdx + 1);
+                indices.push_back(baseIdx + 3);
+                indices.push_back(baseIdx + 1);
+                indices.push_back(baseIdx + 2);
+                indices.push_back(baseIdx + 3);
+            }
+
+            if (verts.empty()) continue;
+
+            grassMesh.releaseGPU(*glCtx);
+            grassMesh.vertices = std::move(verts);
+            grassMesh.indices = std::move(indices);
+            grassMesh.uploadToGPU(*glCtx);
+
+            r.drawMesh(grassMesh, identity(),
+                kTintColors[bucket],
+                Vec3{ 0.03f, 0.06f, 0.01f });
+
+            grassMesh.releaseGPU(*glCtx);
         }
-
-        grassMesh.releaseGPU(*glCtx);
-        grassMesh.vertices = std::move(verts);
-        grassMesh.indices = std::move(indices);
-        grassMesh.uploadToGPU(*glCtx);
-
-        r.drawMesh(grassMesh, identity(),
-            grassColorSRGB,
-            Vec3{ 0.05f, 0.10f, 0.02f });
-
-        grassMesh.releaseGPU(*glCtx);
     }
+
 
 } // namespace sc

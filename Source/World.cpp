@@ -263,15 +263,33 @@ namespace sc
         loadCollidersFromJSON(assetsDir.getChildFile("colliders.json"));
         buildCollidersFromObjFile(assetsDir.getChildFile("props_collision.obj"));
 
+        // ====== 草：均匀网格，铺满地面 ======
+
+ // 1. 从碰撞网格计算地面 XY 范围
+        float gndMinX = 1e9f, gndMaxX = -1e9f;
+        float gndMinY = 1e9f, gndMaxY = -1e9f;
+        for (const auto& v : groundColMesh->vertices)
+        {
+            if (v.px < gndMinX) gndMinX = v.px;
+            if (v.px > gndMaxX) gndMaxX = v.px;
+            if (v.py < gndMinY) gndMinY = v.py;
+            if (v.py > gndMaxY) gndMaxY = v.py;
+        }
+
         grass = std::make_unique<GrassComponent>();
-        grass->setGLContext(&ctx);    // ★ 传入 ctx
+        grass->setGLContext(&ctx);
 
-        grass->buildFromMeshPoints(
-            groundColMesh->vertices, 0.001f, 0.15f, 0.12f,
+        // 2. 均匀网格铺草（每 3cm 一根，宽到盖住间隙）
+        grass->buildFromGrid(
+            gndMinX, gndMaxX, gndMinY, gndMaxY,
+            0.03f,   // cellSize: 3cm 间距→ 每平米约 1100 根
+            0.15f,   // bladeHeight
+            0.10f,   // bladeWidth: 加宽让草叶互相交叠，遮住地面
             [this](float x, float y) { return heightField.sampleHeight(x, y); }
-
         );
-        grass->setColor({ 0.25f, 0.58f, 0.22f });  // 深绿
+
+        grass->setColor({ 0.25f, 0.58f, 0.22f });
+
 
     }
 
