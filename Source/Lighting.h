@@ -37,6 +37,7 @@ struct Lighting
     float cloudScale{ 0.3f };  // Perlin 噪声缩放
     float cloudThreshold{ 0.327f };   // 云/晴 阈值
     float cloudSpeed{ 1.0f };   // 云移动速度
+    Vec2 cloudDirection{ 0.5f, 0.866f }; // XY 风向（约 60°），shader 内会归一化
     float cloudPlaneHeight{ 90.0f };   // 虚拟云层高度
     float cloudBandLevels{ 3.0f };    // 像素风 banding 级数
     float volumetricSteps{ 16.0f };    // Ray March 步数
@@ -68,6 +69,7 @@ struct Lighting
     // ★★★ Denoise 参数 ★★★
     float denoiseStrength{ 0.0f };   // 降噪混合强度 [0, 1]，0 = 不降噪
     float denoiseColorSigma{ 0.99f }; // 亮度相似度 sigma，越大越激进
+   
 
 };
 

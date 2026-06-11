@@ -65,13 +65,16 @@ namespace sc {
 
         int getBladeCount() const noexcept { return (int)blades.size(); }
 
+        void setWindDirection(const Vec2& d) noexcept { windDir = d; }
+
     private:
         Vec3  grassColorSRGB{ 0.28f, 0.62f, 0.28f };
-        float windIntensity{ 0.0f };
+        float windIntensity{ 2.0f };
         float currentWind{ 0.0f };
         float totalTime{ 0.0f };
         float bladeBaseHeight{ 0.65f };
         float bladeBaseWidth{ 0.12f };
+        Vec2 windDir{ 0.5f, 0.866f };
 
         std::vector<GrassBlade> blades;
 
@@ -245,41 +248,37 @@ void main() {
     float h     = uBladeBaseHeight * hScale;
     float halfW = bWidth * 0.5;
 
-    // === 风场计算（与 CPU 版完全一致） ===
-    float freq0 = 0.4, freq1 = 0.9, freq2 = 1.7;
+    // === 风场计算 ===
+    uniform vec2 uWindDir;
 
-    float bigWave = sin(root.x * freq0 + uTime * 0.8)
-                  + cos(root.y * freq0 * 0.7 + uTime * 0.65);
+    // 在 main() 中：
+    vec2 windDir = normalize(uWindDir);
 
-    float midNoise = bladeNoise(root.x, root.y, uTime + phase, freq1);
+    // blade 在风向轴上的投影坐标
+    float waveCoord = dot(root.xy, windDir);
 
-    float micro = sin(uTime * 5.5 + phase) * 0.15;
+    // 波速由 cloudSpeed 驱动，带最小值保证静止时也有微弱呼吸感
+    float waveSpeed = uWind * 2.5 + 0.3;
+    float waveFreq  = 2.2;  // 每单位距离的波数
 
-    float swingAmp = uWind * h * 0.8;
+    // 主波前 — 清晰的行进正弦波
+    float wave1 = sin(waveCoord * waveFreq - uTime * waveSpeed);
 
-    float swingX = (bigWave * 0.6 + midNoise * 0.3 + micro) * swingAmp;
-    float swingY = (cos(root.x * freq2 + uTime * 0.9) * 0.5
-                  + bladeNoise(root.x, root.y, uTime * 1.3 + phase, 2.1) * 0.4)
-                  * swingAmp * 0.7;
+    // 次级叠加 — 稍密的波纹，制造层次感
+    float wave2 = sin(waveCoord * waveFreq * 2.1 - uTime * waveSpeed * 1.35 + phase) * 0.25;
 
-    vec3 tip = root + vec3(swingX, swingY, h * 0.95);
+    // 微扰动 — 极高频噪声打破整齐感
+    float micro = bladeNoise(root.x, root.y, uTime + phase, 9.0) * 0.06;
 
-    float compress = 1.0 - uWind * 0.08;
-    tip.z = root.z + h * 0.95 * compress;
+    float combined = wave1 * 0.65 + wave2 + micro;
 
-    vec3 toTip = normalize(tip - root);
-    vec3 upRef = vec3(0, 0, 1);
-    vec3 right = cross(upRef, toTip);
-    if (length(right) < 1e-8) right = vec3(1, 0, 0);
-    else right = normalize(right);
-    
-    vec3 leftB = root + right * halfW;
-    vec3 rightB = root - right * halfW;
+    // 振幅由 cloudSpeed 决定
+    float swingAmp = uWind * h * 0.85;
 
-    
-    vec3 flatNormal = normalize(cross(rightB - leftB, vec3(0,0,1)));
-    vec3 upBlend = vec3(0, 0, 1);
-    vec3 normal = normalize(mix(flatNormal, upBlend, 0.4));  // 40% 朝上
+    // 摇摆严格沿风向
+    float swingX = combined * swingAmp * windDir.x;
+    float swingY = combined * swingAmp * windDir.y;
+
 
 
     // === 选顶点 ===
@@ -307,9 +306,9 @@ void main() {
     vUV           = uv;
     // === 每草叶 tint bucket（替代 CPU 端三次绘制） ===
     const vec3 tints[3] = vec3[3](
-        vec3(0.25, 0.00, 0.08),
-        vec3(0.28, 0.01, 0.02),
-        vec3(0.24, 0.01, 0.06)
+        vec3(0.02, 0.00, 0.58),
+        vec3(0.04, 0.01, 0.42),
+        vec3(0.10, 0.01, 0.46)
     );
     vBucketTint = tints[bladeIdx % 3] ;
 }
@@ -367,6 +366,8 @@ void main() {
         grassShader->setFloat("uBladeBaseWidth", bladeBaseWidth);
         grassShader->setVec3("uEmissive", Vec3{ 0, 0, 0 });
         grassShader->setVec3("uGrassColor", grassColorSRGB);  // ← 新增
+        grassShader->setVec2("uWindDir", windDir.x, windDir.y);
+
 
         juce::gl::glBindBufferBase(juce::gl::GL_SHADER_STORAGE_BUFFER, 0, bladeSSBO);
 

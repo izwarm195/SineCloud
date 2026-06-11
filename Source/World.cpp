@@ -495,8 +495,12 @@ namespace sc
         }
 
 
-        if (grass) { grass->setWindIntensity(lighting.cloudSpeed); 
-        grass->tick(dt); }
+        if (grass) {
+            grass->setWindIntensity(lighting.cloudSpeed);
+            grass->setWindDirection(lighting.cloudDirection);  // ← 新增
+            grass->tick(dt);
+        }
+
         
 
     }
@@ -556,7 +560,7 @@ namespace sc
          if (groundVisMesh && groundVisMesh->isUploaded())
          {
              r.drawMesh(*groundVisMesh, identity(),
-                 Material::stone({ 0.50f, 0.51f, 0.52f }));
+                 Material::stone({ 0.02f, 0.00f, 0.58f }));
          }
 
         
