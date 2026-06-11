@@ -283,12 +283,11 @@ namespace sc
         grass->buildFromGrid(
             gndMinX, gndMaxX, gndMinY, gndMaxY,
             0.06f,   // cellSize: 3cm 间距→ 每平米约 1100 根
-            0.25f,   // bladeHeight
-            0.28f,   // bladeWidth: 加宽让草叶互相交叠，遮住地面
+            0.18f,   // bladeHeight
+            0.18f,   // bladeWidth: 加宽让草叶互相交叠，遮住地面
             [this](float x, float y) { return heightField.sampleHeight(x, y); }
         );
 
-        grass->setColor({ 0.25f, 0.38f, 0.22f });
         grass->buildGPUResources();
 
         DBG("Grass blade count: " << grass->getBladeCount());

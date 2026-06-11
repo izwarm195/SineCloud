@@ -307,9 +307,9 @@ void main() {
     vUV           = uv;
     // === 每草叶 tint bucket（替代 CPU 端三次绘制） ===
     const vec3 tints[3] = vec3[3](
-        vec3(0.65, 0.06, 0.38),
-        vec3(0.68, 0.01, 0.22),
-        vec3(0.64, 0.01, 0.10)
+        vec3(0.25, 0.00, 0.08),
+        vec3(0.28, 0.01, 0.02),
+        vec3(0.24, 0.01, 0.06)
     );
     vBucketTint = tints[bladeIdx % 3] ;
 }
