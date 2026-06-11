@@ -44,7 +44,7 @@ namespace sc
 
         std::vector<Tri> tris;
         std::unordered_map<int64_t, std::vector<int>> spatialMap; // cell -> 三角形索引
-        float cellSize{ 1.0f };
+        float cellSize{ 0.6f };
         float fallbackZ{ 0.0f }; // 没命中任何三角形时的兜底高度
 
         int64_t cellKey(int cx, int cy) const noexcept;

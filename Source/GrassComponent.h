@@ -213,6 +213,7 @@ uniform float uTime;
 uniform float uWind;
 uniform float uBladeBaseHeight;
 uniform float uBladeBaseWidth;
+uniform vec3 uGrassColor;
 
 out vec3 vWorldPos;
 out vec3 vWorldPosPrev;
@@ -302,17 +303,15 @@ void main() {
     vNdcNow     = clipNow.xyz / max(clipNow.w, 1e-6);
     vNdcPrev    = clipPrev.xyz / max(clipPrev.w, 1e-6);
 
-
-
     vNormal       = normal;
     vUV           = uv;
     // === 每草叶 tint bucket（替代 CPU 端三次绘制） ===
     const vec3 tints[3] = vec3[3](
-        vec3(0.22, 0.56, 0.18),
-        vec3(0.28, 0.58, 0.20),
-        vec3(0.34, 0.56, 0.16)
+        vec3(0.65, 0.06, 0.38),
+        vec3(0.68, 0.01, 0.22),
+        vec3(0.64, 0.01, 0.10)
     );
-    vBucketTint = tints[bladeIdx % 3];
+    vBucketTint = tints[bladeIdx % 3] ;
 }
 )";
 
@@ -367,6 +366,7 @@ void main() {
         grassShader->setFloat("uBladeBaseHeight", bladeBaseHeight);
         grassShader->setFloat("uBladeBaseWidth", bladeBaseWidth);
         grassShader->setVec3("uEmissive", Vec3{ 0, 0, 0 });
+        grassShader->setVec3("uGrassColor", grassColorSRGB);  // ← 新增
 
         juce::gl::glBindBufferBase(juce::gl::GL_SHADER_STORAGE_BUFFER, 0, bladeSSBO);
 
