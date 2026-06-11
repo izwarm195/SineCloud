@@ -1,6 +1,6 @@
 // ==============================================================================
 // DenoisePass.h
-// Layer 5: Block-level noise reduction ¡ª operates after pixelate, before motion blur
+// Layer 5: Block-level noise reduction Â¡Âª operates after pixelate, before motion blur
 // ------------------------------------------------------------------------------
 // Samples neighbouring blocks at pixelSize stride using bilateral luminance
 // weights. Preserves pixel-block edges because comparisons are block-to-block.
@@ -53,7 +53,7 @@ void main() {
 
     int step = int(uPixelSize);
 
-    // ---- 3¡Á3 block neighbourhood ----
+    // ---- 3Â¡Ã3 block neighbourhood ----
     vec3 sum   = centerCol;
     float totalW = 1.0;
 

@@ -20,6 +20,7 @@
 #include "PluginProcessor.h"
 #include "CollisionTypes.h"
 #include "Lighting.h"
+#include "GrassComponent.h"
 
 
 namespace sc
@@ -116,6 +117,9 @@ namespace sc
         // 物理
         HeightField                 heightField;
         std::vector<CollisionShape> colliders;
+
+        //草
+        std::unique_ptr<GrassComponent> grass;
 
         // 调参
         float interactReach{ 1.6f };

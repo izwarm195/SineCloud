@@ -41,6 +41,9 @@ in vec2 vUV;
 uniform sampler2D uSrc;
 uniform float uPixelSize;
 uniform float uEdgeBoost;
+uniform float uColorLevels;
+uniform float uUseColorQuant;
+
 
 out vec4 fragColor;
 
@@ -58,7 +61,20 @@ void main()
     ivec2 coord = ivec2(blockUV * vec2(texSize));
     vec3 col = texelFetch(uSrc, coord, 0).rgb;
 
-    // ---- 3) 边缘增强 — deadzone 防抖动 ----
+    // ---- 3) Color quantization (per block) ----
+    if (uColorLevels > 1.5) {
+        if (uUseColorQuant > 0.5) {
+            col = floor(col * uColorLevels + 0.5) / uColorLevels;
+        } else {
+            float Y = max(dot(col, vec3(0.2126, 0.7152, 0.0722)), 1e-5);
+            float Yq = (floor(Y * uColorLevels) + 0.5) / uColorLevels;
+            col = col * (Yq / Y);
+        }
+    }
+
+    
+
+    // ---- 4) 边缘增强 — deadzone 防抖动 ----
     if (uEdgeBoost > 0.0)
     {
         int step = int(uPixelSize);
@@ -99,13 +115,11 @@ void main()
         // ----------------------------------------------------------------
         // 每帧调用
         // ----------------------------------------------------------------
-        void render(GLuint srcTex,
-            GLuint fullscreenVAO,
-            int viewW,
-            int viewH,
-            float pixelSize,
-            float edgeBoost,      // ★ 替代原来的 colorLevels + useColorQuant
+        void render(GLuint srcTex, GLuint fullscreenVAO, int viewW, int viewH,
+            float pixelSize, float edgeBoost,
+            float colorLevels, bool useColorQuant,
             GLuint targetFBO = 0) noexcept
+
 
         {
             using namespace sc::gl;
@@ -125,8 +139,8 @@ void main()
 
             shader.setFloat("uPixelSize", juce::jmax(1.0f, pixelSize));
             shader.setFloat("uEdgeBoost", juce::jmax(0.0f, juce::jmin(1.0f, edgeBoost)));
-            // 删除原有 uColorLevels / uUseColorQuant 的 setFloat/setInt
-
+            shader.setFloat("uColorLevels", juce::jmax(0.0f, colorLevels));
+            shader.setFloat("uUseColorQuant", useColorQuant ? 1.0f : 0.0f);
 
             glBindVertexArray(fullscreenVAO);
             glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);

@@ -14,6 +14,7 @@
 
 
 
+
 namespace sc
 {
 
@@ -262,7 +263,14 @@ namespace sc
         loadCollidersFromJSON(assetsDir.getChildFile("colliders.json"));
         buildCollidersFromObjFile(assetsDir.getChildFile("props_collision.obj"));
 
-        
+        grass = std::make_unique<GrassComponent>();
+        grass->setGLContext(&ctx);    // ★ 传入 ctx
+        grass->buildFromMeshPoints(
+            groundColMesh->vertices, 0.35f, 0.65f, 0.12f,
+            [this](float x, float y) { return heightField.sampleHeight(x, y); }
+        );
+        grass->setColor({ 0.25f, 0.58f, 0.22f });  // 深绿
+
     }
 
     void World::releaseMeshes(juce::OpenGLContext& ctx)
@@ -290,6 +298,7 @@ namespace sc
         propKnobPillarMesh.reset();
         propMainPillarMesh.reset();
         propSurroundPillarMesh.reset();
+        if (grass) grass->releaseGPU();
     }
 
     void World::loadCollidersFromJSON(const juce::File& jsonFile)
@@ -464,6 +473,9 @@ namespace sc
             lights.push_back(p);
         }
 
+
+        if (grass) { grass->setWindIntensity(lighting.cloudSpeed); 
+        grass->tick(dt); }
         
 
     }
@@ -567,7 +579,8 @@ namespace sc
         // 实体
         for (auto& k : knobs) k->draw(r, cam);
         player->draw(r, cam);
-
+        //草
+        if (grass) grass->draw(r);
 
     }
 

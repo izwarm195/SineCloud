@@ -20,7 +20,7 @@ struct Lighting
     Vec3  ambient   { 0.22f, 0.17f, 0.12f };
 
     // ---- 半球环境光 ----
-    Vec3  skyColor  { 1.00f, 1.00f, 1.00f };
+    Vec3  skyColor  { 1.20f, 1.20f, 1.00f };
     Vec3  groundColor { 0.06f, 0.05f, 0.04f };
     float intensity { 1.0f };
 
@@ -40,7 +40,7 @@ struct Lighting
     float cloudPlaneHeight{ 90.0f };   // 虚拟云层高度
     float cloudBandLevels{ 3.0f };    // 像素风 banding 级数
     float volumetricSteps{ 16.0f };    // Ray March 步数
-    float volumetricIntensity{ 0.52f }; // 体积光强度
+    float volumetricIntensity{ 1.0f }; // 体积光强度
     float cloudTime{ 0.0f };    // 每帧由外部更新
 
     // ★★★ 阴影参数 ★★★
@@ -52,7 +52,7 @@ struct Lighting
     // ★★★ Bloom 参数 ★★★
     float bloomThreshold{ 1.0f };   // HDR 亮度阈值
     float bloomSoftKnee{ 0.5f };   // 软过渡
-    float bloomStrength{ 0.1f };  // 混合权重
+    float bloomStrength{ 0.4f };  // 混合权重
     float bloomFilterRadius{ 2.0f };   // 上采样模糊半径
 
     // ★★★ Motion Blur 参数 ★★★
@@ -61,9 +61,9 @@ struct Lighting
 
     // ★★★ Pixelate 参数 ★★★
     float pixelSize{ 4.0f };       // 像素块大小（屏幕像素单位，1=关闭）
-    float colorLevels{ 16.0f };     // 0=不量化; >1=色阶数
+    float colorLevels{ 64.0f };     // 0=不量化; >1=色阶数
     bool  useColorQuant{ true };   // true=RGB独立量化（更硬边缘）; false=亮度posterize
-    float edgeBoost{ 0.15f };
+    float edgeBoost{ 0.05f };
 
     // ★★★ Denoise 参数 ★★★
     float denoiseStrength{ 0.0f };   // 降噪混合强度 [0, 1]，0 = 不降噪

@@ -5,6 +5,9 @@
               pluginCode="Sct1">
   <MAINGROUP id="MWtifI" name="SineCloud">
     <GROUP id="{9D89155D-745F-44F4-4A89-1045E4DDABEF}" name="Source">
+      <FILE id="tRVuHc" name="GrassComponent.h" compile="0" resource="0"
+            file="Source/GrassComponent.h"/>
+      <FILE id="HVvOzJ" name="DenoisePass.h" compile="0" resource="0" file="Source/DenoisePass.h"/>
       <FILE id="KiPDmI" name="PixelatePass.h" compile="0" resource="0" file="Source/PixelatePass.h"/>
       <FILE id="JaYIHh" name="MotionBlurPass.h" compile="0" resource="0"
             file="Source/MotionBlurPass.h"/>

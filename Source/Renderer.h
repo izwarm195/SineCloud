@@ -281,7 +281,10 @@ namespace sc {
                     wPx, hPx,
                     light.pixelSize,
                     light.edgeBoost,
+                    light.colorLevels,
+                    light.useColorQuant,
                     pixelateFBO[0]);
+
 
                 // ★ 把 pixelateTex[0] 拷回 mbInputFBO（供 motion blur 使用）
                 glBindFramebuffer(GL_READ_FRAMEBUFFER, pixelateFBO[0]);
