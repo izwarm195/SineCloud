@@ -317,18 +317,14 @@ void main() {
 )";
 
 
-        const juce::String fs = R"(#version 330 core
-
+const juce::String fs = R"(#version 330 core
 in vec3 vWorldPos;
-in vec3 vWorldPosPrev;
 in vec3 vNormal;
 in vec3 vNdcNow;
 in vec3 vNdcPrev;
-
 in vec2 vUV;
 flat in vec3 vBucketTint;
 
-uniform vec3 uTintColor;
 uniform vec3 uEmissive;
 
 layout(location = 0) out vec4 outAlbedoRough;
@@ -340,17 +336,14 @@ layout(location = 4) out vec3 outWorldPos;
 void main() {
     float tipBright = vUV.y * 0.25;
     vec3 albedo = vBucketTint + vec3(tipBright);
-
-    outAlbedoRough   = vec4(albedo, 0.95);
-    outNormalMetal   = vec4(vNormal * 0.5 + 0.5, 0.0);
-    outEmissiveSSS   = vec4(uEmissive, 0.0);
-    vec3 ndcNow  = (uProj * uView * vec4(vWorldPos, 1.0)).xyz;
-    ndcNow /= max((uProj * uView * vec4(vWorldPos, 1.0)).w, 1e-6);
+    outAlbedoRough = vec4(albedo, 0.95);
+    outNormalMetal = vec4(vNormal * 0.5 + 0.5, 0.0);
+    outEmissiveSSS = vec4(uEmissive, 0.0);
     outVelocity = (vNdcNow.xy - vNdcPrev.xy) * 0.5;
-
     outWorldPos = vWorldPos;
 }
 )";
+
 
         if (!grassShader->build(vs, fs))
         {
