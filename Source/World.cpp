@@ -267,7 +267,7 @@ namespace sc
         grass->setGLContext(&ctx);    // ★ 传入 ctx
 
         grass->buildFromMeshPoints(
-            groundColMesh->vertices, 0.35f, 0.65f, 0.12f,
+            groundColMesh->vertices, 0.001f, 0.15f, 0.12f,
             [this](float x, float y) { return heightField.sampleHeight(x, y); }
 
         );
