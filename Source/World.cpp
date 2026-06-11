@@ -289,6 +289,8 @@ namespace sc
         );
 
         grass->setColor({ 0.25f, 0.58f, 0.22f });
+        grass->buildGPUResources();
+
 
 
     }
@@ -599,8 +601,9 @@ namespace sc
         // 实体
         for (auto& k : knobs) k->draw(r, cam);
         player->draw(r, cam);
-        //草
-        if (grass) grass->draw(r);
+        // 草
+        if (grass) grass->draw(r, cam);  // 原来是 grass->draw(r)
+
 
     }
 
