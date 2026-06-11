@@ -11,7 +11,7 @@
 #include "tiny_obj_loader.h"
 #include <sstream>
 #include "ShadowMap.h"
-
+#include "GrassComponent.h"
 
 
 

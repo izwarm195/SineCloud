@@ -20,12 +20,11 @@
 #include "PluginProcessor.h"
 #include "CollisionTypes.h"
 #include "Lighting.h"
-#include "GrassComponent.h"
 
 
 namespace sc
 {
-
+    class GrassComponent;
     //==========================================================================
     // 地面高度采样表（从 ground_collision.obj 顶点构建）
     //==========================================================================
@@ -131,5 +130,6 @@ namespace sc
 
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(World)
     };
+    
 
 } // namespace sc

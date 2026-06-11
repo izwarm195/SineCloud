@@ -1,18 +1,20 @@
 // ==============================================================================
-// GrassComponent.h — corrected (no ctx arg in draw)
+// GrassComponent.h — corrected (no circular include, cross fallback)
 // ==============================================================================
 #pragma once
 #include "Mesh.h"
 #include "Vec.h"
 #include "Mat4.h"
 #include "Renderer.h"
-#include "World.h"       // for HeightField (forward declare or include)
 #include <vector>
 #include <memory>
 #include <random>
 #include <unordered_map>
 
 namespace sc {
+
+    // forward declare (avoid circular include with World.h)
+    struct HeightField;
 
     // =============================================================================
     // GrassBlade
@@ -33,7 +35,6 @@ namespace sc {
     public:
         GrassComponent() = default;
 
-        /** 在 World::uploadMeshes() 中调用一次即可 */
         void setGLContext(juce::OpenGLContext* c) noexcept { glCtx = c; }
 
         // -------- 建造 --------
@@ -68,13 +69,11 @@ namespace sc {
             totalTime += dt;
         }
 
-        // -------- 渲染：只需 Renderer，不需要 ctx / cam --------
         void draw(Renderer& r);
 
         int getBladeCount() const noexcept { return (int)blades.size(); }
 
     private:
-        // ---- 参数 ----
         Vec3   grassColorSRGB{ 0.28f, 0.62f, 0.28f };
         float  windIntensity{ 0.0f };
         float  currentWind{ 0.0f };
@@ -82,12 +81,10 @@ namespace sc {
         float  bladeBaseHeight{ 0.65f };
         float  bladeBaseWidth{ 0.12f };
 
-        // ---- 数据 ----
         std::vector<GrassBlade> blades;
         Mesh grassMesh;
         juce::OpenGLContext* glCtx{ nullptr };
 
-        // ---- 内部 ----
         void computeBladeVertices(
             const GrassBlade& blade, float time, float wind,
             Vec3& tipPos, Vec3& leftBase, Vec3& rightBase) const noexcept;
@@ -136,6 +133,7 @@ namespace sc {
             b.bladeWidth = bladeWidth * (0.7f + dist01(rng) * 0.6f);
             blades.push_back(b);
         }
+
         DBG("GrassComponent: " << (int)blades.size() << " blades, spacing=" << spacing);
     }
 
@@ -187,7 +185,14 @@ namespace sc {
 
         const Vec3 upRef{ 0, 0, 1 };
         const Vec3 toTip = normalize(tipPos - blade.root);
-        const Vec3 right = normalize(cross(upRef, toTip));
+
+        // ★ 修复：cross 退化检测（无风时 toTip == upRef → 零向量）
+        Vec3 right = cross(upRef, toTip);
+        if (lengthSquared(right) < 1e-8f)
+            right = { 1.0f, 0.0f, 0.0f };
+        else
+            right = normalize(right);
+
         leftBase = blade.root + right * halfW;
         rightBase = blade.root - right * halfW;
     }
@@ -200,7 +205,6 @@ namespace sc {
         const float time = totalTime;
         const float wind = currentWind;
 
-        // ---- 重建顶点 & 索引 ----
         std::vector<MeshVertex> verts;
         std::vector<uint32_t> indices;
         verts.reserve(N * 4);
@@ -221,22 +225,21 @@ namespace sc {
                 mv.u = u; mv.v = v;
                 verts.push_back(mv);
                 };
+
             addVert(leftBase, 0.0f, 0.0f);
             addVert(midBase, 0.5f, 0.0f);
             addVert(rightBase, 1.0f, 0.0f);
             addVert(tipPos, 0.5f, 1.0f);
 
-            // 三角形 0: leftBase → midBase → tip
             indices.push_back(baseIdx + 0);
             indices.push_back(baseIdx + 1);
             indices.push_back(baseIdx + 3);
-            // 三角形 1: midBase → rightBase → tip
+
             indices.push_back(baseIdx + 1);
             indices.push_back(baseIdx + 2);
             indices.push_back(baseIdx + 3);
         }
 
-        // ---- 上传 → 绘制 → 释放 ----
         grassMesh.releaseGPU(*glCtx);
         grassMesh.vertices = std::move(verts);
         grassMesh.indices = std::move(indices);
