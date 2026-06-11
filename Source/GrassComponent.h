@@ -186,9 +186,10 @@ namespace sc {
         // ---- Dummy VAO（instancing 需要） ----
         ext.glGenVertexArrays(1, &dummyVAO);
         ext.glBindVertexArray(dummyVAO);
-        // 满足 core profile 的 minimum attribute 要求
-        ext.glEnableVertexAttribArray(0);  // 即使 shader 不用，也必须 enable 一个
+        // shader 全用 gl_VertexID + gl_InstanceID，不需要任何 vertex attribute
+        // core profile 要求 VAO 绑了即可，无需 enable 空 attribute
         ext.glBindVertexArray(0);
+
 
 
         // ---- Shader ----
@@ -216,8 +217,11 @@ uniform float uBladeBaseWidth;
 out vec3 vWorldPos;
 out vec3 vWorldPosPrev;
 out vec3 vNormal;
+out vec3 vNdcNow;
+out vec3 vNdcPrev;
+
 out vec2 vUV;
-flat out float vColorTint;
+flat out vec3 vBucketTint;
 
 const int BLADE_STRIDE = 8;
 
@@ -288,27 +292,41 @@ void main() {
         case 3: pos = tip;    uv = vec2(0.5, 1.0); break;
     }
 
-    // === 输出 ===
+   // === 输出 ===
     vec4 worldPos = vec4(pos, 1.0);
-    gl_Position = uProj * uView * worldPos;
+    vec4 clipNow  = uProj * uView * worldPos;
+    vec4 clipPrev = uPrevViewProj * worldPos;
+    gl_Position = clipNow;
 
-    vec4 worldPosPrev = uPrevViewProj * worldPos;
+    vWorldPos   = pos;
+    vNdcNow     = clipNow.xyz / max(clipNow.w, 1e-6);
+    vNdcPrev    = clipPrev.xyz / max(clipPrev.w, 1e-6);
 
-    vWorldPos     = pos;
-    vWorldPosPrev = worldPosPrev.xyz / max(worldPosPrev.w, 1e-6);
+
+
     vNormal       = normal;
     vUV           = uv;
-    vColorTint    = tint;
+    // === 每草叶 tint bucket（替代 CPU 端三次绘制） ===
+    const vec3 tints[3] = vec3[3](
+        vec3(0.22, 0.56, 0.18),
+        vec3(0.28, 0.58, 0.20),
+        vec3(0.34, 0.56, 0.16)
+    );
+    vBucketTint = tints[bladeIdx % 3];
 }
 )";
+
 
         const juce::String fs = R"(#version 330 core
 
 in vec3 vWorldPos;
 in vec3 vWorldPosPrev;
 in vec3 vNormal;
+in vec3 vNdcNow;
+in vec3 vNdcPrev;
+
 in vec2 vUV;
-flat in float vColorTint;
+flat in vec3 vBucketTint;
 
 uniform vec3 uTintColor;
 uniform vec3 uEmissive;
@@ -321,12 +339,15 @@ layout(location = 4) out vec3 outWorldPos;
 
 void main() {
     float tipBright = vUV.y * 0.25;
-    vec3 albedo = uTintColor + vec3(tipBright);
+    vec3 albedo = vBucketTint + vec3(tipBright);
 
     outAlbedoRough   = vec4(albedo, 0.95);
     outNormalMetal   = vec4(vNormal * 0.5 + 0.5, 0.0);
     outEmissiveSSS   = vec4(uEmissive, 0.0);
-    outVelocity      = vWorldPosPrev.xy - vWorldPos.xy;
+    vec3 ndcNow  = (uProj * uView * vec4(vWorldPos, 1.0)).xyz;
+    ndcNow /= max((uProj * uView * vec4(vWorldPos, 1.0)).w, 1e-6);
+    outVelocity = (vNdcNow.xy - vNdcPrev.xy) * 0.5;
+
     outWorldPos = vWorldPos;
 }
 )";
@@ -344,12 +365,6 @@ void main() {
         if (!shaderBuilt || blades.empty() || glCtx == nullptr) return;
         auto& ext = glCtx->extensions;
 
-        static const Vec3 kTintColors[3] = {
-            { 0.22f, 0.56f, 0.18f },
-            { 0.28f, 0.58f, 0.20f },
-            { 0.34f, 0.56f, 0.16f },
-        };
-
         grassShader->use();
         grassShader->setMat4("uView", camera.view());
         grassShader->setMat4("uProj", camera.proj());
@@ -361,15 +376,12 @@ void main() {
         grassShader->setVec3("uEmissive", Vec3{ 0, 0, 0 });
 
         juce::gl::glBindBufferBase(juce::gl::GL_SHADER_STORAGE_BUFFER, 0, bladeSSBO);
+
         ext.glBindVertexArray(dummyVAO);
 
         int totalN = (int)blades.size();
-        for (int bucket = 0; bucket < 3; ++bucket)
-        {
-            grassShader->setVec3("uTintColor", kTintColors[bucket]);
-            grassShader->setInt("uBucket", bucket);
-            juce::gl::glDrawArraysInstanced(juce::gl::GL_TRIANGLE_STRIP, 0, 4, totalN);
-        }
+        juce::gl::glDrawArraysInstanced(juce::gl::GL_TRIANGLE_STRIP, 0, 4, totalN);
+
 
         ext.glBindVertexArray(0);
         juce::gl::glBindBufferBase(juce::gl::GL_SHADER_STORAGE_BUFFER, 0, 0);
